@@ -278,7 +278,14 @@ private fun ShotForm(
                 },
                 enabled = !saving,
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 2
+                minLines = 2,
+                trailingIcon = if (draft.notes.isNotEmpty() && !saving) {
+                    {
+                        androidx.compose.material3.IconButton(onClick = { onChange(draft.copy(notes = "")) }) {
+                            Text("✕", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                } else null
             )
         }
         item {
@@ -320,7 +327,14 @@ private fun Field(
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Text
         ),
-        isError = error != null, supportingText = error?.let { { Text(it) } }
+        isError = error != null, supportingText = error?.let { { Text(it) } },
+        trailingIcon = if (value.isNotEmpty() && !saving) {
+            {
+                androidx.compose.material3.IconButton(onClick = { onChange("") }) {
+                    Text("✕", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        } else null
     )
 }
 

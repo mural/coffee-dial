@@ -18,11 +18,11 @@ data class Shot(
 }
 
 data class ShotDraft(
-    val beanName: String = "",
+    val beanName: String = "Café molido",
     val roaster: String = "",
     val dose: String = "18",
     val output: String = "36",
-    val seconds: String = "28",
+    val seconds: String = "20",
     val grind: String = "",
     val temperature: String = "",
     val notes: String = "",
