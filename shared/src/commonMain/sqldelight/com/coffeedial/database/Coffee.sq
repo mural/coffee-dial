@@ -34,3 +34,9 @@ history:
 SELECT shot.*, bean.name, bean.roaster
 FROM shot JOIN bean ON bean.id = shot.bean_id
 ORDER BY created_at DESC, shot.id DESC;
+
+allBeans:
+SELECT * FROM bean ORDER BY id;
+
+allShots:
+SELECT * FROM shot ORDER BY id;

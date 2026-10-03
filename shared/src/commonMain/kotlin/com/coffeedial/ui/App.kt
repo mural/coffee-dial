@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
@@ -41,6 +42,7 @@ import kotlin.math.round
 import kotlin.time.Instant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 private val DraftSaver = Saver<ShotDraft, List<String>>(
     save = {
@@ -53,7 +55,7 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
 )
 
 @Composable
-fun App(repository: ShotRepository) {
+fun App(repository: ShotRepository, backupFiles: BackupFiles) {
     var screen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
@@ -64,7 +66,7 @@ fun App(repository: ShotRepository) {
     var saveError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     PlatformBack(enabled = screen != "home") {
-        if (!saving) screen = if (screen == "detail") "history" else "home"
+        if (!saving && !backupFiles.busy) screen = if (screen == "detail") "history" else "home"
     }
     LaunchedEffect(repository, retry) {
         loadError = false
@@ -95,7 +97,7 @@ fun App(repository: ShotRepository) {
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                     if (screen != "home") {
-                        TextButton(enabled = !saving, onClick = {
+                        TextButton(enabled = !saving && !backupFiles.busy, onClick = {
                             screen =
                                 if (screen == "detail") "history" else "home"
                         }) {
@@ -104,6 +106,8 @@ fun App(repository: ShotRepository) {
                     }
                 }
                 when (screen) {
+                    "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
+
                     "new" -> ShotForm(
                         draft,
                         {
@@ -174,6 +178,7 @@ fun App(repository: ShotRepository) {
                                     TextButton(onClick = {
                                         screen = "history"
                                     }) { Text("Ver todo el historial") }
+                                    TextButton(onClick = { screen = "backup" }) { Text("Backup") }
                                     Text(
                                         "Últimos shots",
                                         style = MaterialTheme.typography.titleMedium
@@ -343,17 +348,98 @@ private fun ShotDetail(shot: Shot) {
     }
 }
 
-private fun Double.pretty(): String = (round(this * 10) / 10).toString().removeSuffix(".0")
-private fun timestamp(epochMillis: Long): String =
-    Instant.fromEpochMilliseconds(epochMillis).toString().take(16).replace('T', ' ') + " UTC"
 
+// -----------------------------------------------------------------------------
+// COMPOSE PREVIEWS
+// -----------------------------------------------------------------------------
+
+@Preview(name = "Tarjeta de Shot", showBackground = true)
 @Composable
-private fun ShotCard(shot: Shot, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(shot.bean.name, style = MaterialTheme.typography.titleLarge)
-            Text("${shot.dose.pretty()} g → ${shot.output.pretty()} g · ${shot.seconds.pretty()} s")
-            Text("1:${shot.ratio.pretty()} · ${shot.rating}/5 · ${timestamp(shot.createdAt)}")
-        }
+private fun ShotCardPreview() {
+    MaterialTheme {
+        ShotCard(
+            shot = mockShot,
+            onClick = {}
+        )
     }
 }
+
+@Preview(name = "Detalle del Shot", showBackground = true)
+@Composable
+private fun ShotDetailPreview() {
+    MaterialTheme {
+        ShotDetail(shot = mockShot)
+    }
+}
+
+@Preview(name = "Formulario - Vacío", showBackground = true)
+@Composable
+private fun ShotFormEmptyPreview() {
+    MaterialTheme {
+        ShotForm(
+            draft = ShotDraft(),
+            onChange = {},
+            saving = false,
+            saveError = null,
+            onSave = {}
+        )
+    }
+}
+
+@Preview(name = "Formulario - Con Datos", showBackground = true)
+@Composable
+private fun ShotFormFilledPreview() {
+    MaterialTheme {
+        ShotForm(
+            draft = mockDraft,
+            onChange = {},
+            saving = false,
+            saveError = null,
+            onSave = {}
+        )
+    }
+}
+
+@Preview(name = "Formulario - Guardando (Loading)", showBackground = true)
+@Composable
+private fun ShotFormSavingPreview() {
+    MaterialTheme {
+        ShotForm(
+            draft = mockDraft,
+            onChange = {},
+            saving = true,
+            saveError = null,
+            onSave = {}
+        )
+    }
+}
+
+@Preview(name = "Formulario - Con Error de Guardado", showBackground = true)
+@Composable
+private fun ShotFormErrorPreview() {
+    MaterialTheme {
+        ShotForm(
+            draft = mockDraft,
+            onChange = {},
+            saving = false,
+            saveError = "No pudimos guardar el shot. Tus datos siguen acá; intentá otra vez.",
+            onSave = {}
+        )
+    }
+}
+
+@Preview(name = "Campo de Texto Individual", showBackground = true)
+@Composable
+private fun FieldPreview() {
+    MaterialTheme {
+        Field(
+            label = "Dosis de entrada · g",
+            value = "18.5",
+            error = null,
+            saving = false,
+            decimal = true,
+            onChange = {}
+        )
+    }
+}
+
