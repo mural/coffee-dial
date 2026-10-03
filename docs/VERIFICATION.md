@@ -4,6 +4,8 @@ Fecha: 2 de octubre de 2026. Inspección realizada antes de crear el scaffold. L
 
 ## Estado
 
+Scaffold publicado en `main` mediante GitHub Desktop: commit `af194d6`. SHA remoto verificado y clon local sincronizado, sin builds ni archivos locales versionados.
+
 Ubicación de trabajo elegida por el usuario: `/Users/agustin/Documents/GitHub/coffee-dial`. Android, tests, lint, formato, esquema SQLite y build iOS se volvieron a verificar correctamente desde este clon. Se restauraron `.gitignore` y `.editorconfig`, que no se habían copiado con Finder. Los builds y archivos locales quedan excluidos de Git.
 
 Base mínima implementada para Android e iOS con lógica, persistencia y UI compartidas. Repositorio indicado por el usuario: `mural/coffee-dial`, público (creado y renombrado por el usuario). No se creó otro repositorio ni se cambió su visibilidad.
@@ -29,7 +31,7 @@ Base mínima implementada para Android e iOS con lógica, persistencia y UI comp
 | CocoaPods | No instalar | Integración directa Xcode–Gradle; `pod` no está en PATH |
 | Git | OK | 2.54.0; identidad de commits configurada |
 | GitHub conector | Lectura OK; escritura bloqueada | Cuenta `mural`, metadata muestra permiso push, pero crear un blob devuelve HTTP 403 `Resource not accessible by integration` |
-| Git local por HTTPS | Configurar si querés push desde terminal | `git push --dry-run` falló por falta de credencial local. Esto no bloquea los builds. Publicación pendiente por GitHub Desktop o autorización de la integración |
+| Git local por HTTPS | Configurar si querés push desde terminal | `git push --dry-run` falló por falta de credencial local. Esto no bloquea los builds. La publicación se completó con la sesión existente de GitHub Desktop |
 | GitHub CLI (`gh`) | Opcional, no instalar ahora | No está en PATH. GitHub Desktop está instalado y es otra opción para autenticar/publicar manualmente |
 
 No hay instalaciones o actualizaciones obligatorias pendientes para compilar en esta Mac. Se descargaron dependencias de proyecto, Gradle 9.5 y Kotlin/Native/LLVM a sus cachés normales. No se reemplazaron Android Studio, Xcode o Java, ni se instalaron plugins del IDE.
