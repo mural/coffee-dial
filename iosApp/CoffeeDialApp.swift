@@ -49,15 +49,15 @@ private final class BackupCoordinator: ObservableObject {
 
     init() {
         files.exportAction = { [weak self] in
-            guard let self, let text = self.files.pendingExport else { return KotlinUnit() }
+            guard let self, let text = self.files.pendingExport else { return }
             self.document = BackupDocument(text: text)
             self.filename = "coffee-dial-\(Int(Date().timeIntervalSince1970)).json"
             self.exporting = true
-            return KotlinUnit()
+            return
         }
         files.importAction = { [weak self] in
             self?.importing = true
-            return KotlinUnit()
+            return
         }
     }
 
