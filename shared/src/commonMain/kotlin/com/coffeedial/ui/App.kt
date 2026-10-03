@@ -1,0 +1,359 @@
+package com.coffeedial.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import com.coffeedial.data.ShotRepository
+import com.coffeedial.domain.Shot
+import com.coffeedial.domain.ShotDraft
+import kotlin.math.round
+import kotlin.time.Instant
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+
+private val DraftSaver = Saver<ShotDraft, List<String>>(
+    save = {
+        listOf(
+            it.beanName, it.roaster, it.dose, it.output, it.seconds,
+            it.grind, it.temperature, it.notes, it.rating.toString()
+        )
+    },
+    restore = { ShotDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8].toInt()) }
+)
+
+@Composable
+fun App(repository: ShotRepository) {
+    var screen by rememberSaveable { mutableStateOf("home") }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
+    var shots by remember { mutableStateOf<List<Shot>?>(null) }
+    var loadError by remember { mutableStateOf(false) }
+    var retry by remember { mutableIntStateOf(0) }
+    var saving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    PlatformBack(enabled = screen != "home") {
+        if (!saving) screen = if (screen == "detail") "history" else "home"
+    }
+    LaunchedEffect(repository, retry) {
+        loadError = false
+        try {
+            repository.history.collect { shots = it }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            loadError = true
+        }
+    }
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = Color(0xFF704A32),
+            background = Color(0xFFFCF8F3),
+            surface = Color(0xFFFCF8F3),
+            secondaryContainer = Color(0xFFEDE0CF)
+        )
+    ) {
+        Scaffold { padding ->
+            Column(
+                Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
+            ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        "Coffee Dial",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                    if (screen != "home") {
+                        TextButton(enabled = !saving, onClick = {
+                            screen =
+                                if (screen == "detail") "history" else "home"
+                        }) {
+                            Text("Volver")
+                        }
+                    }
+                }
+                when (screen) {
+                    "new" -> ShotForm(
+                        draft,
+                        {
+                            draft = it
+                            saveError = null
+                        },
+                        saving,
+                        saveError,
+                        onSave = {
+                            saving = true
+                            saveError = null
+                            scope.launch {
+                                try {
+                                    repository.save(draft)
+                                    draft = ShotDraft()
+                                    screen = "history"
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    saveError =
+                                        "No pudimos guardar el shot. Tus datos siguen acá; intentá otra vez."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    )
+
+                    else -> when {
+                        loadError -> {
+                            Text("No pudimos leer tu historial.")
+                            Button(onClick = { retry++ }) { Text("Reintentar") }
+                        }
+
+                        shots == null -> CircularProgressIndicator()
+
+                        screen == "detail" -> {
+                            val shot = shots.orEmpty().find { it.id == selectedId }
+                            if (shot ==
+                                null
+                            ) {
+                                Text("No encontramos este shot.")
+                            } else {
+                                ShotDetail(shot)
+                            }
+                        }
+
+                        else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            item {
+                                Text(
+                                    if (screen ==
+                                        "home"
+                                    ) {
+                                        "Tu próximo buen café empieza acá."
+                                    } else {
+                                        "Historial"
+                                    },
+                                    style = MaterialTheme.typography.headlineSmall
+                                )
+                                Text(
+                                    "${shots.orEmpty().size} shots · guardados en este dispositivo",
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                )
+                                Button(onClick = {
+                                    screen = "new"
+                                }, modifier = Modifier.fillMaxWidth()) { Text("Registrar un shot") }
+                                if (screen == "home") {
+                                    TextButton(onClick = {
+                                        screen = "history"
+                                    }) { Text("Ver todo el historial") }
+                                    Text(
+                                        "Últimos shots",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                }
+                            }
+                            if (shots.orEmpty().isEmpty()) {
+                                item {
+                                    Text(
+                                        "Todavía no hay shots. Registrá tu receta " +
+                                            "y empezá a encontrar tu punto ideal."
+                                    )
+                                }
+                            }
+                            items(
+                                if (screen ==
+                                    "home"
+                                ) {
+                                    shots.orEmpty().take(3)
+                                } else {
+                                    shots.orEmpty()
+                                },
+                                key = { it.id }
+                            ) { shot ->
+                                ShotCard(shot) {
+                                    selectedId = shot.id
+                                    screen = "detail"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShotForm(
+    draft: ShotDraft,
+    onChange: (ShotDraft) -> Unit,
+    saving: Boolean,
+    saveError: String?,
+    onSave: () -> Unit
+) {
+    var submitted by rememberSaveable { mutableStateOf(false) }
+    val errors = if (submitted) draft.errors() else emptyMap()
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Text("Nuevo shot", style = MaterialTheme.typography.headlineSmall) }
+        item {
+            Field("Café", draft.beanName, errors["beanName"], saving) {
+                onChange(draft.copy(beanName = it))
+            }
+        }
+        item {
+            Field("Tostador (opcional)", draft.roaster, null, saving) {
+                onChange(draft.copy(roaster = it))
+            }
+        }
+        item {
+            Field("Dosis de entrada · g", draft.dose, errors["dose"], saving, true) {
+                onChange(draft.copy(dose = it))
+            }
+        }
+        item {
+            Field("Output · g", draft.output, errors["output"], saving, true) {
+                onChange(draft.copy(output = it))
+            }
+        }
+        item {
+            Field("Tiempo · s", draft.seconds, errors["seconds"], saving, true) {
+                onChange(draft.copy(seconds = it))
+            }
+        }
+        item {
+            Field("Molienda · ajuste del molino", draft.grind, errors["grind"], saving) {
+                onChange(draft.copy(grind = it))
+            }
+        }
+        item {
+            Field(
+                "Temperatura · °C (opcional)",
+                draft.temperature,
+                errors["temperature"],
+                saving,
+                true
+            ) {
+                onChange(draft.copy(temperature = it))
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = draft.notes,
+                onValueChange = { onChange(draft.copy(notes = it)) },
+                label = {
+                    Text("Notas (opcional)")
+                },
+                enabled = !saving,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2
+            )
+        }
+        item {
+            Text("¿Qué tal salió? · 1 a 5")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (1..5).forEach { value ->
+                    FilterChip(selected = draft.rating == value, onClick = {
+                        onChange(draft.copy(rating = value))
+                    }, label = { Text("$value") }, enabled = !saving)
+                }
+            }
+        }
+        if (saveError != null) item { Text(saveError, color = MaterialTheme.colorScheme.error) }
+        item {
+            Button(
+                onClick = {
+                    submitted = true
+                    if (draft.errors().isEmpty()) onSave()
+                },
+                enabled = !saving,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+            ) { Text(if (saving) "Guardando…" else "Guardar shot") }
+        }
+    }
+}
+
+@Composable
+private fun Field(
+    label: String,
+    value: String,
+    error: String?,
+    saving: Boolean,
+    decimal: Boolean = false,
+    onChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = value, onValueChange = onChange, label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(), enabled = !saving, singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Text
+        ),
+        isError = error != null, supportingText = error?.let { { Text(it) } }
+    )
+}
+
+@Composable
+private fun ShotDetail(shot: Shot) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
+        if (shot.bean.roaster.isNotBlank()) item { Text(shot.bean.roaster) }
+        item { Text(timestamp(shot.createdAt)) }
+        item { Text("1:${shot.ratio.pretty()}", style = MaterialTheme.typography.displayMedium) }
+        item { Text("Ratio de extracción") }
+        item {
+            Text(
+                "Entrada: ${shot.dose.pretty()} g\nOutput: ${shot.output.pretty()} g\nTiempo: ${shot.seconds.pretty()} s"
+            )
+        }
+        item { Text("Molienda: ${shot.grind}") }
+        item {
+            Text("Temperatura: ${shot.temperature?.let { "${it.pretty()} °C" } ?: "Sin registrar"}")
+        }
+        item { Text("Valoración: ${shot.rating}/5") }
+        item {
+            Text(shot.notes.ifBlank { "Sin notas" }, modifier = Modifier.padding(bottom = 24.dp))
+        }
+    }
+}
+
+private fun Double.pretty(): String = (round(this * 10) / 10).toString().removeSuffix(".0")
+private fun timestamp(epochMillis: Long): String =
+    Instant.fromEpochMilliseconds(epochMillis).toString().take(16).replace('T', ' ') + " UTC"
+
+@Composable
+private fun ShotCard(shot: Shot, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(shot.bean.name, style = MaterialTheme.typography.titleLarge)
+            Text("${shot.dose.pretty()} g → ${shot.output.pretty()} g · ${shot.seconds.pretty()} s")
+            Text("1:${shot.ratio.pretty()} · ${shot.rating}/5 · ${timestamp(shot.createdAt)}")
+        }
+    }
+}

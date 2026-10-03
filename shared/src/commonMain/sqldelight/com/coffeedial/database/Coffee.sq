@@ -1,0 +1,36 @@
+CREATE TABLE bean (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    roaster TEXT NOT NULL,
+    UNIQUE(name, roaster)
+);
+
+CREATE TABLE shot (
+    id TEXT NOT NULL PRIMARY KEY,
+    bean_id TEXT NOT NULL REFERENCES bean(id),
+    created_at INTEGER NOT NULL,
+    dose REAL NOT NULL CHECK(dose > 0),
+    output REAL NOT NULL CHECK(output > 0),
+    seconds REAL NOT NULL CHECK(seconds > 0),
+    grind TEXT NOT NULL,
+    temperature REAL,
+    notes TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5)
+);
+
+CREATE INDEX shot_created_at ON shot(created_at DESC);
+CREATE INDEX shot_bean_id ON shot(bean_id);
+
+insertBean:
+INSERT OR IGNORE INTO bean(id, name, roaster) VALUES (?, ?, ?);
+
+findBean:
+SELECT * FROM bean WHERE name = ? AND roaster = ?;
+
+insertShot:
+INSERT INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+history:
+SELECT shot.*, bean.name, bean.roaster
+FROM shot JOIN bean ON bean.id = shot.bean_id
+ORDER BY created_at DESC, shot.id DESC;
