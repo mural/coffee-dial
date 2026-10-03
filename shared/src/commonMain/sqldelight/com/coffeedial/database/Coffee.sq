@@ -15,7 +15,8 @@ CREATE TABLE shot (
     grind TEXT NOT NULL,
     temperature REAL,
     notes TEXT NOT NULL,
-    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5)
+    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    milk REAL
 );
 
 CREATE INDEX shot_created_at ON shot(created_at DESC);
@@ -28,7 +29,7 @@ findBean:
 SELECT * FROM bean WHERE name = ? AND roaster = ?;
 
 insertShot:
-INSERT INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 history:
 SELECT shot.*, bean.name, bean.roaster
@@ -45,4 +46,4 @@ deleteShot:
 DELETE FROM shot WHERE id = ?;
 
 updateShot:
-UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ? WHERE id = ?;
+UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ? WHERE id = ?;

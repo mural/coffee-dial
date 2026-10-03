@@ -31,8 +31,17 @@ class ShotDraftTest {
     }
 
     @Test
+    fun validatesMilkRange() {
+        assertTrue(valid.copy(milk = "").errors().isEmpty())
+        assertTrue(valid.copy(milk = "60").errors().isEmpty())
+        assertTrue("milk" in valid.copy(milk = "0").errors())
+        assertTrue("milk" in valid.copy(milk = "201").errors())
+        assertTrue("milk" in valid.copy(milk = "abc").errors())
+    }
+
+    @Test
     fun calculatesBrewRatio() {
-        val shot = Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, "", 4)
+        val shot = Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, null, "", 4)
         assertEquals(2.0, shot.ratio)
     }
 }

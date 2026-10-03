@@ -32,6 +32,7 @@ data class BackupShotV1(
     val seconds: Double,
     val grind: String,
     val temperature: Double?,
+    val milk: Double? = null,
     val notes: String,
     val rating: Int
 )
@@ -121,6 +122,7 @@ object BackupFormat {
             valid(it.output.isFinite() && it.output > 0)
             valid(it.seconds.isFinite() && it.seconds > 0)
             valid(it.temperature == null || (it.temperature.isFinite() && it.temperature > 0))
+            valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..200.0))
             valid(it.grind.isNotBlank() && it.grind.length <= 10_000)
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)
         }

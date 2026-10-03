@@ -6,6 +6,7 @@ import com.coffeedial.backup.BackupFormat
 import com.coffeedial.backup.V1_FIXTURE
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.ShotDraft
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,6 +34,21 @@ class BackupRepositoryTest {
             assertEquals(1, repeated.summary.duplicates)
             repo.importBackup(repeated)
             assertEquals(1, BackupFormat.decode(repo.exportBackup()).shots.size)
+        }
+    }
+
+    @Test
+    fun roundTripsMilkInExportAndImport() = runBlocking {
+        database().use { driver ->
+            val repo = ShotRepository(driver)
+            repo.save(ShotDraft(beanName = "Flat White", roaster = "Test", grind = "40", milk = "150"))
+            val exported = repo.exportBackup()
+            val decoded = BackupFormat.decode(exported)
+            assertEquals(150.0, decoded.shots.single().milk)
+            val plan = repo.prepareImport(exported)
+            repo.importBackup(plan)
+            val restoredShots = repo.history.first()
+            assertEquals(150.0, restoredShots.single().milk)
         }
     }
 

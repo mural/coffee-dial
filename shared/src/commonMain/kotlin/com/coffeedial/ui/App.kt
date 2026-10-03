@@ -50,10 +50,10 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
     save = {
         listOf(
             it.beanName, it.roaster, it.dose, it.output, it.seconds,
-            it.grind, it.temperature, it.notes, it.rating.toString()
+            it.grind, it.temperature, it.milk, it.notes, it.rating.toString()
         )
     },
-    restore = { ShotDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8].toInt()) }
+    restore = { ShotDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8], it[9].toInt()) }
 )
 
 @Composable
@@ -177,6 +177,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                                             seconds = shot.seconds.pretty(),
                                             grind = shot.grind,
                                             temperature = shot.temperature?.pretty() ?: "",
+                                            milk = shot.milk?.pretty() ?: "",
                                             notes = shot.notes,
                                             rating = shot.rating
                                         )
@@ -296,6 +297,11 @@ private fun ShotForm(
             }
         }
         item {
+            Field("Leche · ml (opcional)", draft.milk, errors["milk"], saving, true) {
+                onChange(draft.copy(milk = it))
+            }
+        }
+        item {
             Field("Tiempo · s", draft.seconds, errors["seconds"], saving, true) {
                 onChange(draft.copy(seconds = it))
             }
@@ -396,7 +402,7 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
         item { Text("Ratio de extracción") }
         item {
             Text(
-                "Entrada: ${shot.dose.pretty()} g\nOutput: ${shot.output.pretty()} g\nTiempo: ${shot.seconds.pretty()} s"
+                "Entrada: ${shot.dose.pretty()} g\nOutput: ${shot.output.pretty()} g${shot.milk?.let { "\nLeche: ${it.pretty()} ml" } ?: ""}\nTiempo: ${shot.seconds.pretty()} s"
             )
         }
         item { Text("Molienda: ${shot.grind}") }
@@ -545,4 +551,3 @@ private fun FieldPreview() {
         )
     }
 }
-

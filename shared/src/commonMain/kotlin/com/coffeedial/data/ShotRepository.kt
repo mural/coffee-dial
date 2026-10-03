@@ -34,7 +34,7 @@ class ShotRepository(driver: SqlDriver) {
             Shot(
                 it.id, Bean(it.bean_id, it.name, it.roaster), it.created_at,
                 it.dose, it.output, it.seconds, it.grind,
-                it.temperature, it.notes, it.rating.toInt()
+                it.temperature, it.milk, it.notes, it.rating.toInt()
             )
         }
     }
@@ -53,7 +53,7 @@ class ShotRepository(driver: SqlDriver) {
                     draft.seconds.decimal()
                 ),
                 draft.grind.trim(), draft.temperature.decimal(),
-                draft.notes.trim(), draft.rating.toLong()
+                draft.notes.trim(), draft.rating.toLong(), draft.milk.decimal()
             )
         }
     }
@@ -78,6 +78,7 @@ class ShotRepository(driver: SqlDriver) {
                 draft.temperature.decimal(),
                 draft.notes.trim(),
                 draft.rating.toLong(),
+                draft.milk.decimal(),
                 id
             )
         }
@@ -88,7 +89,7 @@ class ShotRepository(driver: SqlDriver) {
         queries.allShots().executeAsList().map {
             BackupShotV1(
                 it.id, it.bean_id, it.created_at, it.dose, it.output, it.seconds,
-                it.grind, it.temperature, it.notes, it.rating.toInt()
+                it.grind, it.temperature, it.milk, it.notes, it.rating.toInt()
             )
         }
     )
@@ -122,7 +123,7 @@ class ShotRepository(driver: SqlDriver) {
                 prepared.plan.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong()
+                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk
                     )
                 }
                 prepared.summary

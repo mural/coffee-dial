@@ -11,6 +11,7 @@ data class Shot(
     val seconds: Double,
     val grind: String,
     val temperature: Double?,
+    val milk: Double?,
     val notes: String,
     val rating: Int
 ) {
@@ -25,6 +26,7 @@ data class ShotDraft(
     val seconds: String = "20",
     val grind: String = "",
     val temperature: String = "",
+    val milk: String = "",
     val notes: String = "",
     val rating: Int = 3
 ) {
@@ -36,6 +38,9 @@ data class ShotDraft(
         if (grind.isBlank()) put("grind", "Ingresá el ajuste de molienda")
         if (temperature.isNotBlank() && !temperature.isNumberIn(1.0..100.0)) {
             put("temperature", "Usá entre 1 y 100 °C o dejalo vacío")
+        }
+        if (milk.isNotBlank() && !milk.isNumberIn(1.0..200.0)) {
+            put("milk", "Usá entre 1 y 200 ml o dejalo vacío")
         }
         if (rating !in 1..5) put("rating", "Elegí entre 1 y 5")
     }
