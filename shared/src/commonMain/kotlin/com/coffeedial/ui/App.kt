@@ -11,10 +11,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -146,12 +148,24 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
 
                         screen == "detail" -> {
                             val shot = shots.orEmpty().find { it.id == selectedId }
-                            if (shot ==
-                                null
-                            ) {
+                            if (shot == null) {
                                 Text("No encontramos este shot.")
                             } else {
-                                ShotDetail(shot)
+                                ShotDetail(shot, onDelete = {
+                                    saving = true
+                                    scope.launch {
+                                        try {
+                                            repository.delete(shot.id)
+                                            screen = "history"
+                                        } catch (cancelled: CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                            // Handle error if needed
+                                        } finally {
+                                            saving = false
+                                        }
+                                    }
+                                }, saving)
                             }
                         }
 
@@ -339,7 +353,8 @@ private fun Field(
 }
 
 @Composable
-private fun ShotDetail(shot: Shot) {
+private fun ShotDetail(shot: Shot, onDelete: () -> Unit, saving: Boolean) {
+    var showConfirm by remember { mutableStateOf(false) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
         if (shot.bean.roaster.isNotBlank()) item { Text(shot.bean.roaster) }
@@ -357,7 +372,41 @@ private fun ShotDetail(shot: Shot) {
         }
         item { Text("Valoración: ${shot.rating}/5") }
         item {
-            Text(shot.notes.ifBlank { "Sin notas" }, modifier = Modifier.padding(bottom = 24.dp))
+            Text(shot.notes.ifBlank { "Sin notas" })
+        }
+        item {
+            if (showConfirm) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                    Text("¿Querés eliminar este shot?", color = MaterialTheme.colorScheme.error)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onDelete,
+                            enabled = !saving,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Sí, eliminar")
+                        }
+                        OutlinedButton(
+                            onClick = { showConfirm = false },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancelar")
+                        }
+                    }
+                }
+            } else {
+                TextButton(
+                    onClick = { showConfirm = true },
+                    enabled = !saving,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                ) {
+                    Text("Eliminar shot", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
 }
@@ -382,7 +431,7 @@ private fun ShotCardPreview() {
 @Composable
 private fun ShotDetailPreview() {
     MaterialTheme {
-        ShotDetail(shot = mockShot)
+        ShotDetail(shot = mockShot, onDelete = {}, saving = false)
     }
 }
 

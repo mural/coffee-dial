@@ -57,6 +57,11 @@ class ShotRepository(driver: SqlDriver) {
             )
         }
     }
+
+    suspend fun delete(id: String): Unit = withContext(Dispatchers.IO) {
+        queries.deleteShot(id)
+    }
+
     private fun snapshot(): BackupV1 = BackupFormat.create(
         queries.allBeans().executeAsList().map { BackupBeanV1(it.id, it.name, it.roaster) },
         queries.allShots().executeAsList().map {
