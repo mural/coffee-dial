@@ -88,3 +88,13 @@ Lint: `androidApp/build/reports/lint-results-debug.html`.
 1. Abrir ambos proyectos y registrar 5–10 shots reales; revisar teclado, navegación, unidades y legibilidad.
 2. Agregar edición/borrado y export/import local para que el diario sea recuperable antes de usarlo como registro único.
 3. Añadir un smoke test de UI por plataforma y CI de build/tests; extraer una base reusable solo cuando una segunda app confirme qué componentes comparten.
+
+## Corrección de runtime iOS
+
+Se corrigió un SIGABRT en `PlistSanityCheck.ios.kt`: Xcode no trasladaba el build setting personalizado `INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone` al plist generado. Compilar y obtener un PID no detectaba el error porque Compose lo lanza de forma asíncrona.
+
+Ahora Debug y Release usan `iosApp/Info.plist` como entrada explícita, con `CADisableMinimumFrameDurationOnPhone` de tipo booleano `true`. Se conserva la validación estricta de Compose.
+
+Verificado después del cambio: `xcodebuild` exitoso, lectura del booleano en el plist de la app compilada, reinstalación en iPhone 18 Pro / iOS 27 y proceso vivo tras 28 segundos (estado de launchctl activo, sin salida por abort). No equivale a una prueba manual de todo el flujo.
+
+Chequeo de regresión después de compilar: `python3 scripts/check-ios-plist.py`. Acepta como argumento otra ruta a `CoffeeDial.app`, por ejemplo un build Release.
