@@ -5,6 +5,7 @@ import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
 import com.coffeedial.backup.V1_FIXTURE
 import com.coffeedial.database.CoffeeDatabase
+import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.ShotDraft
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -49,6 +50,21 @@ class BackupRepositoryTest {
             repo.importBackup(plan)
             val restoredShots = repo.history.first()
             assertEquals(150.0, restoredShots.single().milk)
+        }
+    }
+
+    @Test
+    fun roundTripsMachinesInExportAndImport() = runBlocking {
+        database().use { driver ->
+            val repo = ShotRepository(driver)
+            repo.saveMachine(MachineDraft(name = "Breville Touch", type = "Espresso", year = "2023"))
+            val exported = repo.exportBackup()
+            val decoded = BackupFormat.decode(exported)
+            assertEquals("Breville Touch", decoded.machines.single().name)
+            val plan = repo.prepareImport(exported)
+            repo.importBackup(plan)
+            val restoredMachines = repo.machines.first()
+            assertEquals("Breville Touch", restoredMachines.single().name)
         }
     }
 

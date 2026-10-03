@@ -2,6 +2,26 @@ package com.coffeedial.domain
 
 data class Bean(val id: String, val name: String, val roaster: String)
 
+data class Machine(
+    val id: String,
+    val name: String,
+    val type: String,
+    val year: String
+)
+
+data class MachineDraft(
+    val name: String = "",
+    val type: String = "Espresso",
+    val year: String = ""
+) {
+    fun errors(): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", "Ingresá el nombre de la máquina")
+        if (year.isNotBlank() && (year.toIntOrNull() == null || year.toInt() !in 1900..2100)) {
+            put("year", "Ingresá un año válido (ej. 2022)")
+        }
+    }
+}
+
 data class Shot(
     val id: String,
     val bean: Bean,
@@ -12,6 +32,7 @@ data class Shot(
     val grind: String,
     val temperature: Double?,
     val milk: Double?,
+    val machine: String?,
     val notes: String,
     val rating: Int
 ) {
@@ -27,6 +48,7 @@ data class ShotDraft(
     val grind: String = "",
     val temperature: String = "",
     val milk: String = "",
+    val machine: String = "",
     val notes: String = "",
     val rating: Int = 3
 ) {

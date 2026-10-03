@@ -4,6 +4,7 @@ package com.coffeedial.backup
 data class ImportSummary(
     val newBeans: Int,
     val newShots: Int,
+    val newMachines: Int = 0,
     val duplicates: Int,
     val conflicts: Int
 )
@@ -11,6 +12,7 @@ data class ImportSummary(
 internal data class ImportPlan(
     val beans: List<BackupBeanV1>,
     val shots: List<BackupShotV1>,
+    val machines: List<BackupMachineV1>,
     val summary: ImportSummary
 )
 
@@ -38,6 +40,23 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             }
         }
     }
+    val machinesById = local.machines.associateBy { it.id }.toMutableMap()
+    val machinesByName = local.machines.associateBy { it.name }.toMutableMap()
+    val newMachines = mutableListOf<BackupMachineV1>()
+    incoming.machines.forEach { machine ->
+        val sameId = machinesById[machine.id]
+        val sameName = machinesByName[machine.name]
+        when {
+            sameId != null && sameId != machine -> conflicts++
+            sameId != null -> {}
+            sameName != null -> {}
+            else -> {
+                newMachines += machine
+                machinesById[machine.id] = machine
+                machinesByName[machine.name] = machine
+            }
+        }
+    }
     val existingShots = local.shots.associateBy { it.id }
     val newShots = mutableListOf<BackupShotV1>()
     var duplicates = 0
@@ -58,6 +77,7 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
     return ImportPlan(
         newBeans,
         newShots,
-        ImportSummary(newBeans.size, newShots.size, duplicates, conflicts)
+        newMachines,
+        ImportSummary(newBeans.size, newShots.size, newMachines.size, duplicates, conflicts)
     )
 }

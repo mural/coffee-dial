@@ -5,6 +5,13 @@ CREATE TABLE bean (
     UNIQUE(name, roaster)
 );
 
+CREATE TABLE machine (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    year TEXT NOT NULL
+);
+
 CREATE TABLE shot (
     id TEXT NOT NULL PRIMARY KEY,
     bean_id TEXT NOT NULL REFERENCES bean(id),
@@ -16,7 +23,8 @@ CREATE TABLE shot (
     temperature REAL,
     notes TEXT NOT NULL,
     rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
-    milk REAL
+    milk REAL,
+    machine TEXT
 );
 
 CREATE INDEX shot_created_at ON shot(created_at DESC);
@@ -29,7 +37,7 @@ findBean:
 SELECT * FROM bean WHERE name = ? AND roaster = ?;
 
 insertShot:
-INSERT INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 history:
 SELECT shot.*, bean.name, bean.roaster
@@ -46,4 +54,13 @@ deleteShot:
 DELETE FROM shot WHERE id = ?;
 
 updateShot:
-UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ? WHERE id = ?;
+UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ? WHERE id = ?;
+
+allMachines:
+SELECT * FROM machine ORDER BY name;
+
+insertMachine:
+INSERT INTO machine VALUES (?, ?, ?, ?);
+
+deleteMachine:
+DELETE FROM machine WHERE id = ?;

@@ -32,12 +32,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
+import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
 import kotlin.math.round
@@ -50,10 +52,10 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
     save = {
         listOf(
             it.beanName, it.roaster, it.dose, it.output, it.seconds,
-            it.grind, it.temperature, it.milk, it.notes, it.rating.toString()
+            it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toString()
         )
     },
-    restore = { ShotDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8], it[9].toInt()) }
+    restore = { ShotDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8], it[9], it[10].toInt()) }
 )
 
 @Composable
@@ -62,6 +64,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
     var shots by remember { mutableStateOf<List<Shot>?>(null) }
+    var machines by remember { mutableStateOf<List<Machine>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var saving by remember { mutableStateOf(false) }
@@ -72,6 +75,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
             screen = when (screen) {
                 "detail" -> "history"
                 "edit" -> "detail"
+                "machines" -> "home"
                 else -> "home"
             }
         }
@@ -79,7 +83,8 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
     LaunchedEffect(repository, retry) {
         loadError = false
         try {
-            repository.history.collect { shots = it }
+            launch { repository.history.collect { shots = it } }
+            launch { repository.machines.collect { machines = it } }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -109,6 +114,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                             screen = when (screen) {
                                 "detail" -> "history"
                                 "edit" -> "detail"
+                                "machines" -> "home"
                                 else -> "home"
                             }
                         }) {
@@ -119,15 +125,51 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                 when (screen) {
                     "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
 
+                    "machines" -> MachinesScreen(
+                        machines = machines,
+                        saving = saving,
+                        saveError = saveError,
+                        onSaveMachine = { machineDraft ->
+                            saving = true
+                            saveError = null
+                            scope.launch {
+                                try {
+                                    repository.saveMachine(machineDraft)
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    saveError = "No pudimos guardar la máquina."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        },
+                        onDeleteMachine = { machineId ->
+                            saving = true
+                            scope.launch {
+                                try {
+                                    repository.deleteMachine(machineId)
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    )
+
                     "new", "edit" -> ShotForm(
-                        draft,
-                        {
+                        draft = draft,
+                        machines = machines,
+                        onChange = {
                             draft = it
                             saveError = null
                         },
-                        saving,
-                        saveError,
+                        saving = saving,
+                        saveError = saveError,
                         isEditing = screen == "edit",
+                        onNavigateToMachines = { screen = "machines" },
                         onSave = {
                             saving = true
                             saveError = null
@@ -178,6 +220,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                                             grind = shot.grind,
                                             temperature = shot.temperature?.pretty() ?: "",
                                             milk = shot.milk?.pretty() ?: "",
+                                            machine = shot.machine ?: "",
                                             notes = shot.notes,
                                             rating = shot.rating
                                         )
@@ -222,10 +265,13 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                                     screen = "new"
                                 }, modifier = Modifier.fillMaxWidth()) { Text("Registrar un shot") }
                                 if (screen == "home") {
-                                    TextButton(onClick = {
-                                        screen = "history"
-                                    }) { Text("Ver todo el historial") }
-                                    TextButton(onClick = { screen = "backup" }) { Text("Backup") }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TextButton(onClick = {
+                                            screen = "history"
+                                        }) { Text("Ver todo el historial") }
+                                        TextButton(onClick = { screen = "machines" }) { Text("Máquinas") }
+                                        TextButton(onClick = { screen = "backup" }) { Text("Backup") }
+                                    }
                                     Text(
                                         "Últimos shots",
                                         style = MaterialTheme.typography.titleMedium
@@ -266,10 +312,12 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
 @Composable
 private fun ShotForm(
     draft: ShotDraft,
+    machines: List<Machine>,
     onChange: (ShotDraft) -> Unit,
     saving: Boolean,
     saveError: String?,
     isEditing: Boolean = false,
+    onNavigateToMachines: () -> Unit,
     onSave: () -> Unit
 ) {
     var submitted by rememberSaveable { mutableStateOf(false) }
@@ -299,6 +347,46 @@ private fun ShotForm(
         item {
             Field("Leche · ml (opcional)", draft.milk, errors["milk"], saving, true) {
                 onChange(draft.copy(milk = it))
+            }
+        }
+        item {
+            if (machines.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Máquina", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = onNavigateToMachines, enabled = !saving) {
+                            Text("Gestionar máquinas")
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        machines.forEach { m ->
+                            FilterChip(
+                                selected = draft.machine == m.name,
+                                onClick = {
+                                    onChange(draft.copy(machine = if (draft.machine == m.name) "" else m.name))
+                                },
+                                label = { Text(m.name) },
+                                enabled = !saving
+                            )
+                        }
+                    }
+                    Field("O escribir máquina manualmente", draft.machine, null, saving) {
+                        onChange(draft.copy(machine = it))
+                    }
+                }
+            } else {
+                Column {
+                    Field("Máquina (opcional)", draft.machine, null, saving) {
+                        onChange(draft.copy(machine = it))
+                    }
+                    TextButton(onClick = onNavigateToMachines, enabled = !saving) {
+                        Text("+ Agregar máquina guardada")
+                    }
+                }
             }
         }
         item {
@@ -397,6 +485,9 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
         if (shot.bean.roaster.isNotBlank()) item { Text(shot.bean.roaster) }
+        if (!shot.machine.isNullOrBlank()) {
+            item { Text("Máquina: ${shot.machine}") }
+        }
         item { Text(timestamp(shot.createdAt)) }
         item { Text("1:${shot.ratio.pretty()}", style = MaterialTheme.typography.displayMedium) }
         item { Text("Ratio de extracción") }
@@ -487,9 +578,11 @@ private fun ShotFormEmptyPreview() {
     MaterialTheme {
         ShotForm(
             draft = ShotDraft(),
+            machines = mockMachines,
             onChange = {},
             saving = false,
             saveError = null,
+            onNavigateToMachines = {},
             onSave = {}
         )
     }
@@ -501,9 +594,11 @@ private fun ShotFormFilledPreview() {
     MaterialTheme {
         ShotForm(
             draft = mockDraft,
+            machines = mockMachines,
             onChange = {},
             saving = false,
             saveError = null,
+            onNavigateToMachines = {},
             onSave = {}
         )
     }
@@ -515,9 +610,11 @@ private fun ShotFormSavingPreview() {
     MaterialTheme {
         ShotForm(
             draft = mockDraft,
+            machines = mockMachines,
             onChange = {},
             saving = true,
             saveError = null,
+            onNavigateToMachines = {},
             onSave = {}
         )
     }
@@ -529,9 +626,11 @@ private fun ShotFormErrorPreview() {
     MaterialTheme {
         ShotForm(
             draft = mockDraft,
+            machines = mockMachines,
             onChange = {},
             saving = false,
             saveError = "No pudimos guardar el shot. Tus datos siguen acá; intentá otra vez.",
+            onNavigateToMachines = {},
             onSave = {}
         )
     }

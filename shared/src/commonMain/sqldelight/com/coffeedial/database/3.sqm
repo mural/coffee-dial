@@ -1,0 +1,8 @@
+CREATE TABLE machine (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    year TEXT NOT NULL
+);
+
+ALTER TABLE shot ADD COLUMN machine TEXT;

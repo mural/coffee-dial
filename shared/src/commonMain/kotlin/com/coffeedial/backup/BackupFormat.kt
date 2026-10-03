@@ -16,11 +16,20 @@ data class BackupV1(
     val schemaVersion: Int,
     val exportedAt: String,
     val beans: List<BackupBeanV1>,
-    val shots: List<BackupShotV1>
+    val shots: List<BackupShotV1>,
+    val machines: List<BackupMachineV1> = emptyList()
 )
 
 @Serializable
 data class BackupBeanV1(val id: String, val name: String, val roaster: String)
+
+@Serializable
+data class BackupMachineV1(
+    val id: String,
+    val name: String,
+    val type: String,
+    val year: String
+)
 
 @Serializable
 data class BackupShotV1(
@@ -33,6 +42,7 @@ data class BackupShotV1(
     val grind: String,
     val temperature: Double?,
     val milk: Double? = null,
+    val machine: String? = null,
     val notes: String,
     val rating: Int
 )
@@ -48,12 +58,17 @@ object BackupFormat {
         encodeDefaults = true
     }
 
-    fun create(beans: List<BackupBeanV1>, shots: List<BackupShotV1>): BackupV1 = BackupV1(
+    fun create(
+        beans: List<BackupBeanV1>,
+        shots: List<BackupShotV1>,
+        machines: List<BackupMachineV1> = emptyList()
+    ): BackupV1 = BackupV1(
         FORMAT,
         CURRENT_VERSION,
         Clock.System.now().toString(),
         beans,
-        shots
+        shots,
+        machines
     )
 
     fun encode(backup: BackupV1): String {
@@ -107,13 +122,18 @@ object BackupFormat {
         }
         valid(backup.format == FORMAT && backup.schemaVersion == CURRENT_VERSION)
         valid(runCatching { Instant.parse(backup.exportedAt) }.isSuccess)
-        valid(backup.beans.size <= 50_000 && backup.shots.size <= 50_000)
+        valid(backup.beans.size <= 50_000 && backup.shots.size <= 50_000 && backup.machines.size <= 50_000)
         val ids = backup.beans.map { it.id }.toSet()
         valid(ids.size == backup.beans.size)
         valid(backup.shots.map { it.id }.toSet().size == backup.shots.size)
+        valid(backup.machines.map { it.id }.toSet().size == backup.machines.size)
         backup.beans.forEach {
             valid(it.id.isNotBlank() && it.id.length <= 200)
             valid(it.name.isNotBlank() && it.name.length <= 10_000 && it.roaster.length <= 10_000)
+        }
+        backup.machines.forEach {
+            valid(it.id.isNotBlank() && it.id.length <= 200)
+            valid(it.name.isNotBlank() && it.name.length <= 10_000)
         }
         backup.shots.forEach {
             valid(it.id.isNotBlank() && it.id.length <= 200 && it.beanId in ids)
@@ -123,6 +143,7 @@ object BackupFormat {
             valid(it.seconds.isFinite() && it.seconds > 0)
             valid(it.temperature == null || (it.temperature.isFinite() && it.temperature > 0))
             valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..200.0))
+            valid(it.machine == null || it.machine.length <= 10_000)
             valid(it.grind.isNotBlank() && it.grind.length <= 10_000)
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)
         }

@@ -40,8 +40,17 @@ class ShotDraftTest {
     }
 
     @Test
+    fun validatesMachineDraft() {
+        val machine = MachineDraft(name = "Express Barista", year = "2022")
+        assertTrue(machine.errors().isEmpty())
+        assertTrue("name" in machine.copy(name = " ").errors())
+        assertTrue("year" in machine.copy(year = "abc").errors())
+        assertTrue("year" in machine.copy(year = "1899").errors())
+    }
+
+    @Test
     fun calculatesBrewRatio() {
-        val shot = Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, null, "", 4)
+        val shot = Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, null, null, "", 4)
         assertEquals(2.0, shot.ratio)
     }
 }
