@@ -1,2 +1,2 @@
-# cofee-dial
-Coffe log
+# coffee-dial
+Coffee log
