@@ -1,0 +1,7 @@
+{
+  "name": "coffee-dial-web-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test test/*.test.js"},
+  "devDependencies": {"fake-indexeddb": "6.2.4"}
+}

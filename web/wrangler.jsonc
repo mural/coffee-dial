@@ -1,0 +1,10 @@
+{
+  "$schema": "../auth-service/node_modules/wrangler/config-schema.json",
+  "name": "coffee-dial-web",
+  "account_id": "b25682026e3409820bdc529601e17c1d",
+  "compatibility_date": "2026-10-03",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{"pattern": "coffee.muralooo.win", "custom_domain": true}],
+  "assets": {"directory": "../shared/build/dist/wasmJs/productionExecutable"}
+}

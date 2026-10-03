@@ -97,13 +97,15 @@ internal fun BackupScreen(
         preview?.let { prepared ->
             val summary = prepared.summary
             Text("Revisá antes de importar", style = MaterialTheme.typography.titleLarge)
-            Text("${summary.newBeans} cafés nuevos · ${summary.newShots} shots nuevos")
+            Text(
+                "${summary.newBeans} cafés · ${summary.newShots} shots · ${summary.newMachines} máquinas nuevas"
+            )
             Text("${summary.duplicates} shots ya existentes: no se duplicarán.")
             if (summary.conflicts > 0) {
                 Text("${summary.conflicts} registros con conflictos: se omitirán.")
                 Text("Se conservan los datos actuales. No se sobrescribe ni se borra nada.")
             }
-            if (summary.newBeans + summary.newShots == 0) {
+            if (summary.newBeans + summary.newShots + summary.newMachines == 0) {
                 Text("No hay datos nuevos para importar.")
             } else {
                 Button(enabled = !busy, onClick = {

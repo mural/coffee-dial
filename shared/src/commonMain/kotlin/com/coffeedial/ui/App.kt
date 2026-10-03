@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
@@ -65,7 +66,12 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
 )
 
 @Composable
-fun App(repository: ShotRepository, backupFiles: BackupFiles, authRepository: AuthRepository) {
+fun App(
+    repository: ShotRepository,
+    backupFiles: BackupFiles,
+    authRepository: AuthRepository,
+    localWeb: Boolean = false
+) {
     var screen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
@@ -107,7 +113,9 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles, authRepository: Au
     ) {
         Scaffold { padding ->
             Column(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
+                Modifier.widthIn(
+                    max = 960.dp
+                ).fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
             ) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -120,11 +128,11 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles, authRepository: Au
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (screen == "home") {
+                        if (screen == "home" && !localWeb) {
                             TextButton(onClick = { screen = "account" }) {
                                 Text("Cuenta")
                             }
-                        } else {
+                        } else if (screen != "home") {
                             TextButton(enabled = !saving && !backupFiles.busy, onClick = {
                                 screen = when (screen) {
                                     "detail" -> "history"

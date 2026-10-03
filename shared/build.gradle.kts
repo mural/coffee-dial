@@ -24,7 +24,14 @@ kotlin {
             linkerOpts("-lsqlite3")
         }
     }
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
     sourceSets {
+        androidMain { kotlin.srcDir("src/mobileMain/kotlin") }
+        iosMain { kotlin.srcDir("src/mobileMain/kotlin") }
         commonMain.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
             implementation(compose.runtime)
@@ -35,7 +42,10 @@ kotlin {
             implementation("app.cash.sqldelight:runtime:2.4.0")
             implementation("app.cash.sqldelight:coroutines-extensions:2.4.0")
         }
-        commonTest.dependencies { implementation(kotlin("test")) }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+        }
         androidMain.dependencies {
             implementation(compose.uiTooling)
             implementation("app.cash.sqldelight:android-driver:2.4.0")
