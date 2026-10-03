@@ -62,6 +62,27 @@ class ShotRepository(driver: SqlDriver) {
         queries.deleteShot(id)
     }
 
+    suspend fun update(id: String, draft: ShotDraft): Unit = withContext(Dispatchers.IO) {
+        require(draft.errors().isEmpty()) { "El shot contiene valores inválidos" }
+        queries.transaction {
+            val name = draft.beanName.trim()
+            val roaster = draft.roaster.trim()
+            queries.insertBean(Uuid.random().toString(), name, roaster)
+            val bean = queries.findBean(name, roaster).executeAsOne()
+            queries.updateShot(
+                bean.id,
+                requireNotNull(draft.dose.decimal()),
+                requireNotNull(draft.output.decimal()),
+                requireNotNull(draft.seconds.decimal()),
+                draft.grind.trim(),
+                draft.temperature.decimal(),
+                draft.notes.trim(),
+                draft.rating.toLong(),
+                id
+            )
+        }
+    }
+
     private fun snapshot(): BackupV1 = BackupFormat.create(
         queries.allBeans().executeAsList().map { BackupBeanV1(it.id, it.name, it.roaster) },
         queries.allShots().executeAsList().map {

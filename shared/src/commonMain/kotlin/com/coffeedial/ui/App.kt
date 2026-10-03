@@ -68,7 +68,13 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
     var saveError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     PlatformBack(enabled = screen != "home") {
-        if (!saving && !backupFiles.busy) screen = if (screen == "detail") "history" else "home"
+        if (!saving && !backupFiles.busy) {
+            screen = when (screen) {
+                "detail" -> "history"
+                "edit" -> "detail"
+                else -> "home"
+            }
+        }
     }
     LaunchedEffect(repository, retry) {
         loadError = false
@@ -100,8 +106,11 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                     )
                     if (screen != "home") {
                         TextButton(enabled = !saving && !backupFiles.busy, onClick = {
-                            screen =
-                                if (screen == "detail") "history" else "home"
+                            screen = when (screen) {
+                                "detail" -> "history"
+                                "edit" -> "detail"
+                                else -> "home"
+                            }
                         }) {
                             Text("Volver")
                         }
@@ -110,7 +119,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                 when (screen) {
                     "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
 
-                    "new" -> ShotForm(
+                    "new", "edit" -> ShotForm(
                         draft,
                         {
                             draft = it
@@ -118,14 +127,20 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                         },
                         saving,
                         saveError,
+                        isEditing = screen == "edit",
                         onSave = {
                             saving = true
                             saveError = null
                             scope.launch {
                                 try {
-                                    repository.save(draft)
+                                    if (screen == "edit" && selectedId != null) {
+                                        repository.update(selectedId!!, draft)
+                                        screen = "detail"
+                                    } else {
+                                        repository.save(draft)
+                                        screen = "history"
+                                    }
                                     draft = ShotDraft()
-                                    screen = "history"
                                 } catch (cancelled: CancellationException) {
                                     throw cancelled
                                 } catch (_: Exception) {
@@ -151,21 +166,38 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                             if (shot == null) {
                                 Text("No encontramos este shot.")
                             } else {
-                                ShotDetail(shot, onDelete = {
-                                    saving = true
-                                    scope.launch {
-                                        try {
-                                            repository.delete(shot.id)
-                                            screen = "history"
-                                        } catch (cancelled: CancellationException) {
-                                            throw cancelled
-                                        } catch (_: Exception) {
-                                            // Handle error if needed
-                                        } finally {
-                                            saving = false
+                                ShotDetail(
+                                    shot = shot,
+                                    onEdit = {
+                                        draft = ShotDraft(
+                                            beanName = shot.bean.name,
+                                            roaster = shot.bean.roaster,
+                                            dose = shot.dose.pretty(),
+                                            output = shot.output.pretty(),
+                                            seconds = shot.seconds.pretty(),
+                                            grind = shot.grind,
+                                            temperature = shot.temperature?.pretty() ?: "",
+                                            notes = shot.notes,
+                                            rating = shot.rating
+                                        )
+                                        screen = "edit"
+                                    },
+                                    onDelete = {
+                                        saving = true
+                                        scope.launch {
+                                            try {
+                                                repository.delete(shot.id)
+                                                screen = "history"
+                                            } catch (cancelled: CancellationException) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                            } finally {
+                                                saving = false
+                                            }
                                         }
-                                    }
-                                }, saving)
+                                    },
+                                    saving = saving
+                                )
                             }
                         }
 
@@ -236,12 +268,13 @@ private fun ShotForm(
     onChange: (ShotDraft) -> Unit,
     saving: Boolean,
     saveError: String?,
+    isEditing: Boolean = false,
     onSave: () -> Unit
 ) {
     var submitted by rememberSaveable { mutableStateOf(false) }
     val errors = if (submitted) draft.errors() else emptyMap()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { Text("Nuevo shot", style = MaterialTheme.typography.headlineSmall) }
+        item { Text(if (isEditing) "Editar shot" else "Nuevo shot", style = MaterialTheme.typography.headlineSmall) }
         item {
             Field("Café", draft.beanName, errors["beanName"], saving) {
                 onChange(draft.copy(beanName = it))
@@ -321,7 +354,7 @@ private fun ShotForm(
                 },
                 enabled = !saving,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-            ) { Text(if (saving) "Guardando…" else "Guardar shot") }
+            ) { Text(if (saving) "Guardando…" else if (isEditing) "Guardar cambios" else "Guardar shot") }
         }
     }
 }
@@ -353,7 +386,7 @@ private fun Field(
 }
 
 @Composable
-private fun ShotDetail(shot: Shot, onDelete: () -> Unit, saving: Boolean) {
+private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, saving: Boolean) {
     var showConfirm by remember { mutableStateOf(false) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
@@ -375,8 +408,15 @@ private fun ShotDetail(shot: Shot, onDelete: () -> Unit, saving: Boolean) {
             Text(shot.notes.ifBlank { "Sin notas" })
         }
         item {
-            if (showConfirm) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+                Button(
+                    onClick = onEdit,
+                    enabled = !saving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Editar shot")
+                }
+                if (showConfirm) {
                     Text("¿Querés eliminar este shot?", color = MaterialTheme.colorScheme.error)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
@@ -397,14 +437,14 @@ private fun ShotDetail(shot: Shot, onDelete: () -> Unit, saving: Boolean) {
                             Text("Cancelar")
                         }
                     }
-                }
-            } else {
-                TextButton(
-                    onClick = { showConfirm = true },
-                    enabled = !saving,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-                ) {
-                    Text("Eliminar shot", color = MaterialTheme.colorScheme.error)
+                } else {
+                    TextButton(
+                        onClick = { showConfirm = true },
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Eliminar shot", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -431,7 +471,7 @@ private fun ShotCardPreview() {
 @Composable
 private fun ShotDetailPreview() {
     MaterialTheme {
-        ShotDetail(shot = mockShot, onDelete = {}, saving = false)
+        ShotDetail(shot = mockShot, onEdit = {}, onDelete = {}, saving = false)
     }
 }
 
