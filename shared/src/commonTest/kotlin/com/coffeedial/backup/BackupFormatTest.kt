@@ -38,7 +38,9 @@ class BackupFormatTest {
     fun rejectsMissingInvalidAndUnsupportedVersions() {
         listOf("0", "-1", "1.5", "\"1\"", "null").forEach { version ->
             assertFailsWith<BackupException> {
-                BackupFormat.decode(V1_FIXTURE.replace("\"schemaVersion\": 1", "\"schemaVersion\": $version"))
+                BackupFormat.decode(
+                    V1_FIXTURE.replace("\"schemaVersion\": 1", "\"schemaVersion\": $version")
+                )
             }
         }
         assertFailsWith<BackupException> { BackupFormat.decode("{}") }
@@ -47,7 +49,9 @@ class BackupFormatTest {
     @Test
     fun rejectsUnknownFieldsInsteadOfSilentlyLosingFutureData() {
         assertFailsWith<BackupException> {
-            BackupFormat.decode(V1_FIXTURE.replace("\"rating\":4", "\"rating\":4,\"futureField\":true"))
+            BackupFormat.decode(
+                V1_FIXTURE.replace("\"rating\":4", "\"rating\":4,\"futureField\":true")
+            )
         }
     }
 
@@ -73,7 +77,9 @@ class BackupFormatTest {
             BackupFormat.encode(backup.copy(beans = backup.beans + backup.beans))
         }
         assertFailsWith<BackupException> {
-            BackupFormat.encode(backup.copy(shots = listOf(backup.shots.single().copy(dose = Double.NaN))))
+            BackupFormat.encode(
+                backup.copy(shots = listOf(backup.shots.single().copy(dose = Double.NaN)))
+            )
         }
     }
 
@@ -81,6 +87,8 @@ class BackupFormatTest {
     fun emptyBackupIsValidAndLargeFilesAreRejected() {
         val empty = BackupFormat.create(emptyList(), emptyList())
         assertEquals(empty, BackupFormat.decode(BackupFormat.encode(empty)))
-        assertFailsWith<BackupException> { BackupFormat.decode(" ".repeat(BackupFormat.MAX_BYTES + 1)) }
+        assertFailsWith<BackupException> {
+            BackupFormat.decode(" ".repeat(BackupFormat.MAX_BYTES + 1))
+        }
     }
 }

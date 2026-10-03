@@ -13,3 +13,11 @@ xcuserdata/
 .env
 .env.*
 !.env.example
+
+# Local identity-provider configuration
+iosApp/Auth.local.xcconfig
+
+# Authentication service dependencies and local secrets
+**/node_modules/
+**/.wrangler/
+**/.dev.vars*

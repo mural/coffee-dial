@@ -1,0 +1,10 @@
+// Copy to Auth.local.xcconfig; Auth.xcconfig includes it automatically.
+// Google IDs already have configured defaults. Uncomment only to override.
+// COFFEE_GOOGLE_IOS_CLIENT_ID =
+// COFFEE_GOOGLE_REVERSED_CLIENT_ID =
+// Enable only after provisioning Sign in with Apple for the App ID.
+COFFEE_APPLE_SIGN_IN_ENABLED = NO
+COFFEE_APPLE_ENTITLEMENTS =
+// Once provisioned: COFFEE_APPLE_SIGN_IN_ENABLED = YES
+// Once provisioned: COFFEE_APPLE_ENTITLEMENTS = CoffeeDial.entitlements
+// DEVELOPMENT_TEAM = your Apple Team ID

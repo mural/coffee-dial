@@ -40,6 +40,9 @@ kotlin {
             implementation(compose.uiTooling)
             implementation("app.cash.sqldelight:android-driver:2.4.0")
             implementation("androidx.activity:activity-compose:1.13.0")
+            implementation("androidx.credentials:credentials:1.3.0")
+            implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+            implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
         }
         getByName("androidHostTest").dependencies {
             implementation("app.cash.sqldelight:sqlite-driver:2.4.0")

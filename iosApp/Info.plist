@@ -4,5 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+    <key>GIDClientID</key><string>$(COFFEE_GOOGLE_IOS_CLIENT_ID)</string>
+    <key>CFBundleURLTypes</key><array><dict>
+        <key>CFBundleURLSchemes</key><array><string>$(COFFEE_GOOGLE_REVERSED_CLIENT_ID)</string></array>
+    </dict></array>
+    <key>CoffeeDialAppleSignInEnabled</key><string>$(COFFEE_APPLE_SIGN_IN_ENABLED)</string>
 </dict>
 </plist>

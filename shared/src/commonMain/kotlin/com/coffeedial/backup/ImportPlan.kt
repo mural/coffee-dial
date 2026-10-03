@@ -48,8 +48,11 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
         val sameName = machinesByName[machine.name]
         when {
             sameId != null && sameId != machine -> conflicts++
+
             sameId != null -> {}
+
             sameName != null -> {}
+
             else -> {
                 newMachines += machine
                 machinesById[machine.id] = machine

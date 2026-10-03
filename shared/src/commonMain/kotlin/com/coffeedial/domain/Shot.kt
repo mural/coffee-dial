@@ -2,12 +2,7 @@ package com.coffeedial.domain
 
 data class Bean(val id: String, val name: String, val roaster: String)
 
-data class Machine(
-    val id: String,
-    val name: String,
-    val type: String,
-    val year: String
-)
+data class Machine(val id: String, val name: String, val type: String, val year: String)
 
 data class MachineDraft(
     val name: String = "",

@@ -1,14 +1,19 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import CoffeeDialShared
+import AuthenticationServices
+import GoogleSignIn
 
 @main
 struct CoffeeDialApp: App {
     @StateObject private var backup = BackupCoordinator()
+    @StateObject private var account = AccountCoordinator()
 
     var body: some Scene {
         WindowGroup {
-            CoffeeDialView(files: backup.files).ignoresSafeArea()
+            CoffeeDialView(files: backup.files, account: account.repository).ignoresSafeArea()
+                .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
+                .task { account.restore() }
                 .fileExporter(
                     isPresented: $backup.exporting,
                     document: backup.document,
@@ -116,8 +121,154 @@ private struct BackupDocument: FileDocument {
 
 struct CoffeeDialView: UIViewControllerRepresentable {
     let files: BackupFiles
+    let account: IosAuthRepository
     func makeUIViewController(context: Context) -> UIViewController {
-        MainViewControllerKt.mainViewController(backupFiles: files)
+        MainViewControllerKt.mainViewController(backupFiles: files, authRepository: account)
     }
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+}
+
+// SDKs own credentials. Only provider-confirmed profile data crosses into shared UI.
+private final class AccountCoordinator: NSObject, ObservableObject,
+    ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    let repository = IosAuthRepository()
+    private var controller: ASAuthorizationController?
+    private var restored = false
+    private var generation = 0
+    private var appleGeneration = 0
+    private let defaults = UserDefaults.standard
+
+    override init() {
+        super.init()
+        repository.googleAction = { [weak self] in self?.google() }
+        repository.appleAction = { [weak self] in self?.apple() }
+        repository.signOutAction = { [weak self] in
+            guard let self else { return }
+            self.generation += 1
+            self.controller?.cancel()
+            self.controller = nil
+            GIDSignIn.sharedInstance.signOut()
+            self.defaults.removeObject(forKey: "coffee.auth.provider")
+            // Keep Apple's first-consent profile for subsequent logins to the same subject.
+        }
+        // Email-only legacy entries were never verified and must not restore a session.
+        for key in ["user_email", "user_name", "user_provider"] { defaults.removeObject(forKey: key) }
+    }
+
+    private var window: UIWindow? {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows).first(where: \.isKeyWindow)
+    }
+    private var presenter: UIViewController? {
+        var presenter = window?.rootViewController
+        while let presented = presenter?.presentedViewController { presenter = presented }
+        return presenter
+    }
+    private var googleConfigured: Bool {
+        guard let id = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String,
+              id.hasSuffix(".apps.googleusercontent.com") else { return false }
+        let reversed = id.split(separator: ".").reversed().joined(separator: ".")
+        let types = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]] ?? []
+        return types.contains { ($0["CFBundleURLSchemes"] as? [String])?.contains(reversed) == true }
+    }
+    private var appleConfigured: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "CoffeeDialAppleSignInEnabled") as? String == "YES"
+    }
+
+    func restore() {
+        guard !restored else { return }
+        restored = true
+        let attempt = generation
+        if defaults.string(forKey: "coffee.auth.provider") == "google", googleConfigured {
+            GIDSignIn.sharedInstance.restorePreviousSignIn { [weak self] user, _ in
+                guard let self, self.generation == attempt, let user else { return }
+                self.acceptGoogle(user)
+            }
+        } else if defaults.string(forKey: "coffee.auth.provider") == "apple", appleConfigured,
+                  let id = defaults.string(forKey: "coffee.apple.id") {
+            ASAuthorizationAppleIDProvider().getCredentialState(forUserID: id) { [weak self] state, error in
+                DispatchQueue.main.async {
+                    guard let self, self.generation == attempt else { return }
+                    if state == .authorized && error == nil {
+                        self.acceptApple(id: id, email: nil, name: nil)
+                    } else {
+                        self.defaults.removeObject(forKey: "coffee.auth.provider")
+                    }
+                }
+            }
+        }
+    }
+
+    private func google() {
+        generation += 1
+        let attempt = generation
+        guard googleConfigured else {
+            repository.failed(message: "Google todavía no está configurado para esta versión de Coffee Dial.")
+            return
+        }
+        guard let presenter else { repository.cancelled(); return }
+        GIDSignIn.sharedInstance.signIn(withPresenting: presenter) { [weak self] result, error in
+            guard let self, self.generation == attempt else { return }
+            if let user = result?.user { self.acceptGoogle(user) }
+            else if (error as NSError?)?.code == GIDSignInError.canceled.rawValue { self.repository.cancelled() }
+            else { self.repository.failed(message: "No se pudo iniciar sesión con Google. Intentá nuevamente.") }
+        }
+    }
+
+    private func acceptGoogle(_ google: GIDGoogleUser) {
+        guard let id = google.userID, !id.isEmpty else { repository.cancelled(); return }
+        defaults.set("google", forKey: "coffee.auth.provider")
+        repository.authenticated(user: User(id: id, email: google.profile?.email,
+            displayName: google.profile?.name, photoUrl: nil, provider: .google, linkedAt: 0))
+    }
+
+    private func apple() {
+        generation += 1
+        appleGeneration = generation
+        guard appleConfigured else {
+            repository.failed(message: "Apple todavía no está configurado para esta versión de Coffee Dial.")
+            return
+        }
+        guard window != nil else { repository.cancelled(); return }
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        self.controller = controller
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        window ?? ASPresentationAnchor()
+    }
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        guard self.controller === controller, generation == appleGeneration else { return }
+        defer { self.controller = nil }
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            repository.failed(message: "Apple no devolvió una credencial válida.")
+            return
+        }
+        let name = credential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
+        acceptApple(id: credential.user, email: credential.email, name: name)
+    }
+    private func acceptApple(id: String, email: String?, name: String?) {
+        guard !id.isEmpty else { repository.cancelled(); return }
+        let sameUser = defaults.string(forKey: "coffee.apple.id") == id
+        let savedEmail = email ?? (sameUser ? defaults.string(forKey: "coffee.apple.email") : nil)
+        let savedName = name.flatMap { $0.isEmpty ? nil : $0 } ?? (sameUser ? defaults.string(forKey: "coffee.apple.name") : nil)
+        defaults.set(id, forKey: "coffee.apple.id")
+        defaults.set(savedEmail, forKey: "coffee.apple.email")
+        defaults.set(savedName, forKey: "coffee.apple.name")
+        defaults.set("apple", forKey: "coffee.auth.provider")
+        repository.authenticated(user: User(id: id, email: savedEmail, displayName: savedName,
+            photoUrl: nil, provider: .apple, linkedAt: 0))
+    }
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        guard self.controller === controller, generation == appleGeneration else { return }
+        self.controller = nil
+        if (error as NSError).code == ASAuthorizationError.canceled.rawValue { repository.cancelled() }
+        else { repository.failed(message: "No se pudo iniciar sesión con Apple. Revisá la cuenta del dispositivo y volvé a intentar.") }
+    }
 }

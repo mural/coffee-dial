@@ -75,7 +75,11 @@ fun MachinesScreen(
         }
 
         item {
-            Text("Nueva máquina", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                "Nueva máquina",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
 
         item {
@@ -90,11 +94,16 @@ fun MachinesScreen(
                 supportingText = errors["name"]?.let { { Text(it) } },
                 trailingIcon = if (draft.name.isNotEmpty() && !saving) {
                     {
-                        androidx.compose.material3.IconButton(onClick = { draft = draft.copy(name = "") }) {
+                        androidx.compose.material3.IconButton(onClick = {
+                            draft =
+                                draft.copy(name = "")
+                        }) {
                             Text("✕", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                } else null
+                } else {
+                    null
+                }
             )
         }
 
@@ -124,11 +133,16 @@ fun MachinesScreen(
                 supportingText = errors["year"]?.let { { Text(it) } },
                 trailingIcon = if (draft.year.isNotEmpty() && !saving) {
                     {
-                        androidx.compose.material3.IconButton(onClick = { draft = draft.copy(year = "") }) {
+                        androidx.compose.material3.IconButton(onClick = {
+                            draft =
+                                draft.copy(year = "")
+                        }) {
                             Text("✕", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                } else null
+                } else {
+                    null
+                }
             )
         }
 

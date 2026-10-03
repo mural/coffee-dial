@@ -50,7 +50,8 @@ class ShotDraftTest {
 
     @Test
     fun calculatesBrewRatio() {
-        val shot = Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, null, null, "", 4)
+        val shot =
+            Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, null, null, "", 4)
         assertEquals(2.0, shot.ratio)
     }
 }

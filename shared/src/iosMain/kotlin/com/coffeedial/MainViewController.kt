@@ -2,6 +2,7 @@ package com.coffeedial
 
 import androidx.compose.ui.window.ComposeUIViewController
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
+import com.coffeedial.auth.IosAuthRepository
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.database.CoffeeDatabase
@@ -11,6 +12,7 @@ private val repository by lazy {
     ShotRepository(NativeSqliteDriver(CoffeeDatabase.Schema, "coffee-dial.db"))
 }
 
-fun mainViewController(backupFiles: BackupFiles) = ComposeUIViewController {
-    App(repository, backupFiles)
-}
+fun mainViewController(backupFiles: BackupFiles, authRepository: IosAuthRepository) =
+    ComposeUIViewController {
+        App(repository, backupFiles, authRepository)
+    }

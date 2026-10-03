@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "coffee-dial-auth",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-03",
+  "account_id": "b25682026e3409820bdc529601e17c1d",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{"pattern":"auth-coffee.muralooo.win","custom_domain":true}],
+  "vars": {
+    "PUBLIC_ORIGIN": "https://auth-coffee.muralooo.win",
+    "GOOGLE_CLIENT_ID": "260197318794-cd79hiok6b4na7fp10o2dakcu5li4fi2.apps.googleusercontent.com",
+    "ALLOWED_EMAILS": "mural86@gmail.com"
+  },
+  "durable_objects": {"bindings":[{"name":"SESSIONS","class_name":"LoginAttempt"}]},
+  "migrations": [{"tag":"v1","new_sqlite_classes":["LoginAttempt"]}],
+  "ratelimits": [{"name":"RATE_LIMITER","namespace_id":"1001","simple":{"limit":20,"period":60}}],
+  "observability": {"enabled":false}
+}

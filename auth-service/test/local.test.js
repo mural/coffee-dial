@@ -1,0 +1,22 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { random, hash } from '../src/core.js';
+const origin = process.env.WORKER_TEST_ORIGIN;
+test('local Worker + SQLite Durable Object: start, cookie binding, cancellation, replay', { skip: !origin }, async () => {
+  const state = random(), challenge = await hash(random());
+  let response = await fetch(`${origin}/google/start?state=${state}&challenge=${challenge}`, { redirect: 'manual' });
+  assert.equal(response.status, 302);
+  const google = new URL(response.headers.get('location'));
+  assert.equal(google.origin, 'https://accounts.google.com');
+  assert.equal(google.searchParams.get('scope'), 'openid email profile');
+  assert.equal(google.searchParams.get('code_challenge_method'), 'S256');
+  const cookie = response.headers.get('set-cookie').split(';')[0];
+  const callback = `${origin}/google/callback?state=${google.searchParams.get('state')}&error=access_denied`;
+  assert.equal((await fetch(callback)).status, 400);
+  response = await fetch(callback, { headers: { Cookie: cookie } });
+  assert.equal(response.status, 200);
+  const text = await response.text(); assert.ok(text.includes('error=cancelled')); assert.ok(text.includes(state));
+  assert.equal((await fetch(callback, { headers: { Cookie: cookie } })).status, 400);
+  assert.equal((await fetch(`${origin}/google/start?challenge=invalid&state=invalid`)).status, 400);
+  assert.equal((await fetch(`${origin}/exchange`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attempt: random() }) })).status, 400);
+});

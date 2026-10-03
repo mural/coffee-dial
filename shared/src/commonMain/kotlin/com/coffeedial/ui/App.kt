@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.coffeedial.auth.AuthRepository
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Machine
@@ -55,11 +56,16 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
             it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toString()
         )
     },
-    restore = { ShotDraft(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8], it[9], it[10].toInt()) }
+    restore = {
+        ShotDraft(
+            it[0], it[1], it[2], it[3], it[4], it[5],
+            it[6], it[7], it[8], it[9], it[10].toInt()
+        )
+    }
 )
 
 @Composable
-fun App(repository: ShotRepository, backupFiles: BackupFiles) {
+fun App(repository: ShotRepository, backupFiles: BackupFiles, authRepository: AuthRepository) {
     var screen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
@@ -75,7 +81,7 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
             screen = when (screen) {
                 "detail" -> "history"
                 "edit" -> "detail"
-                "machines" -> "home"
+                "machines", "account", "backup" -> "home"
                 else -> "home"
             }
         }
@@ -103,27 +109,39 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
             Column(
                 Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         "Coffee Dial",
                         style = MaterialTheme.typography.headlineMedium,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
-                    if (screen != "home") {
-                        TextButton(enabled = !saving && !backupFiles.busy, onClick = {
-                            screen = when (screen) {
-                                "detail" -> "history"
-                                "edit" -> "detail"
-                                "machines" -> "home"
-                                else -> "home"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (screen == "home") {
+                            TextButton(onClick = { screen = "account" }) {
+                                Text("Cuenta")
                             }
-                        }) {
-                            Text("Volver")
+                        } else {
+                            TextButton(enabled = !saving && !backupFiles.busy, onClick = {
+                                screen = when (screen) {
+                                    "detail" -> "history"
+                                    "edit" -> "detail"
+                                    "machines", "account", "backup" -> "home"
+                                    else -> "home"
+                                }
+                            }) {
+                                Text("Volver")
+                            }
                         }
                     }
                 }
                 when (screen) {
                     "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
+
+                    "account" -> AccountScreen(authRepository = authRepository)
 
                     "machines" -> MachinesScreen(
                         machines = machines,
@@ -268,9 +286,13 @@ fun App(repository: ShotRepository, backupFiles: BackupFiles) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         TextButton(onClick = {
                                             screen = "history"
-                                        }) { Text("Ver todo el historial") }
-                                        TextButton(onClick = { screen = "machines" }) { Text("Máquinas") }
-                                        TextButton(onClick = { screen = "backup" }) { Text("Backup") }
+                                        }) { Text("Historial") }
+                                        TextButton(onClick = {
+                                            screen = "machines"
+                                        }) { Text("Máquinas") }
+                                        TextButton(onClick = {
+                                            screen = "backup"
+                                        }) { Text("Backup") }
                                     }
                                     Text(
                                         "Últimos shots",
@@ -323,7 +345,12 @@ private fun ShotForm(
     var submitted by rememberSaveable { mutableStateOf(false) }
     val errors = if (submitted) draft.errors() else emptyMap()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { Text(if (isEditing) "Editar shot" else "Nuevo shot", style = MaterialTheme.typography.headlineSmall) }
+        item {
+            Text(
+                if (isEditing) "Editar shot" else "Nuevo shot",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        }
         item {
             Field("Café", draft.beanName, errors["beanName"], saving) {
                 onChange(draft.copy(beanName = it))
@@ -367,7 +394,17 @@ private fun ShotForm(
                             FilterChip(
                                 selected = draft.machine == m.name,
                                 onClick = {
-                                    onChange(draft.copy(machine = if (draft.machine == m.name) "" else m.name))
+                                    onChange(
+                                        draft.copy(
+                                            machine = if (draft.machine ==
+                                                m.name
+                                            ) {
+                                                ""
+                                            } else {
+                                                m.name
+                                            }
+                                        )
+                                    )
                                 },
                                 label = { Text(m.name) },
                                 enabled = !saving
@@ -422,11 +459,15 @@ private fun ShotForm(
                 minLines = 2,
                 trailingIcon = if (draft.notes.isNotEmpty() && !saving) {
                     {
-                        androidx.compose.material3.IconButton(onClick = { onChange(draft.copy(notes = "")) }) {
+                        androidx.compose.material3.IconButton(onClick = {
+                            onChange(draft.copy(notes = ""))
+                        }) {
                             Text("✕", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                } else null
+                } else {
+                    null
+                }
             )
         }
         item {
@@ -448,7 +489,17 @@ private fun ShotForm(
                 },
                 enabled = !saving,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-            ) { Text(if (saving) "Guardando…" else if (isEditing) "Guardar cambios" else "Guardar shot") }
+            ) {
+                Text(
+                    if (saving) {
+                        "Guardando…"
+                    } else if (isEditing) {
+                        "Guardar cambios"
+                    } else {
+                        "Guardar shot"
+                    }
+                )
+            }
         }
     }
 }
@@ -475,7 +526,9 @@ private fun Field(
                     Text("✕", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-        } else null
+        } else {
+            null
+        }
     )
 }
 
@@ -493,7 +546,10 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
         item { Text("Ratio de extracción") }
         item {
             Text(
-                "Entrada: ${shot.dose.pretty()} g\nOutput: ${shot.output.pretty()} g${shot.milk?.let { "\nLeche: ${it.pretty()} ml" } ?: ""}\nTiempo: ${shot.seconds.pretty()} s"
+                "Entrada: ${shot.dose.pretty()} g\n" +
+                    "Output: ${shot.output.pretty()} g" +
+                    (shot.milk?.let { "\nLeche: ${it.pretty()} ml" } ?: "") +
+                    "\nTiempo: ${shot.seconds.pretty()} s"
             )
         }
         item { Text("Molienda: ${shot.grind}") }
@@ -505,7 +561,10 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
             Text(shot.notes.ifBlank { "Sin notas" })
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+            ) {
                 Button(
                     onClick = onEdit,
                     enabled = !saving,
@@ -547,7 +606,6 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
         }
     }
 }
-
 
 // -----------------------------------------------------------------------------
 // COMPOSE PREVIEWS

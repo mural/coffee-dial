@@ -7,12 +7,12 @@ import com.coffeedial.backup.V1_FIXTURE
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.ShotDraft
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 class BackupRepositoryTest {
     private fun database() = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also {
@@ -42,7 +42,9 @@ class BackupRepositoryTest {
     fun roundTripsMilkInExportAndImport() = runBlocking {
         database().use { driver ->
             val repo = ShotRepository(driver)
-            repo.save(ShotDraft(beanName = "Flat White", roaster = "Test", grind = "40", milk = "150"))
+            repo.save(
+                ShotDraft(beanName = "Flat White", roaster = "Test", grind = "40", milk = "150")
+            )
             val exported = repo.exportBackup()
             val decoded = BackupFormat.decode(exported)
             assertEquals(150.0, decoded.shots.single().milk)
@@ -57,7 +59,9 @@ class BackupRepositoryTest {
     fun roundTripsMachinesInExportAndImport() = runBlocking {
         database().use { driver ->
             val repo = ShotRepository(driver)
-            repo.saveMachine(MachineDraft(name = "Breville Touch", type = "Espresso", year = "2023"))
+            repo.saveMachine(
+                MachineDraft(name = "Breville Touch", type = "Espresso", year = "2023")
+            )
             val exported = repo.exportBackup()
             val decoded = BackupFormat.decode(exported)
             assertEquals("Breville Touch", decoded.machines.single().name)
@@ -103,7 +107,10 @@ class BackupRepositoryTest {
         database().use { driver ->
             val repo = ShotRepository(driver)
             repo.importBackup(repo.prepareImport(V1_FIXTURE))
-            val changed = V1_FIXTURE.replace("Café ☕", "Different coffee").replace("shot-1", "shot-2")
+            val changed = V1_FIXTURE.replace(
+                "Café ☕",
+                "Different coffee"
+            ).replace("shot-1", "shot-2")
             val plan = repo.prepareImport(changed)
             assertEquals(2, plan.summary.conflicts)
             repo.importBackup(plan)
@@ -129,7 +136,11 @@ class BackupRepositoryTest {
         database().use { driver ->
             val repo = ShotRepository(driver)
             val plan = repo.prepareImport(V1_FIXTURE)
-            driver.execute(null, "CREATE TRIGGER fail BEFORE INSERT ON shot BEGIN SELECT RAISE(ABORT, 'test'); END", 0)
+            driver.execute(
+                null,
+                "CREATE TRIGGER fail BEFORE INSERT ON shot BEGIN SELECT RAISE(ABORT, 'test'); END",
+                0
+            )
             assertFailsWith<Exception> { repo.importBackup(plan) }
             val backup = BackupFormat.decode(repo.exportBackup())
             assertTrue(backup.beans.isEmpty())

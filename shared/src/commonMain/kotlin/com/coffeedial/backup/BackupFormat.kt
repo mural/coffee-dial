@@ -24,12 +24,7 @@ data class BackupV1(
 data class BackupBeanV1(val id: String, val name: String, val roaster: String)
 
 @Serializable
-data class BackupMachineV1(
-    val id: String,
-    val name: String,
-    val type: String,
-    val year: String
-)
+data class BackupMachineV1(val id: String, val name: String, val type: String, val year: String)
 
 @Serializable
 data class BackupShotV1(
@@ -122,7 +117,10 @@ object BackupFormat {
         }
         valid(backup.format == FORMAT && backup.schemaVersion == CURRENT_VERSION)
         valid(runCatching { Instant.parse(backup.exportedAt) }.isSuccess)
-        valid(backup.beans.size <= 50_000 && backup.shots.size <= 50_000 && backup.machines.size <= 50_000)
+        valid(
+            backup.beans.size <= 50_000 && backup.shots.size <= 50_000 &&
+                backup.machines.size <= 50_000
+        )
         val ids = backup.beans.map { it.id }.toSet()
         valid(ids.size == backup.beans.size)
         valid(backup.shots.map { it.id }.toSet().size == backup.shots.size)

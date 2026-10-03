@@ -145,11 +145,13 @@ class ShotRepository(driver: SqlDriver) {
                 ) {
                     throw BackupException(
                         "El historial cambió. " +
-                    "Volvé a seleccionar el backup para revisarlo."
+                            "Volvé a seleccionar el backup para revisarlo."
                     )
                 }
                 prepared.plan.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
-                prepared.plan.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
+                prepared.plan.machines.forEach {
+                    queries.insertMachine(it.id, it.name, it.type, it.year)
+                }
                 prepared.plan.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,

@@ -7,10 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        B00000000000000000000001 = {isa = PBXBuildFile; productRef = B00000000000000000000002; };
 		A00000000000000000000001 /* CoffeeDialApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* CoffeeDialApp.swift */; };
 /* End PBXBuildFile section */
+        B00000000000000000000002 = {isa = XCSwiftPackageProductDependency; package = B00000000000000000000003; productName = GoogleSignIn; };
+        B00000000000000000000003 = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/google/GoogleSignIn-iOS"; requirement = {kind = exactVersion; version = 9.0.0; }; };
 
 /* Begin PBXFileReference section */
+        B00000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Auth.xcconfig; sourceTree = "<group>"; };
 		A00000000000000000000002 /* CoffeeDialApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoffeeDialApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000003 /* CoffeeDial.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoffeeDial.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -20,6 +24,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                B00000000000000000000001,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -30,6 +35,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000002 /* CoffeeDialApp.swift */,
+                B00000000000000000000004 /* Auth.xcconfig */,
 				A00000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -58,7 +64,8 @@
 			dependencies = (
 			);
 			name = CoffeeDial;
-			productName = CoffeeDial;
+			packageProductDependencies = (B00000000000000000000002);
+            productName = CoffeeDial;
 			productReference = A00000000000000000000003 /* CoffeeDial.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -81,7 +88,8 @@
 			);
 			mainGroup = A00000000000000000000004;
 			productRefGroup = A00000000000000000000005 /* Products */;
-			projectDirPath = "";
+			packageReferences = (B00000000000000000000003);
+            projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				A00000000000000000000007 /* CoffeeDial */,
@@ -145,8 +153,10 @@
 		};
 		A00000000000000000000014 /* Debug */ = {
 			isa = XCBuildConfiguration;
+            baseConfigurationReference = B00000000000000000000004;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+                CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -173,8 +183,10 @@
 		};
 		A00000000000000000000015 /* Release */ = {
 			isa = XCBuildConfiguration;
+            baseConfigurationReference = B00000000000000000000004;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+                CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",

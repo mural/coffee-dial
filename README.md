@@ -118,3 +118,7 @@ Esta es una base de desarrollo, no una publicación en tiendas. Branding e ident
 - [Integración directa iOS](https://kotlinlang.org/docs/multiplatform/multiplatform-direct-integration.html)
 
 Herramientas detectadas y resultado de builds: [docs/VERIFICATION.md](docs/VERIFICATION.md).
+
+## Cuenta (Google / Apple)
+
+Integración opcional preparada; requiere registrar los proveedores antes del primer acceso. Ver [configuración y limitaciones](docs/AUTH.md). Iniciar sesión todavía no activa sincronización.
