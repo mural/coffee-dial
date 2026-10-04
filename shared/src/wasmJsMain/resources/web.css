@@ -1,5 +1,5 @@
-html,body { margin:0; height:100%; overflow:hidden; background:#fcf8f3; color:#342319; font-family:system-ui,sans-serif; }
+html,body { margin:0; height:100%; overflow:hidden; background:#fcf8f3; color:#342319; font-family:system-ui,sans-serif; user-select:text !important; -webkit-user-select:text !important; }
 body { display:flex; flex-direction:column; }
 .notice { padding:10px 20px; text-align:center; font-size:13px; line-height:1.45; background:#ede0cf; }
 #loading { padding:20px; text-align:center; }
-#app { flex:1; min-height:0; width:100%; max-width:960px; margin:auto; position:relative; }
+#app, canvas { flex:1; min-height:0; width:100%; max-width:960px; margin:auto; position:relative; user-select:text !important; -webkit-user-select:text !important; }

@@ -4,7 +4,7 @@ package com.coffeedial
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
-import com.coffeedial.auth.InMemoryAuthRepository
+import com.coffeedial.auth.WasmAuthRepository
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.SnapshotRepository
 import com.coffeedial.data.SnapshotStore
@@ -54,8 +54,9 @@ fun main() {
                     }
                 }
             }
+            val authRepository = WasmAuthRepository()
             ComposeViewport("app") {
-                App(repository, files, InMemoryAuthRepository(), localWeb = true)
+                App(repository, files, authRepository, localWeb = false)
             }
             CoffeeBrowser.ready()
         } catch (_: Exception) {

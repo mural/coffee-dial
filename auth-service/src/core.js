@@ -30,10 +30,20 @@ export async function googleExchange(code, record, env) {
   return verifyGoogle(body.id_token, env, record.nonce);
 }
 
-// Each instance owns one short-lived attempt. Storage transactions serialize consume/replay checks.
+// Each instance owns one short-lived attempt or user sync state. Storage transactions serialize checks.
 export class Session {
   constructor(storage, env, exchange = googleExchange, now = () => Date.now()) {
     this.storage = storage; this.env = env; this.exchange = exchange; this.now = now;
+  }
+  async saveSync(data) {
+    if (typeof data === 'string' && data.length > 2) {
+      await this.storage.put('user_sync_data', data);
+    }
+    return { success: true };
+  }
+  async getSync() {
+    const data = await this.storage.get('user_sync_data');
+    return data || null;
   }
   async init(input) {
     if (!validProof(input.challenge) || !validProof(input.appState) || !validProof(input.browserHash)) throw new AuthError('invalid');
@@ -59,7 +69,7 @@ export class Session {
       const ticket = random();
       await this.storage.put('session', { appState: record.appState, challenge: record.challenge,
         status: 'ready', ticketHash: await hash(ticket), expires: Math.min(record.expires, this.now() + 60_000), user });
-      return { appState: record.appState, ticket };
+      return { appState: record.appState, ticket, user };
     } catch { await this.storage.deleteAll(); return { appState: record.appState, error: 'failed' }; }
   }
   async consume(input) {

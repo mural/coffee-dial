@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 interface AuthRepository {
+    val isWebPlatform: Boolean get() = false
     val supportsBrowserSignIn: Boolean get() = false
     suspend fun signInWithBrowser() {}
     val state: StateFlow<AuthState>

@@ -161,6 +161,24 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 prepared.summary
             }
         }
+
+    override suspend fun forceImportBackup(text: String): ImportSummary =
+        withContext(Dispatchers.IO) {
+            val incoming = BackupFormat.decode(text)
+            queries.transaction {
+                incoming.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+                incoming.machines.forEach {
+                    queries.insertMachine(it.id, it.name, it.type, it.year)
+                }
+                incoming.shots.forEach {
+                    queries.insertShot(
+                        it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
+                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                    )
+                }
+            }
+            ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+        }
 }
 
 @Suppress("FunctionName")

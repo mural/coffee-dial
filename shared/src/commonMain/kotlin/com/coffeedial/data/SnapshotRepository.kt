@@ -52,7 +52,7 @@ class SnapshotRepository private constructor(
                     it.createdAt
                 }.thenBy { it.id }
             ).map {
-                val bean = beans.getValue(it.beanId)
+                val bean = beans[it.beanId] ?: BackupBeanV1(it.beanId, "Café molido", "")
                 Shot(
                     it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
                     it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating
@@ -192,5 +192,17 @@ class SnapshotRepository private constructor(
             )
         }
         return prepared.summary
+    }
+
+    override suspend fun forceImportBackup(text: String): ImportSummary {
+        val incoming = BackupFormat.decode(text)
+        change {
+            it.copy(
+                beans = (it.beans + incoming.beans).distinctBy { bean -> bean.id },
+                shots = (it.shots + incoming.shots).distinctBy { shot -> shot.id },
+                machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id }
+            )
+        }
+        return ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
     }
 }

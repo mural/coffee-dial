@@ -37,7 +37,7 @@ findBean:
 SELECT * FROM bean WHERE name = ? AND roaster = ?;
 
 insertShot:
-INSERT INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 history:
 SELECT shot.*, bean.name, bean.roaster
@@ -60,7 +60,7 @@ allMachines:
 SELECT * FROM machine ORDER BY name;
 
 insertMachine:
-INSERT INTO machine VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO machine VALUES (?, ?, ?, ?);
 
 deleteMachine:
 DELETE FROM machine WHERE id = ?;

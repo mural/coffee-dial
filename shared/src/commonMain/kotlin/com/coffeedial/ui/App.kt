@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +45,7 @@ import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
+import com.coffeedial.sync.SyncEngine
 import kotlin.math.round
 import kotlin.time.Instant
 import kotlinx.coroutines.CancellationException
@@ -82,6 +84,7 @@ fun App(
     var saving by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val syncEngine = remember(repository, authRepository) { SyncEngine(repository, authRepository) }
     PlatformBack(enabled = screen != "home") {
         if (!saving && !backupFiles.busy) {
             screen = when (screen) {
@@ -111,7 +114,8 @@ fun App(
             secondaryContainer = Color(0xFFEDE0CF)
         )
     ) {
-        Scaffold { padding ->
+        SelectionContainer {
+            Scaffold { padding ->
             Column(
                 Modifier.widthIn(
                     max = 960.dp
@@ -128,7 +132,7 @@ fun App(
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (screen == "home" && !localWeb) {
+                        if (screen == "home") {
                             TextButton(onClick = { screen = "account" }) {
                                 Text("Cuenta")
                             }
@@ -149,7 +153,7 @@ fun App(
                 when (screen) {
                     "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
 
-                    "account" -> AccountScreen(authRepository = authRepository)
+                    "account" -> AccountScreen(authRepository = authRepository, syncEngine = syncEngine)
 
                     "machines" -> MachinesScreen(
                         machines = machines,
@@ -337,6 +341,7 @@ fun App(
             }
         }
     }
+}
 }
 
 @Composable

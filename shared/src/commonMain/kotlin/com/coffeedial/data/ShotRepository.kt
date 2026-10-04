@@ -20,6 +20,7 @@ interface ShotRepository {
     suspend fun exportBackup(): String
     suspend fun prepareImport(text: String): PreparedImport
     suspend fun importBackup(prepared: PreparedImport): ImportSummary
+    suspend fun forceImportBackup(text: String): ImportSummary
 }
 
 class PreparedImport internal constructor(

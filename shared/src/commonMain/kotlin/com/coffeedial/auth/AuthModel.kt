@@ -20,3 +20,8 @@ sealed interface AuthState {
     data class LoggedIn(val user: User) : AuthState
     data class Error(val message: String) : AuthState
 }
+
+fun isValidEmail(email: String): Boolean {
+    val trimmed = email.trim()
+    return trimmed.contains("@") && trimmed.contains(".") && trimmed.length >= 5 && !trimmed.contains(" ")
+}
