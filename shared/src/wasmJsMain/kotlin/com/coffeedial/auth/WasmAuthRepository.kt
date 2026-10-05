@@ -1,71 +1,74 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package com.coffeedial.auth
 
-import kotlinx.browser.window
+import kotlin.js.JsString
+import kotlin.js.Promise
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+private external object CoffeeAuth {
+    fun start(): Promise<JsString>
+    fun complete(): Promise<JsString>
+    fun clear()
+}
 
 class WasmAuthRepository : AuthRepository {
     override val isWebPlatform = true
-    override val supportsBrowserSignIn = false
-
-    private val mutableState = MutableStateFlow<AuthState>(readSavedWasmUser())
+    private val mutableState = MutableStateFlow<AuthState>(AuthState.Authenticating)
     override val state: StateFlow<AuthState> = mutableState.asStateFlow()
+    private var generation = 0
+    private var syncToken: String? = null
+    override suspend fun syncCredential(): String? = syncToken
 
-    private fun readSavedWasmUser(): AuthState {
-        try {
-            val href = window.location.href
-            if (href.contains("email=")) {
-                val rawEmail = href.substringAfter("email=").substringBefore('&')
-                val email = decodeURIComponent(rawEmail).trim()
-                if (email.isNotBlank() && isValidEmail(email)) {
-                    val rawName = if (href.contains("name=")) href.substringAfter("name=").substringBefore('&') else ""
-                    val name = decodeURIComponent(rawName).trim().ifBlank { email.substringBefore('@') }
-                    val user = User(id = email, email = email, displayName = name, provider = AuthProvider.GOOGLE)
-                    saveWasmUser(user)
-                    return AuthState.LoggedIn(user)
+    init {
+        val initialGeneration = generation
+        MainScope().launch {
+            try {
+                val value = CoffeeAuth.complete().await().toString()
+                if (generation == initialGeneration) {
+                    mutableState.value = if (value.isEmpty()) {
+                        AuthState.LoggedOut
+                    } else {
+                        val user = Json.parseToJsonElement(value).jsonObject
+                        syncToken = user["syncToken"]?.jsonPrimitive?.contentOrNull
+                        AuthState.LoggedIn(
+                            User(
+                                id = requireNotNull(user["id"]?.jsonPrimitive?.contentOrNull),
+                                email = user["email"]?.jsonPrimitive?.contentOrNull,
+                                displayName = user["displayName"]?.jsonPrimitive?.contentOrNull,
+                                provider = AuthProvider.GOOGLE
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+                if (generation == initialGeneration) {
+                    mutableState.value =
+                        AuthState.Error("No se pudo verificar el acceso. Volvé a iniciar sesión.")
                 }
             }
-
-            val savedEmail = window.localStorage.getItem("coffee_user_email")
-            if (!savedEmail.isNullOrBlank()) {
-                val name = window.localStorage.getItem("coffee_user_name") ?: savedEmail.substringBefore('@')
-                return AuthState.LoggedIn(
-                    User(id = savedEmail, email = savedEmail, displayName = name, provider = AuthProvider.GOOGLE)
-                )
-            }
-        } catch (_: Exception) {
         }
-        return AuthState.LoggedOut
-    }
-
-    private fun decodeURIComponent(value: String): String {
-        return value
-            .replace("%40", "@")
-            .replace("%40".lowercase(), "@")
-            .replace("%20", " ")
-            .replace("+", " ")
-            .replace("%2B", "+")
-    }
-
-    private fun saveWasmUser(user: User) {
-        try {
-            window.localStorage.setItem("coffee_user_email", user.email ?: user.id)
-            window.localStorage.setItem("coffee_user_name", user.displayName ?: "")
-        } catch (_: Exception) {
-        }
-        mutableState.value = AuthState.LoggedIn(user)
     }
 
     override suspend fun signInWithGoogle() {
+        generation++
         mutableState.value = AuthState.Authenticating
-        val challenge = "0123456789012345678901234567890123456789012"
-        val appState = "0123456789012345678901234567890123456789012"
-        val googleAuthUrl = "https://auth-coffee.muralooo.win/google/start?challenge=$challenge&state=$appState&platform=web"
         try {
-            window.location.href = googleAuthUrl
+            CoffeeAuth.start().await()
         } catch (_: Exception) {
-            mutableState.value = AuthState.Error("No se pudo redirigir al inicio de sesión de Google")
+            mutableState.value =
+                AuthState.Error(
+                    "No se pudo abrir Google. Habilitá el almacenamiento del navegador."
+                )
         }
     }
 
@@ -74,11 +77,11 @@ class WasmAuthRepository : AuthRepository {
     }
 
     override suspend fun signOut() {
-        try {
-            window.localStorage.removeItem("coffee_user_email")
-            window.localStorage.removeItem("coffee_user_name")
-        } catch (_: Exception) {
-        }
+        val oldToken = syncToken
+        generation++
+        syncToken = null
+        CoffeeAuth.clear()
         mutableState.value = AuthState.LoggedOut
+        revokeSyncCredential(oldToken)
     }
 }

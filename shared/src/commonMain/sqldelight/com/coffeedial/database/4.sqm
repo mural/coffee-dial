@@ -1,0 +1,27 @@
+CREATE TABLE sync_checkpoint (id INTEGER NOT NULL PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL); CREATE TABLE bean_copy AS SELECT * FROM bean; CREATE TABLE shot_copy AS SELECT * FROM shot; DROP INDEX shot_created_at;
+DROP INDEX shot_bean_id;
+DROP TABLE shot; DROP TABLE bean;CREATE TABLE bean (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    roaster TEXT NOT NULL
+);
+
+CREATE TABLE shot (
+    id TEXT NOT NULL PRIMARY KEY,
+    bean_id TEXT NOT NULL REFERENCES bean(id),
+    created_at INTEGER NOT NULL,
+    dose REAL NOT NULL CHECK(dose > 0),
+    output REAL NOT NULL CHECK(output > 0),
+    seconds REAL NOT NULL CHECK(seconds > 0),
+    grind TEXT NOT NULL,
+    temperature REAL,
+    notes TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    milk REAL,
+    machine TEXT
+);
+
+CREATE INDEX shot_created_at ON shot(created_at DESC);
+CREATE INDEX shot_bean_id ON shot(bean_id);
+
+INSERT INTO bean SELECT * FROM bean_copy; INSERT INTO shot SELECT * FROM shot_copy; DROP TABLE shot_copy; DROP TABLE bean_copy;

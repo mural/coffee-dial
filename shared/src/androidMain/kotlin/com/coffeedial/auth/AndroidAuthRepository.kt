@@ -32,6 +32,8 @@ class AndroidAuthRepository(
     private var activity = WeakReference<Activity>(null)
     private var completing = false
     private var generation = 0
+    private var syncToken: String? = null
+    override suspend fun syncCredential(): String? = syncToken
 
     fun attach(activity: Activity) {
         this.activity = WeakReference(activity)
@@ -122,6 +124,7 @@ class AndroidAuthRepository(
                     AuthProvider.GOOGLE
                 )
             if (generation == attemptGeneration) {
+                syncToken = google.idToken
                 saveUserSession(user)
                 mutableState.value = AuthState.LoggedIn(user)
             }
@@ -171,7 +174,8 @@ class AndroidAuthRepository(
         val callbackGeneration = generation
         try {
             val user = web.complete(uri)
-            if (user != null) {
+            if (user != null && generation == callbackGeneration) {
+                syncToken = web.syncToken
                 saveUserSession(user)
                 mutableState.value = AuthState.LoggedIn(user)
             } else if (!web.pending) {
@@ -197,10 +201,13 @@ class AndroidAuthRepository(
     }
 
     override suspend fun signOut() {
+        val oldToken = syncToken
         generation++
         web.clear()
+        syncToken = null
         clearUserSession()
         mutableState.value = AuthState.LoggedOut
+        revokeSyncCredential(oldToken)
         try {
             manager.clearCredentialState(ClearCredentialStateRequest())
         } catch (

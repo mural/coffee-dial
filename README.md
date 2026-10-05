@@ -127,3 +127,7 @@ Integración opcional preparada; requiere registrar los proveedores antes del pr
 
 Coffee Dial también tiene un target Kotlin/Wasm local-first: `./gradlew :shared:wasmJsBrowserDevelopmentRun`.
 La versión publicada usa `https://coffee.muralooo.win`. Los datos se guardan en cada navegador y se pueden transferir mediante los mismos backups JSON de Android/iOS. Login web, sincronización y PWA quedan para una siguiente iteración. Ver [web/README.md](web/README.md) para builds, almacenamiento, límites y despliegue.
+
+## Sync autenticado
+
+Google autoriza el sync opcional entre dispositivos; Cloudflare guarda los datos. El protocolo 2 protege modificaciones concurrentes y borrados, y conserva compatibilidad con backups manuales v1. Ver [funcionamiento, migración y límites](docs/SYNC.md). Después de actualizar, volver a iniciar sesión con Google.

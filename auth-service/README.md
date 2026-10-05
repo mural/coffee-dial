@@ -1,31 +1,32 @@
-# Coffee Dial: Google web login
+# Coffee Dial: login y sync
 
-Fallback para Android sin Play Services. Los datos de café permanecen en el dispositivo.
+OAuth Google para web y fallback Android, y sync autenticado en Cloudflare. Ver [protocolo, migración y límites](../docs/SYNC.md).
 
-## Verificación local
+## Verificar
 
 ```sh
 npm ci
 npm test
 npm run check
+```
+
+Los tests de runtime usan el Miniflare y esbuild incluidos en el lockfile de Wrangler, sin conexiones a almacenamiento remoto. La prueba opcional de callback cancelado requiere el Worker local:
+
+```sh
 npx wrangler dev --config wrangler.local.jsonc --local --port 8787
-# En otra terminal:
 WORKER_TEST_ORIGIN=http://localhost:8787 npm test
 ```
 
-La configuración local contiene un secreto ficticio: no permite login real. La integración prueba el retorno cancelado y el rechazo de replays.
+La configuración local contiene un secreto ficticio y no permite login real.
 
-## Despliegue
-
-Cuenta y dominio están en wrangler.jsonc.
+## Publicar
 
 ```sh
 npm run deploy
-npx wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
-Ingresar el secreto mediante el prompt, nunca como argumento. El comando de secreto despliega una nueva versión. Registrar en Google el retorno exacto https://auth-coffee.muralooo.win/google/callback. Comprobar /health y probar Android de extremo a extremo.
+Cuenta, dominio, allowlist y clientes públicos de Google están en wrangler.jsonc. El secreto GOOGLE_CLIENT_SECRET existente se mantiene en Cloudflare: no pasarlo como argumento ni guardarlo en Git. Google conserva el retorno `https://auth-coffee.muralooo.win/google/callback`.
 
-Logs y trazas están deshabilitados para evitar persistir parámetros OAuth sensibles. Las respuestas usan no-store y no-referrer. Los intentos transitorios se eliminan al consumirse, fallar o vencer; hay límites por IP.
+Publicar la web compatible inmediatamente después y actualizar las apps nativas. Comprobar que /health devuelve ready y /api/sync sin Bearer devuelve 401, incluso con un email. Nunca probar escrituras con datos reales como test técnico.
 
-Al ampliar las pruebas, actualizar los usuarios de prueba de Google y ALLOWED_EMAILS. Este login identifica un perfil local; no autoriza acceso a un backend de datos.
+Logs de invocación y trazas siguen deshabilitados para no conservar parámetros OAuth. Las respuestas usan no-store y no-referrer. Las sesiones tienen vencimiento y revocación; las operaciones de datos usan revisión transaccional y tombstones. Los backups antiguos permanecen intactos durante la migración autenticada.

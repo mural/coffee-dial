@@ -10,6 +10,13 @@ import com.coffeedial.domain.ShotDraft
 import kotlinx.coroutines.flow.Flow
 
 interface ShotRepository {
+    suspend fun readSyncLocal(): com.coffeedial.sync.SyncLocal
+    suspend fun commitSync(
+        expected: com.coffeedial.sync.SyncLocal,
+        next: BackupV1,
+        checkpoint: String
+    )
+
     val history: Flow<List<Shot>>
     val machines: Flow<List<Machine>>
     suspend fun save(draft: ShotDraft)
@@ -21,6 +28,7 @@ interface ShotRepository {
     suspend fun prepareImport(text: String): PreparedImport
     suspend fun importBackup(prepared: PreparedImport): ImportSummary
     suspend fun forceImportBackup(text: String): ImportSummary
+    suspend fun replaceWithBackup(text: String): ImportSummary
 }
 
 class PreparedImport internal constructor(

@@ -19,6 +19,8 @@ import kotlinx.serialization.json.put
 internal class AndroidWebLogin(context: Context) {
     private val prefs = context.getSharedPreferences("coffee_web_attempt", Context.MODE_PRIVATE)
     private val origin = "https://auth-coffee.muralooo.win"
+    var syncToken: String? = null
+        private set
     val pending: Boolean get() = prefs.getString("state", null) != null
 
     fun clear() {
@@ -34,6 +36,7 @@ internal class AndroidWebLogin(context: Context) {
     }
 
     fun start(context: Context) {
+        syncToken = null
         val verifier = random()
         val state = random()
         val challenge = Base64.getUrlEncoder().withoutPadding().encodeToString(
@@ -47,7 +50,10 @@ internal class AndroidWebLogin(context: Context) {
             .appendQueryParameter(
                 "challenge",
                 challenge
-            ).appendQueryParameter("state", state).build()
+            ).appendQueryParameter(
+                "state",
+                state
+            ).appendQueryParameter("platform", "android").build()
         try {
             context.startActivity(
                 Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE)
@@ -105,6 +111,7 @@ internal class AndroidWebLogin(context: Context) {
                 val json = Json.parseToJsonElement(text).jsonObject
                 val id = json["id"]?.jsonPrimitive?.content ?: error("Missing subject")
                 require(id.isNotBlank())
+                syncToken = json["syncToken"]?.jsonPrimitive?.content
                 User(
                     id,
                     json["email"]?.jsonPrimitive?.content,

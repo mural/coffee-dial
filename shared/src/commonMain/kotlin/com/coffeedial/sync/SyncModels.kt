@@ -26,10 +26,7 @@ data class SyncResponse(
 sealed interface SyncState {
     data object Idle : SyncState
     data object Syncing : SyncState
-    data class Success(
-        val lastSyncedAt: Long,
-        val newItemsCount: Int,
-        val shotsCount: Int = 0
-    ) : SyncState
+    data class Success(val lastSyncedAt: Long, val newItemsCount: Int, val shotsCount: Int = 0) :
+        SyncState
     data class Error(val message: String) : SyncState
 }

@@ -40,6 +40,7 @@ class SnapshotRepositoryTest {
         assertEquals(1, target.prepareImport(backup).summary.duplicates)
         val shot = reopened.history.value.single()
         reopened.update(shot.id, ShotDraft(grind = "14"))
+        assertEquals(shot.id, reopened.history.value.single().id)
         assertEquals(shot.createdAt, reopened.history.value.single().createdAt)
         reopened.delete(shot.id)
         assertTrue(SnapshotRepository.open(store).history.value.isEmpty())

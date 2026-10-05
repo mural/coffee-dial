@@ -9,6 +9,7 @@
   "routes": [{"pattern":"auth-coffee.muralooo.win","custom_domain":true}],
   "vars": {
     "PUBLIC_ORIGIN": "https://auth-coffee.muralooo.win",
+    "GOOGLE_IOS_CLIENT_ID": "260197318794-dle7fel1us34ffughest6qd2e8pna1tf.apps.googleusercontent.com",
     "GOOGLE_CLIENT_ID": "260197318794-cd79hiok6b4na7fp10o2dakcu5li4fi2.apps.googleusercontent.com",
     "ALLOWED_EMAILS": "mural86@gmail.com"
   },

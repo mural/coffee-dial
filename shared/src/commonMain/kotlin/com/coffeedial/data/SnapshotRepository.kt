@@ -26,12 +26,42 @@ interface SnapshotStore {
     suspend fun compareAndSet(expected: String?, next: String): Boolean
 }
 
+@kotlinx.serialization.Serializable
+private data class StoredSnapshot(
+    val storageVersion: Int = 2,
+    val backup: BackupV1,
+    val checkpoint: String? = null
+)
+
 class SnapshotRepository private constructor(
     private val store: SnapshotStore,
     private var raw: String?
 ) : ShotRepository {
-    private var data =
-        raw?.let(BackupFormat::decode) ?: BackupFormat.create(emptyList(), emptyList())
+    private val storageJson = kotlinx.serialization.json.Json { encodeDefaults = true }
+    private fun decodeStorage(text: String?): StoredSnapshot = try {
+        readStorage(text)
+    } catch (_: Exception) {
+        throw BackupException(
+            "Los datos locales tienen un formato incompatible o dañado. No se modificaron."
+        )
+    }
+    private fun readStorage(text: String?): StoredSnapshot {
+        if (text ==
+            null
+        ) {
+            return StoredSnapshot(backup = BackupFormat.create(emptyList(), emptyList()))
+        }
+        val root = kotlinx.serialization.json.Json.parseToJsonElement(
+            text
+        ) as kotlinx.serialization.json.JsonObject
+        if ("storageVersion" !in root) return StoredSnapshot(backup = BackupFormat.decode(text))
+        return kotlinx.serialization.json.Json.decodeFromString<StoredSnapshot>(text).also {
+            require(it.storageVersion == 2)
+            BackupFormat.validate(it.backup)
+        }
+    }
+    private var stored = decodeStorage(raw)
+    private var data = stored.backup
     private val mutex = Mutex()
     override val history = MutableStateFlow<List<Shot>>(emptyList())
     override val machines = MutableStateFlow<List<Machine>>(emptyList())
@@ -65,10 +95,10 @@ class SnapshotRepository private constructor(
     private suspend fun refresh() {
         val latest = store.read()
         if (latest != raw) {
-            val decoded =
-                latest?.let(BackupFormat::decode) ?: BackupFormat.create(emptyList(), emptyList())
+            val decoded = decodeStorage(latest)
             raw = latest
-            data = decoded
+            stored = decoded
+            data = decoded.backup
             publish()
         }
     }
@@ -76,7 +106,8 @@ class SnapshotRepository private constructor(
     private suspend fun change(transform: (BackupV1) -> BackupV1) = mutex.withLock {
         refresh()
         val next = transform(data).copy(exportedAt = Clock.System.now().toString())
-        val text = BackupFormat.encode(next)
+        BackupFormat.validate(next)
+        val text = storageJson.encodeToString(stored.copy(backup = next))
         if (!store.compareAndSet(raw, text)) {
             refresh()
             throw BackupException(
@@ -85,6 +116,35 @@ class SnapshotRepository private constructor(
             )
         }
         raw = text
+        data = next
+        stored = stored.copy(backup = next)
+        publish()
+    }
+
+    override suspend fun readSyncLocal(): com.coffeedial.sync.SyncLocal = mutex.withLock {
+        refresh()
+        com.coffeedial.sync.SyncLocal(data, stored.checkpoint)
+    }
+    override suspend fun commitSync(
+        expected: com.coffeedial.sync.SyncLocal,
+        next: BackupV1,
+        checkpoint: String
+    ) = mutex.withLock {
+        refresh()
+        check(
+            com.coffeedial.sync.sameData(data, expected.backup) &&
+                stored.checkpoint == expected.checkpoint
+        ) {
+            "Los datos cambiaron durante el sync. Tus cambios están guardados; volvé a sincronizar."
+        }
+        BackupFormat.validate(next)
+        val nextStored = StoredSnapshot(backup = next, checkpoint = checkpoint)
+        val text = storageJson.encodeToString(nextStored)
+        check(store.compareAndSet(raw, text)) {
+            "Otra pestaña cambió los datos. Volvé a sincronizar."
+        }
+        raw = text
+        stored = nextStored
         data = next
         publish()
     }
@@ -201,6 +261,18 @@ class SnapshotRepository private constructor(
                 beans = (it.beans + incoming.beans).distinctBy { bean -> bean.id },
                 shots = (it.shots + incoming.shots).distinctBy { shot -> shot.id },
                 machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id }
+            )
+        }
+        return ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+    }
+
+    override suspend fun replaceWithBackup(text: String): ImportSummary {
+        val incoming = BackupFormat.decode(text)
+        change {
+            it.copy(
+                beans = incoming.beans,
+                shots = incoming.shots,
+                machines = incoming.machines
             )
         }
         return ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)

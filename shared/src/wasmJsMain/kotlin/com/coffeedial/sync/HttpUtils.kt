@@ -6,7 +6,11 @@ import org.w3c.fetch.Headers
 import org.w3c.fetch.RequestInit
 
 @OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
-actual suspend fun httpPostJson(url: String, jsonBody: String, headers: Map<String, String>): String {
+actual suspend fun httpPostJson(
+    url: String,
+    jsonBody: String,
+    headers: Map<String, String>
+): String {
     val reqHeaders = Headers()
     reqHeaders.append("Content-Type", "application/json")
     headers.forEach { (k, v) -> reqHeaders.append(k, v) }

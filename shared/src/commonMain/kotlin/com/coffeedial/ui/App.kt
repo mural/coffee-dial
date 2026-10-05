@@ -26,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.auth.AuthRepository
+import com.coffeedial.auth.AuthState
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Machine
@@ -85,6 +87,10 @@ fun App(
     var saveError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val syncEngine = remember(repository, authRepository) { SyncEngine(repository, authRepository) }
+    val authState by authRepository.state.collectAsState()
+    LaunchedEffect(authState) {
+        if (authState is AuthState.LoggedIn) syncEngine.performSync()
+    }
     PlatformBack(enabled = screen != "home") {
         if (!saving && !backupFiles.busy) {
             screen = when (screen) {
@@ -116,223 +122,235 @@ fun App(
     ) {
         SelectionContainer {
             Scaffold { padding ->
-            Column(
-                Modifier.widthIn(
-                    max = 960.dp
-                ).fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
-            ) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    Modifier.widthIn(
+                        max = 960.dp
+                    ).fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
                 ) {
-                    Text(
-                        "Coffee Dial",
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (screen == "home") {
-                            TextButton(onClick = { screen = "account" }) {
-                                Text("Cuenta")
-                            }
-                        } else if (screen != "home") {
-                            TextButton(enabled = !saving && !backupFiles.busy, onClick = {
-                                screen = when (screen) {
-                                    "detail" -> "history"
-                                    "edit" -> "detail"
-                                    "machines", "account", "backup" -> "home"
-                                    else -> "home"
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Coffee Dial",
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (screen == "home") {
+                                TextButton(onClick = { screen = "account" }) {
+                                    Text("Cuenta")
                                 }
-                            }) {
-                                Text("Volver")
+                            } else if (screen != "home") {
+                                TextButton(enabled = !saving && !backupFiles.busy, onClick = {
+                                    screen = when (screen) {
+                                        "detail" -> "history"
+                                        "edit" -> "detail"
+                                        "machines", "account", "backup" -> "home"
+                                        else -> "home"
+                                    }
+                                }) {
+                                    Text("Volver")
+                                }
                             }
                         }
                     }
-                }
-                when (screen) {
-                    "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
+                    when (screen) {
+                        "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
 
-                    "account" -> AccountScreen(authRepository = authRepository, syncEngine = syncEngine)
+                        "account" -> AccountScreen(
+                            authRepository = authRepository,
+                            syncEngine = syncEngine
+                        )
 
-                    "machines" -> MachinesScreen(
-                        machines = machines,
-                        saving = saving,
-                        saveError = saveError,
-                        onSaveMachine = { machineDraft ->
-                            saving = true
-                            saveError = null
-                            scope.launch {
-                                try {
-                                    repository.saveMachine(machineDraft)
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (_: Exception) {
-                                    saveError = "No pudimos guardar la máquina."
-                                } finally {
-                                    saving = false
-                                }
-                            }
-                        },
-                        onDeleteMachine = { machineId ->
-                            saving = true
-                            scope.launch {
-                                try {
-                                    repository.deleteMachine(machineId)
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (_: Exception) {
-                                } finally {
-                                    saving = false
-                                }
-                            }
-                        }
-                    )
-
-                    "new", "edit" -> ShotForm(
-                        draft = draft,
-                        machines = machines,
-                        onChange = {
-                            draft = it
-                            saveError = null
-                        },
-                        saving = saving,
-                        saveError = saveError,
-                        isEditing = screen == "edit",
-                        onNavigateToMachines = { screen = "machines" },
-                        onSave = {
-                            saving = true
-                            saveError = null
-                            scope.launch {
-                                try {
-                                    if (screen == "edit" && selectedId != null) {
-                                        repository.update(selectedId!!, draft)
-                                        screen = "detail"
-                                    } else {
-                                        repository.save(draft)
-                                        screen = "history"
+                        "machines" -> MachinesScreen(
+                            machines = machines,
+                            saving = saving,
+                            saveError = saveError,
+                            onSaveMachine = { machineDraft ->
+                                saving = true
+                                saveError = null
+                                scope.launch {
+                                    try {
+                                        repository.saveMachine(machineDraft)
+                                        runCatching { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                        saveError = "No pudimos guardar la máquina."
+                                    } finally {
+                                        saving = false
                                     }
-                                    draft = ShotDraft()
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (_: Exception) {
-                                    saveError =
-                                        "No pudimos guardar el shot. Tus datos siguen acá; intentá otra vez."
-                                } finally {
-                                    saving = false
+                                }
+                            },
+                            onDeleteMachine = { machineId ->
+                                saving = true
+                                scope.launch {
+                                    try {
+                                        repository.deleteMachine(machineId)
+                                        runCatching { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                    } finally {
+                                        saving = false
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
 
-                    else -> when {
-                        loadError -> {
-                            Text("No pudimos leer tu historial.")
-                            Button(onClick = { retry++ }) { Text("Reintentar") }
-                        }
-
-                        shots == null -> CircularProgressIndicator()
-
-                        screen == "detail" -> {
-                            val shot = shots.orEmpty().find { it.id == selectedId }
-                            if (shot == null) {
-                                Text("No encontramos este shot.")
-                            } else {
-                                ShotDetail(
-                                    shot = shot,
-                                    onEdit = {
-                                        draft = ShotDraft(
-                                            beanName = shot.bean.name,
-                                            roaster = shot.bean.roaster,
-                                            dose = shot.dose.pretty(),
-                                            output = shot.output.pretty(),
-                                            seconds = shot.seconds.pretty(),
-                                            grind = shot.grind,
-                                            temperature = shot.temperature?.pretty() ?: "",
-                                            milk = shot.milk?.pretty() ?: "",
-                                            machine = shot.machine ?: "",
-                                            notes = shot.notes,
-                                            rating = shot.rating
-                                        )
-                                        screen = "edit"
-                                    },
-                                    onDelete = {
-                                        saving = true
-                                        scope.launch {
-                                            try {
-                                                repository.delete(shot.id)
-                                                screen = "history"
-                                            } catch (cancelled: CancellationException) {
-                                                throw cancelled
-                                            } catch (_: Exception) {
-                                            } finally {
-                                                saving = false
-                                            }
+                        "new", "edit" -> ShotForm(
+                            draft = draft,
+                            machines = machines,
+                            onChange = {
+                                draft = it
+                                saveError = null
+                            },
+                            saving = saving,
+                            saveError = saveError,
+                            isEditing = screen == "edit",
+                            onNavigateToMachines = { screen = "machines" },
+                            onSave = {
+                                saving = true
+                                saveError = null
+                                scope.launch {
+                                    try {
+                                        if (screen == "edit" && selectedId != null) {
+                                            repository.update(selectedId!!, draft)
+                                            screen = "detail"
+                                        } else {
+                                            repository.save(draft)
+                                            screen = "history"
                                         }
-                                    },
-                                    saving = saving
-                                )
+                                        draft = ShotDraft()
+                                        runCatching { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                        saveError =
+                                            "No pudimos guardar el shot. Tus datos siguen acá; " +
+                                            "intentá otra vez."
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
                             }
-                        }
+                        )
 
-                        else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            item {
-                                Text(
+                        else -> when {
+                            loadError -> {
+                                Text("No pudimos leer tu historial.")
+                                Button(onClick = { retry++ }) { Text("Reintentar") }
+                            }
+
+                            shots == null -> CircularProgressIndicator()
+
+                            screen == "detail" -> {
+                                val shot = shots.orEmpty().find { it.id == selectedId }
+                                if (shot == null) {
+                                    Text("No encontramos este shot.")
+                                } else {
+                                    ShotDetail(
+                                        shot = shot,
+                                        onEdit = {
+                                            draft = ShotDraft(
+                                                beanName = shot.bean.name,
+                                                roaster = shot.bean.roaster,
+                                                dose = shot.dose.pretty(),
+                                                output = shot.output.pretty(),
+                                                seconds = shot.seconds.pretty(),
+                                                grind = shot.grind,
+                                                temperature = shot.temperature?.pretty() ?: "",
+                                                milk = shot.milk?.pretty() ?: "",
+                                                machine = shot.machine ?: "",
+                                                notes = shot.notes,
+                                                rating = shot.rating
+                                            )
+                                            screen = "edit"
+                                        },
+                                        onDelete = {
+                                            saving = true
+                                            scope.launch {
+                                                try {
+                                                    repository.delete(shot.id)
+                                                    screen = "history"
+                                                    runCatching { syncEngine.performSync() }
+                                                } catch (cancelled: CancellationException) {
+                                                    throw cancelled
+                                                } catch (_: Exception) {
+                                                } finally {
+                                                    saving = false
+                                                }
+                                            }
+                                        },
+                                        saving = saving
+                                    )
+                                }
+                            }
+
+                            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                item {
+                                    Text(
+                                        if (screen ==
+                                            "home"
+                                        ) {
+                                            "Tu próximo buen café empieza acá."
+                                        } else {
+                                            "Historial"
+                                        },
+                                        style = MaterialTheme.typography.headlineSmall
+                                    )
+                                    Text(
+                                        "${shots.orEmpty().size} shots · guardados en este " +
+                                            "dispositivo",
+                                        modifier = Modifier.padding(vertical = 12.dp)
+                                    )
+                                    Button(onClick = {
+                                        screen = "new"
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Registrar un shot")
+                                    }
+                                    if (screen == "home") {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            TextButton(onClick = {
+                                                screen = "history"
+                                            }) { Text("Historial") }
+                                            TextButton(onClick = {
+                                                screen = "machines"
+                                            }) { Text("Máquinas") }
+                                            TextButton(onClick = {
+                                                screen = "backup"
+                                            }) { Text("Backup") }
+                                        }
+                                        Text(
+                                            "Últimos shots",
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                    }
+                                }
+                                if (shots.orEmpty().isEmpty()) {
+                                    item {
+                                        Text(
+                                            "Todavía no hay shots. Registrá tu receta " +
+                                                "y empezá a encontrar tu punto ideal."
+                                        )
+                                    }
+                                }
+                                items(
                                     if (screen ==
                                         "home"
                                     ) {
-                                        "Tu próximo buen café empieza acá."
+                                        shots.orEmpty().take(3)
                                     } else {
-                                        "Historial"
+                                        shots.orEmpty()
                                     },
-                                    style = MaterialTheme.typography.headlineSmall
-                                )
-                                Text(
-                                    "${shots.orEmpty().size} shots · guardados en este dispositivo",
-                                    modifier = Modifier.padding(vertical = 12.dp)
-                                )
-                                Button(onClick = {
-                                    screen = "new"
-                                }, modifier = Modifier.fillMaxWidth()) { Text("Registrar un shot") }
-                                if (screen == "home") {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        TextButton(onClick = {
-                                            screen = "history"
-                                        }) { Text("Historial") }
-                                        TextButton(onClick = {
-                                            screen = "machines"
-                                        }) { Text("Máquinas") }
-                                        TextButton(onClick = {
-                                            screen = "backup"
-                                        }) { Text("Backup") }
+                                    key = { it.id }
+                                ) { shot ->
+                                    ShotCard(shot) {
+                                        selectedId = shot.id
+                                        screen = "detail"
                                     }
-                                    Text(
-                                        "Últimos shots",
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                }
-                            }
-                            if (shots.orEmpty().isEmpty()) {
-                                item {
-                                    Text(
-                                        "Todavía no hay shots. Registrá tu receta " +
-                                            "y empezá a encontrar tu punto ideal."
-                                    )
-                                }
-                            }
-                            items(
-                                if (screen ==
-                                    "home"
-                                ) {
-                                    shots.orEmpty().take(3)
-                                } else {
-                                    shots.orEmpty()
-                                },
-                                key = { it.id }
-                            ) { shot ->
-                                ShotCard(shot) {
-                                    selectedId = shot.id
-                                    screen = "detail"
                                 }
                             }
                         }
@@ -341,7 +359,6 @@ fun App(
             }
         }
     }
-}
 }
 
 @Composable

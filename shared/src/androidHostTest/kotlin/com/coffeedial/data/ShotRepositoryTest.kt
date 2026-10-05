@@ -54,6 +54,22 @@ class ShotRepositoryTest {
     }
 
     @Test
+    fun editingPreservesShotIdentityAndCreationTime() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repository = ShotRepository(driver)
+            repository.save(ShotDraft(beanName = "Brasil", grind = "12"))
+            val before = repository.history.first().single()
+            repository.update(before.id, ShotDraft(beanName = "Colombia", grind = "14"))
+            val after = repository.history.first().single()
+            assertEquals(before.id, after.id)
+            assertEquals(before.createdAt, after.createdAt)
+            assertEquals("14", after.grind)
+            assertEquals("Colombia", after.bean.name)
+        }
+    }
+
+    @Test
     fun invalidShotDoesNotWriteAnything() = runBlocking {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
             CoffeeDatabase.Schema.create(driver)

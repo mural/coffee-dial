@@ -17,6 +17,14 @@ export async function verifyGoogle(token, env, nonce, keys = googleKeys) {
   if (!allowed.includes(payload.email.toLowerCase())) throw new AuthError('not_allowed');
   return { id: payload.sub, email: payload.email, displayName: typeof payload.name === 'string' ? payload.name : null };
 }
+export async function verifySyncGoogle(token, env, keys = googleKeys) {
+  const audience = [env.GOOGLE_CLIENT_ID, env.GOOGLE_IOS_CLIENT_ID].filter(Boolean);
+  const { payload } = await jwtVerify(token, keys, { issuer: ['https://accounts.google.com', 'accounts.google.com'], audience,
+    algorithms: ['RS256'], requiredClaims: ['exp', 'iat', 'sub'], maxTokenAge: '70m', clockTolerance: 10 });
+  if (typeof payload.sub !== 'string' || !payload.sub || payload.email_verified !== true || typeof payload.email !== 'string') throw new AuthError('identity');
+  if (!env.ALLOWED_EMAILS.split(',').map(s => s.trim().toLowerCase()).includes(payload.email.toLowerCase())) throw new AuthError('not_allowed');
+  return { id: payload.sub, email: payload.email, displayName: typeof payload.name === 'string' ? payload.name : null };
+}
 export async function googleExchange(code, record, env) {
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -35,16 +43,6 @@ export class Session {
   constructor(storage, env, exchange = googleExchange, now = () => Date.now()) {
     this.storage = storage; this.env = env; this.exchange = exchange; this.now = now;
   }
-  async saveSync(data) {
-    if (typeof data === 'string' && data.length > 2) {
-      await this.storage.put('user_sync_data', data);
-    }
-    return { success: true };
-  }
-  async getSync() {
-    const data = await this.storage.get('user_sync_data');
-    return data || null;
-  }
   async init(input) {
     if (!validProof(input.challenge) || !validProof(input.appState) || !validProof(input.browserHash)) throw new AuthError('invalid');
     const record = { ...input, expires: this.now() + TTL, status: 'pending', nonce: random(), googleVerifier: random() };
@@ -62,15 +60,15 @@ export class Session {
       await tx.put('session', { ...r, status: 'verifying' });
       return r;
     });
-    if (input.error) { await this.storage.deleteAll(); return { appState: record.appState, error: 'cancelled' }; }
+    if (input.error) { await this.storage.deleteAll(); return { appState: record.appState, platform: record.platform, returnTo: record.returnTo, error: 'cancelled' }; }
     try {
       if (typeof input.code !== 'string' || input.code.length > 4096) throw new AuthError('code');
       const user = await this.exchange(input.code, record, this.env);
       const ticket = random();
       await this.storage.put('session', { appState: record.appState, challenge: record.challenge,
         status: 'ready', ticketHash: await hash(ticket), expires: Math.min(record.expires, this.now() + 60_000), user });
-      return { appState: record.appState, ticket, user };
-    } catch { await this.storage.deleteAll(); return { appState: record.appState, error: 'failed' }; }
+      return { appState: record.appState, platform: record.platform, returnTo: record.returnTo, ticket };
+    } catch { await this.storage.deleteAll(); return { appState: record.appState, platform: record.platform, returnTo: record.returnTo, error: 'failed' }; }
   }
   async consume(input) {
     if (!validProof(input.verifier) || !validProof(input.ticket) || !validProof(input.appState)) throw new AuthError('invalid');

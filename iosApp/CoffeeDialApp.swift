@@ -219,6 +219,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
     private func acceptGoogle(_ google: GIDGoogleUser) {
         guard let id = google.userID, !id.isEmpty else { repository.cancelled(); return }
         defaults.set("google", forKey: "coffee.auth.provider")
+        repository.googleIdToken = google.idToken?.tokenString
         repository.authenticated(user: User(id: id, email: google.profile?.email,
             displayName: google.profile?.name, photoUrl: nil, provider: .google, linkedAt: 0))
     }

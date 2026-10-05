@@ -23,5 +23,6 @@ sealed interface AuthState {
 
 fun isValidEmail(email: String): Boolean {
     val trimmed = email.trim()
-    return trimmed.contains("@") && trimmed.contains(".") && trimmed.length >= 5 && !trimmed.contains(" ")
+    return trimmed.contains("@") && trimmed.contains(".") && trimmed.length >= 5 &&
+        !trimmed.contains(" ")
 }

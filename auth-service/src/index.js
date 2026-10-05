@@ -1,10 +1,12 @@
+import { emptySync, updateSync, seedLegacy } from './sync.js';
+import { loginDestination, callbackDestination } from './returns.js';
 import { DurableObject } from 'cloudflare:workers';
-import { Session, random, hash, validProof } from './core.js';
+import { Session, random, hash, validProof, verifySyncGoogle } from './core.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-User-Email, Authorization'
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
 const headers = {
@@ -27,12 +29,12 @@ async function call(env, id, action, input) {
   return result.json();
 }
 
-async function boundedJson(request) {
+async function boundedJson(request, limit = 16384) {
   if (!(request.headers.get('Content-Type') || '').startsWith('application/json')) throw new Error('type');
   const reader = request.body?.getReader(); if (!reader) throw new Error('body');
   let size = 0, text = ''; const decoder = new TextDecoder();
   while (true) { const { done, value } = await reader.read(); if (done) break;
-    size += value.length; if (size > 4096) { await reader.cancel(); throw new Error('size'); }
+    size += value.length; if (size > limit) { await reader.cancel(); throw new Error('size'); }
     text += decoder.decode(value, { stream: true }); }
   return JSON.parse(text + decoder.decode());
 }
@@ -43,8 +45,21 @@ export class LoginAttempt extends DurableObject {
       const s = new Session(this.ctx.storage, this.env);
       const action = new URL(request.url).pathname;
       const input = await request.json();
-      if (action === '/sync_save') return json(await s.saveSync(input.data));
-      if (action === '/sync_get') return json({ data: await s.getSync() });
+      if (action === '/legacy_read') return json({ data: await this.ctx.storage.get('user_sync_data') || null });
+      if (action === '/sync_seed') return json(await seedLegacy(this.ctx.storage, input.backup));
+      if (action === '/sync_read') return json(await this.ctx.storage.get('sync_v2') || emptySync());
+      if (action === '/sync_write') return json(await updateSync(this.ctx.storage, input));
+      if (action === '/access_create') {
+        await this.ctx.storage.put('access', { user: input.user, expires: Date.now() + 12 * 3600000 });
+        await this.ctx.storage.setAlarm(Date.now() + 12 * 3600000);
+        return json({ ok: true });
+      }
+      if (action === '/access_read') {
+        const access = await this.ctx.storage.get('access');
+        if (!access || access.expires <= Date.now()) return json({ error: 'unauthorized' }, 401);
+        return json(access.user);
+      }
+      if (action === '/access_revoke') { await this.ctx.storage.deleteAll(); return json({ ok: true }); }
       if (action === '/init') return json(await s.init(input));
       if (action === '/callback') return json(await s.callback(input));
       if (action === '/consume') return json(await s.consume(input));
@@ -64,40 +79,39 @@ export default {
     if (url.origin !== env.PUBLIC_ORIGIN) return json({ error: 'wrong_origin' }, 400);
     if (url.pathname === '/health' && request.method === 'GET') return json({ status: env.GOOGLE_CLIENT_SECRET ? 'ready' : 'not_configured' });
     if (url.pathname === '/' && request.method === 'GET') return html('<p>Servicio de acceso de Coffee Dial. Iniciá sesión desde la app.</p>');
-    if (url.pathname === '/api/sync') {
-      const email = request.headers.get('X-User-Email') || url.searchParams.get('email');
-      if (!email) return json({ error: 'missing_email' }, 400);
-
-      const doId = env.SESSIONS.idFromName(`sync_${email.trim().toLowerCase()}`);
-      const stub = env.SESSIONS.get(doId);
-
-      if (request.method === 'POST') {
-        const body = await request.text();
-        if (body && body.length > 2) {
-          try {
-            await stub.fetch(new Request('https://session/sync_save', { method: 'POST', body: JSON.stringify({ data: body }) }));
-          } catch (_) {}
+    if (url.pathname === '/api/sync' || url.pathname === '/api/logout') {
+      const bearer = request.headers.get('Authorization') || '';
+      if (!bearer.startsWith('Bearer ') || bearer.length > 16384) return json({ error: 'unauthorized' }, 401);
+      const token = bearer.slice(7);
+      let user;
+      try {
+        user = token.startsWith('cd.') && validProof(token.slice(3))
+          ? await call(env, `access_${await hash(token)}`, 'access_read', {})
+          : await verifySyncGoogle(token, env);
+      } catch { return json({ error: 'unauthorized' }, 401); }
+      if (url.pathname === '/api/logout' && request.method === 'POST') {
+        if (token.startsWith('cd.')) await call(env, `access_${await hash(token)}`, 'access_revoke', {});
+        return json({ ok: true });
+      }
+      const account = `sync_v2_google_${user.id}`;
+      try {
+        if (request.method === 'GET') {
+          let document = await call(env, account, 'sync_read', {});
+          if (document.revision === 0) {
+            // Only a cryptographically verified email may recover the legacy namespace.
+            // Its original contents remain untouched for recovery.
+            const legacy = await call(env, `sync_${user.email.trim().toLowerCase()}`, 'legacy_read', {});
+            if (legacy.data) document = await call(env, account, 'sync_seed', { backup: JSON.parse(legacy.data) });
+          }
+          return json(document);
         }
-        const res = await stub.fetch(new Request('https://session/sync_get', { method: 'POST', body: '{}' }));
-        const resData = await res.json();
-        const stored = resData?.data || body;
-        return new Response(stored, { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } });
-      }
-
-      if (request.method === 'GET') {
-        const res = await stub.fetch(new Request('https://session/sync_get', { method: 'POST', body: '{}' }));
-        const resData = await res.json();
-        const stored = resData?.data;
-        const responseData = stored || JSON.stringify({
-          format: "coffee-dial-backup",
-          schemaVersion: 1,
-          exportedAt: new Date().toISOString(),
-          beans: [],
-          shots: [],
-          machines: []
-        });
-        return new Response(responseData, { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } });
-      }
+        if (request.method === 'POST') {
+          const input = await boundedJson(request, 1500000);
+          const result = await call(env, account, 'sync_write', input);
+          return json(result, result.conflict ? 409 : 200);
+        }
+        return json({ error: 'method_not_allowed' }, 405);
+      } catch { return json({ error: 'sync_failed' }, 400); }
     }
 
     if (!env.GOOGLE_CLIENT_SECRET) return html('<p>El acceso web todavía no está configurado. Volvé a la app.</p>', 503);
@@ -108,8 +122,9 @@ export default {
       if (url.pathname === '/google/start' && request.method === 'GET') {
         const challenge = url.searchParams.get('challenge'), appState = url.searchParams.get('state');
         if (!validProof(challenge) || !validProof(appState)) return json({ error: 'invalid' }, 400);
+        const destination = loginDestination(url, request.headers.get('User-Agent') || '');
         const state = random(), browser = random();
-        const result = await call(env, state, 'init', { challenge, appState, browserHash: await hash(browser) });
+        const result = await call(env, state, 'init', { challenge, appState, browserHash: await hash(browser), ...destination });
         const google = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         google.search = new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: `${env.PUBLIC_ORIGIN}/google/callback`,
           response_type: 'code', scope: 'openid email profile', state, nonce: result.nonce,
@@ -122,32 +137,22 @@ export default {
         const browser = (request.headers.get('Cookie') || '').split(';').map(v => v.trim()).find(v => v.startsWith(`${cookieName(state)}=`))?.split('=')[1];
         if (!validProof(browser)) throw new Error('cookie');
         const result = await call(env, state, 'callback', { browserHash: await hash(browser), code: url.searchParams.get('code'), error: url.searchParams.get('error') });
-        const params = new URLSearchParams({ state: result.appState, attempt: state });
-        if (result.ticket) params.set('code', result.ticket); else params.set('error', result.error);
-
-        const email = result.user?.email || '';
-        const name = result.user?.displayName || email.split('@')[0] || '';
-        const webOrigin = env.PUBLIC_ORIGIN.replace('auth-coffee', 'coffee');
-        const webRedirectUrl = `${webOrigin}/#email=${email}&name=${encodeURIComponent(name)}`;
-        const mobileLink = `coffeedial://auth/google?${params}`.replaceAll('&', '&amp;');
-
-        return html(`
-          <p>${result.ticket ? 'Acceso confirmado para ' + email + '.' : 'No se completó el acceso.'}</p>
-          <p style="margin-top: 16px;"><a href="${webRedirectUrl}" style="font-size: 18px; font-weight: bold; color: #704a32;">Volver a Coffee Dial (Web)</a></p>
-          <p style="margin-top: 8px;"><a href="${mobileLink}">Volver a la App (Android / iOS)</a></p>
-          <script>
-            setTimeout(function() {
-              if (window.location.href.indexOf('platform=web') !== -1 || !navigator.userAgent.includes('Android')) {
-                window.location.href = "${webRedirectUrl}";
-              }
-            }, 1000);
-          </script>
-        `, 200, { 'Set-Cookie': cookie(state, '', 0) });
+        const destination = callbackDestination(result, state);
+        const extra = { 'Set-Cookie': cookie(state, '', 0) };
+        if (destination.platform === 'web') {
+          return new Response(null, { status: 302, headers: { ...headers, ...extra, Location: destination.location } });
+        }
+        const link = destination.location.replaceAll('&', '&amp;');
+        const label = destination.platform === 'ios' ? 'iOS' : 'Android';
+        return html(`<p>${result.ticket ? 'Acceso confirmado.' : 'No se completó el acceso.'}</p><p><a href="${link}">Volver a Coffee Dial (${label})</a></p>`, 200, extra);
       }
       if (url.pathname === '/exchange' && request.method === 'POST') {
         const input = await boundedJson(request);
         if (!validProof(input.attempt)) throw new Error('attempt');
-        return json(await call(env, input.attempt, 'consume', input));
+        const user = await call(env, input.attempt, 'consume', input);
+        const syncToken = `cd.${random()}`;
+        await call(env, `access_${await hash(syncToken)}`, 'access_create', { user });
+        return json({ ...user, syncToken });
       }
       return json({ error: 'not_found' }, 404);
     } catch { return html('<p>Este intento venció o no es válido. Volvé a Coffee Dial e iniciá sesión nuevamente.</p>', 400); }

@@ -33,10 +33,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun AccountScreen(
-    authRepository: AuthRepository,
-    syncEngine: SyncEngine? = null
-) {
+fun AccountScreen(authRepository: AuthRepository, syncEngine: SyncEngine? = null) {
     val state by authRepository.state.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -55,7 +52,8 @@ fun AccountScreen(
                         ) {
                             Text("Acceso opcional", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Tus cafés siguen guardados en este dispositivo. Iniciar sesión te permite sincronizar en la nube.",
+                                "Tus cafés siguen guardados en este dispositivo. Iniciar sesión " +
+                                    "te permite sincronizar en la nube.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
 
@@ -168,38 +166,56 @@ fun AccountScreen(
                 }
 
                 item {
-                    val syncState by (syncEngine?.state?.collectAsState() ?: remember { mutableStateOf(SyncState.Idle) })
+                    val syncState by (
+                        syncEngine?.state?.collectAsState()
+                            ?: remember { mutableStateOf(SyncState.Idle) }
+                        )
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text("Sincronización en la Nube", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Mantené tus shots, recetas y máquinas sincronizados entre todos tus dispositivos mediante tu cuenta de Google en la nube.",
+                                "Sincronización en la Nube",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Sincronizá con Google sin reemplazar cambios pendientes. " +
+                                    "Recuperar combina los datos; si hay un conflicto, ambas " +
+                                    "versiones se conservan.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
 
                             when (val sync = syncState) {
                                 is SyncState.Idle -> {
-                                    Text("Estado: Listo para sincronizar", style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        "Estado: Listo para sincronizar",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 }
+
                                 is SyncState.Syncing -> {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         CircularProgressIndicator()
-                                        Text("Sincronizando con la nube…", style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            "Sincronizando con la nube…",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
                                     }
                                 }
+
                                 is SyncState.Success -> {
                                     Text(
-                                        "Última sincronización exitosa (${sync.shotsCount} shots sincronizados)",
+                                        "Última sincronización exitosa (${sync.shotsCount} " +
+                                            "shots sincronizados)",
                                         color = MaterialTheme.colorScheme.primary,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
+
                                 is SyncState.Error -> {
                                     Text(
                                         "Error al sincronizar: ${sync.message}",
@@ -220,7 +236,13 @@ fun AccountScreen(
                                     enabled = syncEngine != null && syncState !is SyncState.Syncing,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text(if (syncState is SyncState.Syncing) "Sincronizando…" else "Sincronizar")
+                                    Text(
+                                        if (syncState is SyncState.Syncing) {
+                                            "Sincronizando…"
+                                        } else {
+                                            "Sincronizar"
+                                        }
+                                    )
                                 }
 
                                 OutlinedButton(
@@ -230,7 +252,7 @@ fun AccountScreen(
                                     enabled = syncEngine != null && syncState !is SyncState.Syncing,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("Restaurar de la nube")
+                                    Text("Recuperar y combinar")
                                 }
                             }
                         }

@@ -48,12 +48,51 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         rows.map { Machine(it.id, it.name, it.type, it.year) }
     }
 
+    override suspend fun readSyncLocal(): com.coffeedial.sync.SyncLocal =
+        withContext(Dispatchers.IO) {
+            queries.transactionWithResult {
+                com.coffeedial.sync.SyncLocal(
+                    snapshot(),
+                    queries.readSyncCheckpoint().executeAsOneOrNull()
+                )
+            }
+        }
+    override suspend fun commitSync(
+        expected: com.coffeedial.sync.SyncLocal,
+        next: BackupV1,
+        checkpoint: String
+    ): Unit = withContext(Dispatchers.IO) {
+        BackupFormat.validate(next)
+        queries.transaction {
+            check(
+                com.coffeedial.sync.sameData(snapshot(), expected.backup) &&
+                    queries.readSyncCheckpoint().executeAsOneOrNull() == expected.checkpoint
+            ) {
+                "Los datos cambiaron durante el sync. Tus cambios están guardados; volvé a sincronizar."
+            }
+            queries.clearShots()
+            queries.clearBeans()
+            queries.clearMachines()
+            next.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+            next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
+            next.shots.forEach {
+                queries.insertShot(
+                    it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
+                    it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                )
+            }
+            queries.writeSyncCheckpoint(checkpoint)
+        }
+    }
+
     override suspend fun save(draft: ShotDraft): Unit = withContext(Dispatchers.IO) {
         require(draft.errors().isEmpty()) { "El shot contiene valores inválidos" }
         queries.transaction {
             val name = draft.beanName.trim()
             val roaster = draft.roaster.trim()
-            queries.insertBean(Uuid.random().toString(), name, roaster)
+            if (queries.findBean(name, roaster).executeAsOneOrNull() == null) {
+                queries.insertBean(Uuid.random().toString(), name, roaster)
+            }
             val bean = queries.findBean(name, roaster).executeAsOne()
             queries.insertShot(
                 Uuid.random().toString(), bean.id, Clock.System.now().toEpochMilliseconds(),
@@ -77,7 +116,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         queries.transaction {
             val name = draft.beanName.trim()
             val roaster = draft.roaster.trim()
-            queries.insertBean(Uuid.random().toString(), name, roaster)
+            if (queries.findBean(name, roaster).executeAsOneOrNull() == null) {
+                queries.insertBean(Uuid.random().toString(), name, roaster)
+            }
             val bean = queries.findBean(name, roaster).executeAsOne()
             queries.updateShot(
                 bean.id,
@@ -166,6 +207,26 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         withContext(Dispatchers.IO) {
             val incoming = BackupFormat.decode(text)
             queries.transaction {
+                incoming.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+                incoming.machines.forEach {
+                    queries.insertMachine(it.id, it.name, it.type, it.year)
+                }
+                incoming.shots.forEach {
+                    queries.insertShot(
+                        it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
+                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                    )
+                }
+            }
+            ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+        }
+
+    override suspend fun replaceWithBackup(text: String): ImportSummary =
+        withContext(Dispatchers.IO) {
+            val incoming = BackupFormat.decode(text)
+            queries.transaction {
+                queries.allShots().executeAsList().forEach { queries.deleteShot(it.id) }
+                queries.allMachines().executeAsList().forEach { queries.deleteMachine(it.id) }
                 incoming.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
                 incoming.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)

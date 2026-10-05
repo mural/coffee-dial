@@ -98,3 +98,19 @@ Ahora Debug y Release usan `iosApp/Info.plist` como entrada explícita, con `CAD
 Verificado después del cambio: `xcodebuild` exitoso, lectura del booleano en el plist de la app compilada, reinstalación en iPhone 18 Pro / iOS 27 y proceso vivo tras 28 segundos (estado de launchctl activo, sin salida por abort). No equivale a una prueba manual de todo el flujo.
 
 Chequeo de regresión después de compilar: `python3 scripts/check-ios-plist.py`. Acepta como argumento otra ruta a `CoffeeDial.app`, por ejemplo un build Release.
+
+## Sync autenticado y revisiones — 2026-10-04
+
+- `ktlintCheck`, `:shared:testAndroidHostTest` (38 tests), `:androidApp:assembleDebug` y `:shared:wasmJsBrowserDistribution`: OK.
+- `:shared:verifySqlDelightMigration`: OK, incluyendo migración histórica hasta schema 5.
+- Xcode Debug para simulador (`CODE_SIGNING_ALLOWED=NO`): BUILD SUCCEEDED.
+- Node: 27 tests aprobados de servidor/navegador; 1 prueba opcional del endpoint local omitida. Incluye Worker real con SQLite, aislamiento, revisión concurrente, borrados, revocación y persistencia tras reiniciar.
+- Worker desplegado: `9277a73c-5b05-4252-b0c4-2910c15f7723`.
+- Web desplegada: `21e05908-da47-491a-8556-f1a7121c3103`.
+- Producción: `/health` devuelve 200/ready; GET y POST `/api/sync` con email pero sin credencial devuelven 401. No se accedió a datos reales durante esas pruebas.
+- `auth.js` y `shared.js` públicos coinciden byte a byte con el build validado. Cloudflare agrega su script de beacon al HTML (diferencia observada, ajena al bundle; el CSP actual no autoriza ese dominio).
+- Falta la prueba interactiva de login real y edición entre dos dispositivos actualizados; no se simularon credenciales reales ni se reemplazaron datos del usuario para validar.
+
+### Reporte de crash enviado al terminar
+
+El reporte corresponde al 2026-10-02 18:31:59 -0300, proceso CoffeeDial del simulador. La hebra 7 aborta por una excepción Kotlin no controlada en `androidx.compose.ui.uikit.PlistSanityCheck`, coincidiendo con el fallo de plist ya corregido. No indica timeout ni terminación por memoria. El plist dentro del `.app` recién construido contiene `CADisableMinimumFrameDurationOnPhone` booleano true. El reporte no evidencia un fallo del sync nuevo.

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPair, SignJWT, createLocalJWKSet, exportJWK } from 'jose';
-import { Session, random, hash, verifyGoogle, TTL } from '../src/core.js';
+import { Session, random, hash, verifyGoogle, verifySyncGoogle, TTL } from '../src/core.js';
 class Store {
   map = new Map(); queue = Promise.resolve();
   async get(k) { return structuredClone(this.map.get(k)); }
@@ -81,4 +81,26 @@ test('invalid issuer/audience/nonce/expiry/email rejected', async () => {
 test('forged signature rejected', async () => {
   const signed = await token(); const parts = signed.split('.'); parts[2] = 'a'.repeat(parts[2].length);
   await assert.rejects(verifyGoogle(parts.join('.'), env, 'nonce', keys));
+  await assert.rejects(verifySyncGoogle(parts.join('.'), env, keys));
+});
+
+test('callback retains initiating platform and local return through success and cancellation', async () => {
+  for (const error of [undefined, 'access_denied']) {
+    const store = new Store();
+    const session = new Session(store, {}, async () => ({ id: 'subject' }));
+    const browserHash = await hash(random());
+    await session.init({ challenge: await hash(random()), appState: random(), browserHash, platform: 'web', returnTo: 'http://localhost:8085/' });
+    const result = await session.callback({ browserHash, code: 'code', error });
+    assert.equal(result.platform, 'web');
+    assert.equal(result.returnTo, 'http://localhost:8085/');
+    assert.equal(result.user, undefined);
+  }
+});
+
+test('sync verifies signed Google subject, audience, expiry and verified email', async () => {
+  assert.equal((await verifySyncGoogle(await token(), env, keys)).id, 'subject');
+  for (const overrides of [{ aud: 'foreign-client' }, { iss: 'https://evil.test' }, { exp: 1 }, { email_verified: false }, { email: 'other@example.com' }]) {
+    await assert.rejects(verifySyncGoogle(await token(overrides), env, keys));
+  }
+  await assert.rejects(verifySyncGoogle('test@example.com', env, keys));
 });

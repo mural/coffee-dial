@@ -1,8 +1,7 @@
 CREATE TABLE bean (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
-    roaster TEXT NOT NULL,
-    UNIQUE(name, roaster)
+    roaster TEXT NOT NULL
 );
 
 CREATE TABLE machine (
@@ -34,7 +33,7 @@ insertBean:
 INSERT OR IGNORE INTO bean(id, name, roaster) VALUES (?, ?, ?);
 
 findBean:
-SELECT * FROM bean WHERE name = ? AND roaster = ?;
+SELECT * FROM bean WHERE name = ? AND roaster = ? ORDER BY id LIMIT 1;
 
 insertShot:
 INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -64,3 +63,20 @@ INSERT OR REPLACE INTO machine VALUES (?, ?, ?, ?);
 
 deleteMachine:
 DELETE FROM machine WHERE id = ?;
+
+CREATE TABLE sync_checkpoint (id INTEGER NOT NULL PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
+
+readSyncCheckpoint:
+SELECT value FROM sync_checkpoint WHERE id = 1;
+
+writeSyncCheckpoint:
+INSERT OR REPLACE INTO sync_checkpoint(id, value) VALUES (1, ?);
+
+clearShots:
+DELETE FROM shot;
+
+clearBeans:
+DELETE FROM bean;
+
+clearMachines:
+DELETE FROM machine;
