@@ -23,6 +23,7 @@ interface ShotRepository {
     suspend fun update(id: String, draft: ShotDraft)
     suspend fun delete(id: String)
     suspend fun saveMachine(draft: MachineDraft)
+    suspend fun updateMachine(id: String, draft: MachineDraft)
     suspend fun deleteMachine(id: String)
     suspend fun exportBackup(): String
     suspend fun prepareImport(text: String): PreparedImport

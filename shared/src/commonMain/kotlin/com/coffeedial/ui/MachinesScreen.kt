@@ -2,11 +2,14 @@ package com.coffeedial.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -17,10 +20,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Machine
@@ -32,169 +33,125 @@ fun MachinesScreen(
     machines: List<Machine>,
     saving: Boolean,
     saveError: String?,
-    onSaveMachine: (MachineDraft) -> Unit,
+    onSaveMachine: (String?, MachineDraft, () -> Unit) -> Unit,
     onDeleteMachine: (String) -> Unit
 ) {
-    var draft by remember { mutableStateOf(MachineDraft()) }
+    var dialog by rememberSaveable { mutableStateOf(false) }
+    var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var type by rememberSaveable { mutableStateOf("Espresso") }
+    var year by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf(false) }
+    val draft = MachineDraft(name, type, year)
     val errors = if (submitted) draft.errors() else emptyMap()
+
+    fun open(machine: Machine?) {
+        editingId = machine?.id
+        name = machine?.name.orEmpty()
+        type = machine?.type ?: "Espresso"
+        year = machine?.year.orEmpty()
+        submitted = false
+        dialog = true
+    }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("Máquinas de café", style = MaterialTheme.typography.headlineSmall)
+            Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar máquina") }
         }
-
-        if (machines.isEmpty()) {
-            item {
-                Text("Todavía no agregaste ninguna máquina.")
-            }
-        } else {
-            items(machines, key = { it.id }) { machine ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(machine.name, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "${machine.type}${if (machine.year.isNotBlank()) " · ${machine.year}" else ""}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        TextButton(
-                            onClick = { onDeleteMachine(machine.id) },
-                            enabled = !saving
-                        ) {
+        if (machines.isEmpty()) item { Text("Todavía no agregaste ninguna máquina.") }
+        items(machines, key = { it.id }) { machine ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(machine.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        listOf(machine.type, machine.year).filter {
+                            it.isNotBlank()
+                        }.joinToString(" · ")
+                    )
+                    FlowRow {
+                        TextButton(onClick = {
+                            open(machine)
+                        }, enabled = !saving) { Text("Editar") }
+                        TextButton(onClick = { onDeleteMachine(machine.id) }, enabled = !saving) {
                             Text("Eliminar", color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             }
         }
-
-        item {
-            Text(
-                "Nueva máquina",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = draft.name,
-                onValueChange = { draft = draft.copy(name = it) },
-                label = { Text("Nombre de la máquina") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !saving,
-                singleLine = true,
-                isError = errors["name"] != null,
-                supportingText = errors["name"]?.let { { Text(it) } },
-                trailingIcon = if (draft.name.isNotEmpty() && !saving) {
-                    {
-                        androidx.compose.material3.IconButton(onClick = {
-                            draft =
-                                draft.copy(name = "")
-                        }) {
-                            Text("✕", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                } else {
-                    null
-                }
-            )
-        }
-
-        item {
-            Text("Tipo de máquina")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Espresso", "Cápsulas", "Filtro", "Prensa").forEach { type ->
-                    FilterChip(
-                        selected = draft.type == type,
-                        onClick = { draft = draft.copy(type = type) },
-                        label = { Text(type) },
-                        enabled = !saving
-                    )
-                }
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = draft.year,
-                onValueChange = { draft = draft.copy(year = it) },
-                label = { Text("Año (opcional)") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !saving,
-                singleLine = true,
-                isError = errors["year"] != null,
-                supportingText = errors["year"]?.let { { Text(it) } },
-                trailingIcon = if (draft.year.isNotEmpty() && !saving) {
-                    {
-                        androidx.compose.material3.IconButton(onClick = {
-                            draft =
-                                draft.copy(year = "")
-                        }) {
-                            Text("✕", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                } else {
-                    null
-                }
-            )
-        }
-
-        if (saveError != null) {
+        if (saveError != null && !dialog) {
             item {
                 Text(saveError, color = MaterialTheme.colorScheme.error)
             }
         }
-
-        item {
-            Button(
-                onClick = {
-                    submitted = true
-                    if (draft.errors().isEmpty()) {
-                        onSaveMachine(draft)
-                        draft = MachineDraft()
-                        submitted = false
+    }
+    if (dialog) {
+        AlertDialog(
+            onDismissRequest = { if (!saving) dialog = false },
+            title = { Text(if (editingId == null) "Nueva máquina" else "Editar máquina") },
+            text = {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        name,
+                        { name = it },
+                        label = { Text("Nombre") },
+                        enabled = !saving,
+                        singleLine = true,
+                        isError = errors["name"] != null,
+                        supportingText = errors["name"]?.let { { Text(it) } }
+                    )
+                    Text("Tipo de máquina")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (listOf("Espresso", "Cápsulas", "Filtro", "Prensa") + type)
+                            .distinct().forEach { option ->
+                                FilterChip(
+                                    selected = type == option,
+                                    onClick = { type = option },
+                                    enabled = !saving,
+                                    label = { Text(option) }
+                                )
+                            }
                     }
-                },
-                enabled = !saving,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-            ) {
-                Text(if (saving) "Guardando…" else "Guardar máquina")
+                    OutlinedTextField(
+                        year,
+                        { year = it },
+                        label = { Text("Año (opcional)") },
+                        enabled = !saving,
+                        singleLine = true,
+                        isError = errors["year"] != null,
+                        supportingText = errors["year"]?.let { { Text(it) } }
+                    )
+                    if (editingId !=
+                        null
+                    ) {
+                        Text("Los shots anteriores conservan el nombre que tenían al registrarlos.")
+                    }
+                    if (submitted &&
+                        saveError != null
+                    ) {
+                        Text(saveError, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !saving, onClick = {
+                    submitted = true
+                    if (draft.errors().isEmpty()) onSaveMachine(editingId, draft) { dialog = false }
+                }) { Text(if (saving) "Guardando…" else "Guardar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dialog = false }, enabled = !saving) { Text("Cancelar") }
             }
-        }
-    }
-}
-
-@Preview(name = "Pantalla de Máquinas - Lista", showBackground = true)
-@Composable
-private fun MachinesScreenPreview() {
-    MaterialTheme {
-        MachinesScreen(
-            machines = mockMachines,
-            saving = false,
-            saveError = null,
-            onSaveMachine = {},
-            onDeleteMachine = {}
         )
     }
 }
 
-@Preview(name = "Pantalla de Máquinas - Vacía", showBackground = true)
+@Preview(showBackground = true)
 @Composable
-private fun MachinesScreenEmptyPreview() {
-    MaterialTheme {
-        MachinesScreen(
-            machines = emptyList(),
-            saving = false,
-            saveError = null,
-            onSaveMachine = {},
-            onDeleteMachine = {}
-        )
-    }
+private fun MachinesPreview() {
+    MaterialTheme { MachinesScreen(mockMachines, false, null, { _, _, _ -> }, {}) }
 }

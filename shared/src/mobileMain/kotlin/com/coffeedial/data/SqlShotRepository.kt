@@ -146,6 +146,18 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         )
     }
 
+    override suspend fun updateMachine(id: String, draft: MachineDraft): Unit =
+        withContext(Dispatchers.IO) {
+            require(draft.errors().isEmpty())
+            queries.transaction {
+                check(
+                    queries.allMachines().executeAsList().any {
+                        it.id == id
+                    }
+                ) { "La máquina ya no existe." }
+                queries.insertMachine(id, draft.name.trim(), draft.type.trim(), draft.year.trim())
+            }
+        }
     override suspend fun deleteMachine(id: String): Unit = withContext(Dispatchers.IO) {
         queries.deleteMachine(id)
     }

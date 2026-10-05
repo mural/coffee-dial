@@ -96,7 +96,7 @@ fun App(
             screen = when (screen) {
                 "detail" -> "history"
                 "edit" -> "detail"
-                "machines", "account", "backup" -> "home"
+                "machines", "account", "backup", "analysis" -> "home"
                 else -> "home"
             }
         }
@@ -147,7 +147,7 @@ fun App(
                                     screen = when (screen) {
                                         "detail" -> "history"
                                         "edit" -> "detail"
-                                        "machines", "account", "backup" -> "home"
+                                        "machines", "account", "backup", "analysis" -> "home"
                                         else -> "home"
                                     }
                                 }) {
@@ -164,17 +164,24 @@ fun App(
                             syncEngine = syncEngine
                         )
 
+                        "analysis" -> AnalysisScreen(shots.orEmpty())
+
                         "machines" -> MachinesScreen(
                             machines = machines,
                             saving = saving,
                             saveError = saveError,
-                            onSaveMachine = { machineDraft ->
+                            onSaveMachine = { machineId, machineDraft, onSaved ->
                                 saving = true
                                 saveError = null
                                 scope.launch {
                                     try {
-                                        repository.saveMachine(machineDraft)
-                                        runCatching { syncEngine.performSync() }
+                                        if (machineId == null) {
+                                            repository.saveMachine(machineDraft)
+                                        } else {
+                                            repository.updateMachine(machineId, machineDraft)
+                                        }
+                                        onSaved()
+                                        scope.launch { syncEngine.performSync() }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
@@ -291,13 +298,25 @@ fun App(
 
                             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 item {
+                                    if (screen == "home" && authState is AuthState.LoggedIn) {
+                                        val user = (authState as AuthState.LoggedIn).user
+                                        val name = user.displayName?.trim()?.takeIf {
+                                            it.isNotEmpty()
+                                        }
+                                            ?.substringBefore(' ')
+                                        Text(
+                                            if (name == null) "¡Hola! ☕" else "¡Hola, $name! ☕",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
                                     Text(
                                         if (screen ==
                                             "home"
                                         ) {
                                             "Tu próximo buen café empieza acá."
                                         } else {
-                                            "Historial"
+                                            "Historial (${shots.orEmpty().size})"
                                         },
                                         style = MaterialTheme.typography.headlineSmall
                                     )
@@ -312,16 +331,21 @@ fun App(
                                         Text("Registrar un shot")
                                     }
                                     if (screen == "home") {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        androidx.compose.foundation.layout.FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
                                             TextButton(onClick = {
                                                 screen = "history"
-                                            }) { Text("Historial") }
+                                            }) { Text("Historial (${shots.orEmpty().size})") }
                                             TextButton(onClick = {
                                                 screen = "machines"
                                             }) { Text("Máquinas") }
                                             TextButton(onClick = {
                                                 screen = "backup"
                                             }) { Text("Backup") }
+                                            TextButton(onClick = { screen = "analysis" }) {
+                                                Text("Análisis")
+                                            }
                                         }
                                         Text(
                                             "Últimos shots",
@@ -502,13 +526,9 @@ private fun ShotForm(
         }
         item {
             Text("¿Qué tal salió? · 1 a 5")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                (1..5).forEach { value ->
-                    FilterChip(selected = draft.rating == value, onClick = {
-                        onChange(draft.copy(rating = value))
-                    }, label = { Text("$value") }, enabled = !saving)
-                }
-            }
+            CoffeeRating(draft.rating, onChange = {
+                onChange(draft.copy(rating = it))
+            }, enabled = !saving)
         }
         if (saveError != null) item { Text(saveError, color = MaterialTheme.colorScheme.error) }
         item {
@@ -586,7 +606,7 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
         item {
             Text("Temperatura: ${shot.temperature?.let { "${it.pretty()} °C" } ?: "Sin registrar"}")
         }
-        item { Text("Valoración: ${shot.rating}/5") }
+        item { CoffeeRating(shot.rating) }
         item {
             Text(shot.notes.ifBlank { "Sin notas" })
         }

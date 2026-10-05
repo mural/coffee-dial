@@ -21,7 +21,8 @@ internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
             Text(
                 "${shot.dose.pretty()} g -> ${shot.output.pretty()} g · ${shot.seconds.pretty()} s"
             )
-            Text("1:${shot.ratio.pretty()} · ${shot.rating}/5 · ${timestamp(shot.createdAt)}")
+            Text("1:${shot.ratio.pretty()} · ${timestamp(shot.createdAt)}")
+            CoffeeRating(shot.rating)
         }
     }
 }

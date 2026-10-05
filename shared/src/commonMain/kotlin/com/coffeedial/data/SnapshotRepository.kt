@@ -219,6 +219,21 @@ class SnapshotRepository private constructor(
             )
         }
     }
+    override suspend fun updateMachine(id: String, draft: MachineDraft) = change {
+        require(draft.errors().isEmpty())
+        check(it.machines.any { machine -> machine.id == id }) { "La máquina ya no existe." }
+        it.copy(
+            machines = it.machines.map { machine ->
+                if (machine.id ==
+                    id
+                ) {
+                    BackupMachineV1(id, draft.name.trim(), draft.type.trim(), draft.year.trim())
+                } else {
+                    machine
+                }
+            }
+        )
+    }
     override suspend fun deleteMachine(id: String) = change {
         it.copy(
             machines = it.machines.filterNot { machine ->

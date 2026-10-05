@@ -70,6 +70,26 @@ class ShotRepositoryTest {
     }
 
     @Test
+    fun machineEditRetainsIdentityAndDoesNotRecreateDeletedRows(): Unit = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repo = ShotRepository(driver)
+            repo.saveMachine(com.coffeedial.domain.MachineDraft("Original"))
+            val id = repo.machines.first().single().id
+            repo.updateMachine(id, com.coffeedial.domain.MachineDraft("Editada", "Filtro", "2025"))
+            val updated = ShotRepository(driver).machines.first().single()
+            assertEquals(id, updated.id)
+            assertEquals("Editada", updated.name)
+            assertEquals("Filtro", updated.type)
+            assertEquals("2025", updated.year)
+            repo.deleteMachine(id)
+            assertFailsWith<IllegalStateException> {
+                repo.updateMachine(id, com.coffeedial.domain.MachineDraft("No revivir"))
+            }
+        }
+    }
+
+    @Test
     fun invalidShotDoesNotWriteAnything() = runBlocking {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
             CoffeeDatabase.Schema.create(driver)

@@ -47,6 +47,24 @@ class SnapshotRepositoryTest {
     }
 
     @Test
+    fun machineEditKeepsIdAndSurvivesReopen() = runTest {
+        val store = Store()
+        val repo = SnapshotRepository.open(store)
+        repo.saveMachine(MachineDraft("Original"))
+        val id = repo.machines.value.single().id
+        repo.updateMachine(id, MachineDraft("Editada", "Filtro", "2025"))
+        val machine = SnapshotRepository.open(store).machines.value.single()
+        assertEquals(id, machine.id)
+        assertEquals("Editada", machine.name)
+        assertEquals("Filtro", machine.type)
+        assertEquals("2025", machine.year)
+        repo.deleteMachine(id)
+        assertFailsWith<IllegalStateException> {
+            repo.updateMachine(id, MachineDraft("No revivir"))
+        }
+    }
+
+    @Test
     fun failedWriteNeverPublishesUnsavedData() = runTest {
         val store = Store()
         val repo = SnapshotRepository.open(store)
