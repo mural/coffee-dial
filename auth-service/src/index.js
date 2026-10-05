@@ -1,3 +1,4 @@
+export { AdminDirectory } from './admin.js';
 import { emptySync, updateSync, seedLegacy } from './sync.js';
 import { loginDestination, callbackDestination } from './returns.js';
 import { DurableObject } from 'cloudflare:workers';
@@ -79,7 +80,7 @@ export default {
     if (url.origin !== env.PUBLIC_ORIGIN) return json({ error: 'wrong_origin' }, 400);
     if (url.pathname === '/health' && request.method === 'GET') return json({ status: env.GOOGLE_CLIENT_SECRET ? 'ready' : 'not_configured' });
     if (url.pathname === '/' && request.method === 'GET') return html('<p>Servicio de acceso de Coffee Dial. Iniciá sesión desde la app.</p>');
-    if (url.pathname === '/api/sync' || url.pathname === '/api/logout') {
+    if (url.pathname === '/api/sync' || url.pathname === '/api/logout' || url.pathname.startsWith('/api/admin/')) {
       const bearer = request.headers.get('Authorization') || '';
       if (!bearer.startsWith('Bearer ') || bearer.length > 16384) return json({ error: 'unauthorized' }, 401);
       const token = bearer.slice(7);
@@ -93,6 +94,30 @@ export default {
         if (token.startsWith('cd.')) await call(env, `access_${await hash(token)}`, 'access_revoke', {});
         return json({ ok: true });
       }
+      if (url.pathname.startsWith('/api/admin/')) {
+        if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+        try {
+          const directory = env.ADMIN_DIRECTORY.getByName('directory-v1');
+          const allowed = await directory.authorize(user);
+          if (url.pathname === '/api/admin/access') return json({ allowed });
+          if (!allowed) return json({ error: 'forbidden' }, 403);
+          if (url.pathname === '/api/admin/overview') {
+            const after = url.searchParams.get('after') || '';
+            if (after.length > 200) return json({ error: 'invalid' }, 400);
+            return json(await directory.overview(after));
+          }
+          if (url.pathname === '/api/admin/account') {
+            const subject = url.searchParams.get('subject') || '';
+            if (!subject || subject.length > 200) return json({ error: 'invalid' }, 400);
+            const account = await directory.account(subject);
+            if (!account) return json({ error: 'not_found' }, 404);
+            const document = await call(env, `sync_v2_google_${subject}`, 'sync_read', {});
+            return json({ account, revision: document.revision,
+              beans: document.backup.beans, shots: document.backup.shots });
+          }
+          return json({ error: 'not_found' }, 404);
+        } catch { return json({ error: 'admin_unavailable' }, 503); }
+      }
       const account = `sync_v2_google_${user.id}`;
       try {
         if (request.method === 'GET') {
@@ -103,11 +128,13 @@ export default {
             const legacy = await call(env, `sync_${user.email.trim().toLowerCase()}`, 'legacy_read', {});
             if (legacy.data) document = await call(env, account, 'sync_seed', { backup: JSON.parse(legacy.data) });
           }
+          if (env.ADMIN_DIRECTORY) await env.ADMIN_DIRECTORY.getByName('directory-v1').record(user, document);
           return json(document);
         }
         if (request.method === 'POST') {
           const input = await boundedJson(request, 1500000);
           const result = await call(env, account, 'sync_write', input);
+          if (!result.conflict && env.ADMIN_DIRECTORY) await env.ADMIN_DIRECTORY.getByName('directory-v1').record(user, result);
           return json(result, result.conflict ? 409 : 200);
         }
         return json({ error: 'method_not_allowed' }, 405);

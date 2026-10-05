@@ -11,10 +11,11 @@
     "PUBLIC_ORIGIN": "https://auth-coffee.muralooo.win",
     "GOOGLE_IOS_CLIENT_ID": "260197318794-dle7fel1us34ffughest6qd2e8pna1tf.apps.googleusercontent.com",
     "GOOGLE_CLIENT_ID": "260197318794-cd79hiok6b4na7fp10o2dakcu5li4fi2.apps.googleusercontent.com",
+    "ADMIN_GOOGLE_EMAIL": "mural86@gmail.com",
     "ALLOWED_EMAILS": "mural86@gmail.com"
   },
-  "durable_objects": {"bindings":[{"name":"SESSIONS","class_name":"LoginAttempt"}]},
-  "migrations": [{"tag":"v1","new_sqlite_classes":["LoginAttempt"]}],
+  "durable_objects": {"bindings":[{"name":"SESSIONS","class_name":"LoginAttempt"},{"name":"ADMIN_DIRECTORY","class_name":"AdminDirectory"}]},
+  "migrations": [{"tag":"v1","new_sqlite_classes":["LoginAttempt"]},{"tag":"v2-admin","new_sqlite_classes":["AdminDirectory"]}],
   "ratelimits": [{"name":"RATE_LIMITER","namespace_id":"1001","simple":{"limit":20,"period":60}}],
   "observability": {"enabled":false}
 }

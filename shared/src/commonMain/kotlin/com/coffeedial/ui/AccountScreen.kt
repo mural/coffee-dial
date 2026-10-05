@@ -33,9 +33,25 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun AccountScreen(authRepository: AuthRepository, syncEngine: SyncEngine? = null) {
+fun AccountScreen(
+    authRepository: AuthRepository,
+    syncEngine: SyncEngine? = null,
+    onAdmin: () -> Unit = {}
+) {
     val state by authRepository.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val adminAllowed = remember(state) { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(state) {
+        if (state is AuthState.LoggedIn) {
+            try {
+                adminAllowed.value = com.coffeedial.admin.AdminClient(authRepository).allowed()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                adminAllowed.value = false
+            }
+        }
+    }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
@@ -126,6 +142,13 @@ fun AccountScreen(authRepository: AuthRepository, syncEngine: SyncEngine? = null
 
             is AuthState.LoggedIn -> {
                 val user = current.user
+                if (adminAllowed.value) {
+                    item {
+                        OutlinedButton(onClick = onAdmin, modifier = Modifier.fillMaxWidth()) {
+                            Text("Panel Admin")
+                        }
+                    }
+                }
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(

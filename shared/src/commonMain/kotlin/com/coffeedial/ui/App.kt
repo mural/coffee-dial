@@ -96,6 +96,7 @@ fun App(
     PlatformBack(enabled = screen != "home") {
         if (!saving && !backupFiles.busy) {
             screen = when (screen) {
+                "admin" -> "account"
                 "detail" -> "history"
                 "edit" -> "detail"
                 "machines", "account", "backup", "analysis" -> "home"
@@ -147,6 +148,7 @@ fun App(
                             } else if (screen != "home") {
                                 TextButton(enabled = !saving && !backupFiles.busy, onClick = {
                                     screen = when (screen) {
+                                        "admin" -> "account"
                                         "detail" -> "history"
                                         "edit" -> "detail"
                                         "machines", "account", "backup", "analysis" -> "home"
@@ -163,8 +165,11 @@ fun App(
 
                         "account" -> AccountScreen(
                             authRepository = authRepository,
-                            syncEngine = syncEngine
+                            syncEngine = syncEngine,
+                            onAdmin = { screen = "admin" }
                         )
+
+                        "admin" -> AdminScreen(authRepository)
 
                         "analysis" -> AnalysisScreen(shots.orEmpty())
 
