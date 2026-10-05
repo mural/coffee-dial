@@ -33,6 +33,18 @@ test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation a
     const restored = await (await request('GET')).json();
     assert.equal(restored.revision, 2); assert.deepEqual(restored.deleted.beans, ['b']);
     assert.equal((await request('POST', token, { protocol: 2, baseRevision: 2, backup: b })).status, 409);
+    const v2 = { ...emptyBackup(), schemaVersion: 2,
+      beans: [{ id: 'new-bean', name: 'Test', roaster: '' }],
+      shots: [{ id: 'new-shot', beanId: 'new-bean', createdAt: 1, dose: 18, output: 36,
+        seconds: 20, grind: 'Medio', temperature: null, notes: '', rating: 3,
+        extraWater: 120, style: 'Americano' }] };
+    assert.equal((await request('POST', token, { protocol: 2, baseRevision: 2, backup: v2 })).status, 200);
+    await mf.dispose(); mf = new Miniflare({ ...convertV4MiniflareOptions(options), resourcePersistencePath: dir });
+    const upgraded = await (await request('GET')).json();
+    assert.equal(upgraded.backup.shots[0].extraWater, 120);
+    assert.equal(upgraded.backup.shots[0].style, 'Americano');
+    assert.equal((await request('POST', token, { protocol: 2, baseRevision: 3, backup: emptyBackup() })).status, 400);
+    assert.equal((await (await request('GET')).json()).revision, 3);
     assert.equal((await mf.dispatchFetch('https://auth.test/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status, 200);
     assert.equal((await request('GET')).status, 401);
   } finally { await mf.dispose(); await rm(dir, { recursive: true, force: true }); }

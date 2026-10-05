@@ -43,15 +43,29 @@ class BackupRepositoryTest {
         database().use { driver ->
             val repo = ShotRepository(driver)
             repo.save(
-                ShotDraft(beanName = "Flat White", roaster = "Test", grind = "40", milk = "150")
+                ShotDraft(
+                    beanName = "Flat White",
+                    roaster = "Test",
+                    grind = "40",
+                    milk = "150",
+                    extraWater = "120",
+                    style = "Americano"
+                )
             )
             val exported = repo.exportBackup()
             val decoded = BackupFormat.decode(exported)
             assertEquals(150.0, decoded.shots.single().milk)
-            val plan = repo.prepareImport(exported)
-            repo.importBackup(plan)
-            val restoredShots = repo.history.first()
+            assertEquals(120.0, decoded.shots.single().extraWater)
+            assertEquals("Americano", decoded.shots.single().style)
+            val targetDriver = database()
+            val target = ShotRepository(targetDriver)
+            val plan = target.prepareImport(exported)
+            target.importBackup(plan)
+            val restoredShots = target.history.first()
+            targetDriver.close()
             assertEquals(150.0, restoredShots.single().milk)
+            assertEquals(120.0, restoredShots.single().extraWater)
+            assertEquals("Americano", restoredShots.single().style)
         }
     }
 

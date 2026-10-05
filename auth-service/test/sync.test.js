@@ -41,3 +41,25 @@ test('legacy migration is idempotent and cannot overwrite later revisions', asyn
   assert.equal(restored.revision, 2);
   assert.equal(restored.backup.shots[0].notes, 'edited');
 });
+
+test('v2 preserves water and style and prevents an older client from dropping them', async () => {
+  const storage = new Store();
+  await updateSync(storage, request(0));
+  const v2 = backup(); v2.schemaVersion = 2;
+  v2.shots[0].extraWater = 120.5; v2.shots[0].style = 'Americano';
+  const result = await updateSync(storage, request(1, v2));
+  assert.equal(result.backup.shots[0].extraWater, 120.5);
+  assert.equal(result.backup.shots[0].style, 'Americano');
+  await assert.rejects(updateSync(storage, request(2)), /backup_upgrade_required/);
+  assert.deepEqual((await storage.get('sync_v2')).backup, v2);
+});
+test('rejects invalid optional water and style without changing storage', async () => {
+  const storage = new Store();
+  for (const water of [-1, 0, 1001, '100', Infinity]) {
+    const value = backup(); value.schemaVersion = 2; value.shots[0].extraWater = water;
+    await assert.rejects(updateSync(storage, request(0, value)), /invalid_shot/);
+  }
+  const value = backup(); value.schemaVersion = 2; value.shots[0].style = 5;
+  await assert.rejects(updateSync(storage, request(0, value)), /invalid_shot/);
+  assert.equal(await storage.get('sync_v2'), undefined);
+});

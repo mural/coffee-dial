@@ -22,14 +22,34 @@ class BackupFormatTest {
     @Test
     fun readsFrozenV1AndRoundTripsWithoutLoss() {
         val backup = BackupFormat.decode(V1_FIXTURE)
+        assertEquals(2, backup.schemaVersion)
+        assertEquals(null, backup.shots.single().extraWater)
+        assertEquals(null, backup.shots.single().style)
         assertEquals("Café ☕", backup.beans.single().name)
         assertEquals("Dulce\nChocolate", backup.shots.single().notes)
         assertEquals(backup, BackupFormat.decode(BackupFormat.encode(backup)))
     }
 
     @Test
+    fun roundTripsV2AndRejectsNewDataLabeledAsV1() {
+        val old = BackupFormat.decode(V1_FIXTURE)
+        val backup = old.copy(
+            shots = listOf(old.shots.single().copy(extraWater = 120.5, style = "Americano"))
+        )
+        assertEquals(backup, BackupFormat.decode(BackupFormat.encode(backup)))
+        assertFailsWith<BackupException> { BackupFormat.encode(backup.copy(schemaVersion = 1)) }
+        listOf(-1.0, 0.0, 1001.0, Double.NaN).forEach { water ->
+            assertFailsWith<BackupException> {
+                BackupFormat.encode(
+                    backup.copy(shots = listOf(backup.shots.single().copy(extraWater = water)))
+                )
+            }
+        }
+    }
+
+    @Test
     fun rejectsFutureVersionBeforeReadingItsPayload() {
-        val future = """{"format":"coffee-dial-backup","schemaVersion":2,"differentData":{}}"""
+        val future = """{"format":"coffee-dial-backup","schemaVersion":3,"differentData":{}}"""
         val error = assertFailsWith<BackupException> { BackupFormat.decode(future) }
         assertTrue(error.message.orEmpty().contains("Actualizá"))
     }

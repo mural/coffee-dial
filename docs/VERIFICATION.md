@@ -114,3 +114,12 @@ Chequeo de regresión después de compilar: `python3 scripts/check-ios-plist.py`
 ### Reporte de crash enviado al terminar
 
 El reporte corresponde al 2026-10-02 18:31:59 -0300, proceso CoffeeDial del simulador. La hebra 7 aborta por una excepción Kotlin no controlada en `androidx.compose.ui.uikit.PlistSanityCheck`, coincidiendo con el fallo de plist ya corregido. No indica timeout ni terminación por memoria. El plist dentro del `.app` recién construido contiene `CADisableMinimumFrameDurationOnPhone` booleano true. El reporte no evidencia un fallo del sync nuevo.
+
+## 2026-10-05 — machine cancellation and shot additions
+
+- Machine editor is inline; cancellation clears focus and returns to the list without writing. Network sync no longer holds the shared local-saving flag.
+- Optional `extraWater` (1–1000 ml) and free-text `style` (up to 100 characters), style suggestions, default grind `Medio`. Extra water does not change the extraction ratio.
+- SQLite schema 6 adds nullable columns; backup v2 imports frozen v1 files. Sync accepts v1/v2 and rejects downgrading existing v2 cloud data.
+- Passed: 44 Kotlin host tests; 24 Node tests including real Worker/SQLite persistence and v2 downgrade protection (one unrelated optional external local-server test skipped); ktlintCheck; Android debug, web production, and full iOS Simulator Xcode builds.
+- Chrome Agustin, isolated localhost origin: cancel new machine with entered text; save a test machine; edit/cancel retains original; save Americano with 120 ml water and default Medio; detail shows ratio 1:2 and editing preloads both fields. Production user data was not changed by these checks.
+- Native builds verified; this pass did not perform native runtime UI tests.

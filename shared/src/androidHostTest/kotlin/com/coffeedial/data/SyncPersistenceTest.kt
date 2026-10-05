@@ -59,12 +59,21 @@ class SyncPersistenceTest {
                 "INSERT INTO shot VALUES ('s', 'b', 100, 18, 36, 28, '12', NULL, 'original', 4, NULL, NULL)",
                 0
             )
-            CoffeeDatabase(driver).transaction { CoffeeDatabase.Schema.migrate(driver, 4, 5) }
+            CoffeeDatabase(driver).transaction {
+                CoffeeDatabase.Schema.migrate(driver, 4, CoffeeDatabase.Schema.version)
+            }
             val repo = ShotRepository(driver)
             val shot = repo.readSyncLocal().backup.shots.single()
             assertEquals("s", shot.id)
             assertEquals("b", shot.beanId)
             assertEquals("original", shot.notes)
+            assertNull(shot.extraWater)
+            assertNull(shot.style)
+            repo.update(
+                shot.id,
+                ShotDraft(beanName = "Brasil", extraWater = "150", style = "Americano")
+            )
+            assertEquals(150.0, repo.readSyncLocal().backup.shots.single().extraWater)
             driver.execute(null, "INSERT INTO bean VALUES ('b2', 'Brasil', '')", 0)
             assertEquals(2, repo.readSyncLocal().backup.beans.size)
         }

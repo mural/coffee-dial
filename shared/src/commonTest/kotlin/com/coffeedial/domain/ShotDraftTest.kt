@@ -31,6 +31,17 @@ class ShotDraftTest {
     }
 
     @Test
+    fun defaultGrindAndOptionalWaterAndStyle() {
+        assertEquals("Medio", ShotDraft().grind)
+        assertTrue(ShotDraft().errors().isEmpty())
+        assertTrue(valid.copy(extraWater = "120,5", style = "Americano").errors().isEmpty())
+        listOf("0", "-1", "1001", "NaN", "Infinity", "abc").forEach {
+            assertTrue("extraWater" in valid.copy(extraWater = it).errors())
+        }
+        assertTrue("style" in valid.copy(style = "a".repeat(101)).errors())
+    }
+
+    @Test
     fun validatesMilkRange() {
         assertTrue(valid.copy(milk = "").errors().isEmpty())
         assertTrue(valid.copy(milk = "60").errors().isEmpty())

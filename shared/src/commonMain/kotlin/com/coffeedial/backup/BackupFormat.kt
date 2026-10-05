@@ -9,7 +9,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 
-// Wire DTOs are deliberately independent of database tables and editable domain models.
+// Wire DTOs are independent of database tables. The v1 envelope is retained for
+// v2, which adds nullable extraWater/style; readers validate before upgrading.
 @Serializable
 data class BackupV1(
     val format: String,
@@ -39,14 +40,16 @@ data class BackupShotV1(
     val milk: Double? = null,
     val machine: String? = null,
     val notes: String,
-    val rating: Int
+    val rating: Int,
+    val extraWater: Double? = null,
+    val style: String? = null
 )
 
 class BackupException(message: String) : IllegalArgumentException(message)
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 1
+    const val CURRENT_VERSION = 2
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -88,14 +91,13 @@ object BackupFormat {
                     "Este backup es de una versión más nueva. Actualizá Coffee Dial."
                 )
             }
-            // Future formats get their own DTO and explicit vN -> vN+1 migration here.
-            // Keep the v1 reader and its fixtures when adding v2. No guessed legacy format.
+            // V1 and V2 share an envelope; validation rejects v2 data labeled as v1.
             val backup = when (version) {
-                1 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
+                1, 2 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
                 else -> throw BackupException("Esta versión de backup no es compatible ($version).")
             }
             validate(backup)
-            return backup
+            return backup.copy(schemaVersion = CURRENT_VERSION)
         } catch (error: BackupException) {
             throw error
         } catch (_: SerializationException) {
@@ -115,7 +117,7 @@ object BackupFormat {
         fun valid(condition: Boolean) {
             if (!condition) throw BackupException("El backup contiene datos inválidos.")
         }
-        valid(backup.format == FORMAT && backup.schemaVersion == CURRENT_VERSION)
+        valid(backup.format == FORMAT && backup.schemaVersion in 1..CURRENT_VERSION)
         valid(runCatching { Instant.parse(backup.exportedAt) }.isSuccess)
         valid(
             backup.beans.size <= 50_000 && backup.shots.size <= 50_000 &&
@@ -141,6 +143,11 @@ object BackupFormat {
             valid(it.seconds.isFinite() && it.seconds > 0)
             valid(it.temperature == null || (it.temperature.isFinite() && it.temperature > 0))
             valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..200.0))
+            valid(
+                it.extraWater == null || (it.extraWater.isFinite() && it.extraWater in 1.0..1000.0)
+            )
+            valid(it.style == null || it.style.length <= 100)
+            valid(backup.schemaVersion >= 2 || (it.extraWater == null && it.style == null))
             valid(it.machine == null || it.machine.length <= 10_000)
             valid(it.grind.isNotBlank() && it.grind.length <= 10_000)
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)

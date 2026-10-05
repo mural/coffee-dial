@@ -37,7 +37,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             Shot(
                 it.id, Bean(it.bean_id, it.name, it.roaster), it.created_at,
                 it.dose, it.output, it.seconds, it.grind,
-                it.temperature, it.milk, it.machine, it.notes, it.rating.toInt()
+                it.temperature, it.milk, it.machine, it.notes, it.rating.toInt(),
+                it.extra_water, it.style
             )
         }
     }
@@ -78,7 +79,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             next.shots.forEach {
                 queries.insertShot(
                     it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                    it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                    it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
+                    it.extraWater, it.style
                 )
             }
             queries.writeSyncCheckpoint(checkpoint)
@@ -102,7 +104,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 ),
                 draft.grind.trim(), draft.temperature.decimal(),
                 draft.notes.trim(), draft.rating.toLong(), draft.milk.decimal(),
-                draft.machine.trim().ifBlank { null }
+                draft.machine.trim().ifBlank { null }, draft.extraWater.decimal(),
+                draft.style.trim().ifBlank { null }
             )
         }
     }
@@ -131,6 +134,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 draft.rating.toLong(),
                 draft.milk.decimal(),
                 draft.machine.trim().ifBlank { null },
+                draft.extraWater.decimal(),
+                draft.style.trim().ifBlank { null },
                 id
             )
         }
@@ -167,7 +172,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         queries.allShots().executeAsList().map {
             BackupShotV1(
                 it.id, it.bean_id, it.created_at, it.dose, it.output, it.seconds,
-                it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toInt()
+                it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toInt(),
+                it.extra_water, it.style
             )
         },
         queries.allMachines().executeAsList().map {
@@ -208,7 +214,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 prepared.plan.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
+                        it.extraWater, it.style
                     )
                 }
                 prepared.summary
@@ -226,7 +233,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
+                        it.extraWater, it.style
                     )
                 }
             }
@@ -246,7 +254,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine
+                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
+                        it.extraWater, it.style
                     )
                 }
             }

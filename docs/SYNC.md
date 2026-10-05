@@ -18,9 +18,11 @@ Los conflictos se notifican en Cuenta; no existe todavía una pantalla para eleg
 
 ## Migración y compatibilidad
 
-SQLite pasa a schema 5 mediante 4.sqm. Reconstruye bean/shot conservando IDs y campos para quitar UNIQUE(name, roaster): dos dispositivos pueden crear cafés homónimos con UUIDs diferentes. Las referencias siguen siendo válidas. La creación local reutiliza un café existente cuando coincide nombre/tostador. La migración y el rollback tienen tests sobre SQLite con foreign keys habilitadas.
+SQLite pasó a schema 5 mediante 4.sqm. Reconstruye bean/shot conservando IDs y campos para quitar UNIQUE(name, roaster): dos dispositivos pueden crear cafés homónimos con UUIDs diferentes. Las referencias siguen siendo válidas. La creación local reutiliza un café existente cuando coincide nombre/tostador. La migración y el rollback tienen tests sobre SQLite con foreign keys habilitadas.
 
-Web convierte el snapshot antiguo en un documento interno storageVersion=2 con checkpoint. El cambio es atómico en IndexedDB. La exportación/importación manual mantiene **backup v1**, independiente del protocolo de sync; los archivos existentes siguen funcionando. Importar no restaura ni suplanta la identidad de una cuenta ni su checkpoint.
+Web convierte el snapshot antiguo en un documento interno storageVersion=2 con checkpoint. El cambio es atómico en IndexedDB. La exportación/importación manual usa **backup v2**, independiente del protocolo de sync. El lector migra v1 con agua extra y estilo vacíos; los archivos existentes siguen funcionando. Importar no restaura ni suplanta la identidad de una cuenta ni su checkpoint.
+
+Schema 6 agrega columnas nullable `extra_water` y `style` mediante `5.sqm`, sin cambiar IDs ni valores anteriores. El servidor acepta backups v1 y v2, pero no permite bajar de v2 a v1: actualizar las apps móviles antes de sincronizar con datos nuevos. Una app antigua falla de forma segura en lugar de omitir campos. El lector conserva la validación estricta de versiones futuras y campos desconocidos.
 
 En la primera lectura autenticada, el servidor valida y copia el backup antiguo del email verificado al espacio nuevo del subject. El original queda intacto. Una copia inválida o demasiado grande genera error; no se reemplaza por datos vacíos. No es posible verificar retroactivamente quién escribió las copias antiguas, porque el servidor anterior no autenticaba escrituras.
 

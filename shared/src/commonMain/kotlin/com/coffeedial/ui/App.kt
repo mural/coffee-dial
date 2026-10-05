@@ -58,13 +58,15 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
     save = {
         listOf(
             it.beanName, it.roaster, it.dose, it.output, it.seconds,
-            it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toString()
+            it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toString(),
+            it.extraWater, it.style
         )
     },
     restore = {
         ShotDraft(
             it[0], it[1], it[2], it[3], it[4], it[5],
-            it[6], it[7], it[8], it[9], it[10].toInt()
+            it[6], it[7], it[8], it[9], it[10].toInt(),
+            it.getOrElse(11) { "" }, it.getOrElse(12) { "" }
         )
     }
 )
@@ -196,7 +198,7 @@ fun App(
                                 scope.launch {
                                     try {
                                         repository.deleteMachine(machineId)
-                                        runCatching { syncEngine.performSync() }
+                                        scope.launch { syncEngine.performSync() }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
@@ -231,7 +233,7 @@ fun App(
                                             screen = "history"
                                         }
                                         draft = ShotDraft()
-                                        runCatching { syncEngine.performSync() }
+                                        scope.launch { syncEngine.performSync() }
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (_: Exception) {
@@ -270,6 +272,8 @@ fun App(
                                                 grind = shot.grind,
                                                 temperature = shot.temperature?.pretty() ?: "",
                                                 milk = shot.milk?.pretty() ?: "",
+                                                extraWater = shot.extraWater?.pretty() ?: "",
+                                                style = shot.style.orEmpty(),
                                                 machine = shot.machine ?: "",
                                                 notes = shot.notes,
                                                 rating = shot.rating
@@ -282,7 +286,7 @@ fun App(
                                                 try {
                                                     repository.delete(shot.id)
                                                     screen = "history"
-                                                    runCatching { syncEngine.performSync() }
+                                                    scope.launch { syncEngine.performSync() }
                                                 } catch (cancelled: CancellationException) {
                                                     throw cancelled
                                                 } catch (_: Exception) {
@@ -411,11 +415,6 @@ private fun ShotForm(
             }
         }
         item {
-            Field("Tostador (opcional)", draft.roaster, null, saving) {
-                onChange(draft.copy(roaster = it))
-            }
-        }
-        item {
             Field("Dosis de entrada · g", draft.dose, errors["dose"], saving, true) {
                 onChange(draft.copy(dose = it))
             }
@@ -424,6 +423,50 @@ private fun ShotForm(
             Field("Output · g", draft.output, errors["output"], saving, true) {
                 onChange(draft.copy(output = it))
             }
+        }
+        item {
+            Field("Estilo (opcional)", draft.style, errors["style"], saving) {
+                onChange(draft.copy(style = it))
+            }
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Espresso", "Lungo", "Americano", "Latte", "Cappuccino").forEach { style ->
+                    androidx.compose.material3.FilterChip(
+                        selected = draft.style == style,
+                        onClick = {
+                            onChange(
+                                draft.copy(
+                                    style = if (draft.style ==
+                                        style
+                                    ) {
+                                        ""
+                                    } else {
+                                        style
+                                    }
+                                )
+                            )
+                        },
+                        enabled = !saving,
+                        label = { Text(style) }
+                    )
+                }
+            }
+        }
+        item {
+            Field(
+                "Agua extra · ml (opcional)",
+                draft.extraWater,
+                errors["extraWater"],
+                saving,
+                true
+            ) {
+                onChange(draft.copy(extraWater = it))
+            }
+            Text(
+                "Agua agregada después de la extracción; no modifica el ratio.",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         item {
             Field("Leche · ml (opcional)", draft.milk, errors["milk"], saving, true) {
@@ -499,6 +542,11 @@ private fun ShotForm(
                 true
             ) {
                 onChange(draft.copy(temperature = it))
+            }
+        }
+        item {
+            Field("Tostador (opcional)", draft.roaster, null, saving) {
+                onChange(draft.copy(roaster = it))
             }
         }
         item {
@@ -598,6 +646,8 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
             Text(
                 "Entrada: ${shot.dose.pretty()} g\n" +
                     "Output: ${shot.output.pretty()} g" +
+                    (shot.style?.let { "\nEstilo: $it" } ?: "") +
+                    (shot.extraWater?.let { "\nAgua extra: ${it.pretty()} ml" } ?: "") +
                     (shot.milk?.let { "\nLeche: ${it.pretty()} ml" } ?: "") +
                     "\nTiempo: ${shot.seconds.pretty()} s"
             )

@@ -28,9 +28,20 @@ class SnapshotRepositoryTest {
     fun reopenAndBackupRoundTripPreserveData() = runTest {
         val store = Store()
         val first = SnapshotRepository.open(store)
-        first.save(ShotDraft(beanName = "Brasil", grind = "12", milk = "80", notes = "Chocolate"))
+        first.save(
+            ShotDraft(
+                beanName = "Brasil",
+                grind = "12",
+                milk = "80",
+                notes = "Chocolate",
+                extraWater = "100,5",
+                style = "Americano"
+            )
+        )
         first.saveMachine(MachineDraft("Bambino"))
         val reopened = SnapshotRepository.open(store)
+        assertEquals(100.5, reopened.history.value.single().extraWater)
+        assertEquals("Americano", reopened.history.value.single().style)
         assertEquals(first.history.value, reopened.history.value)
         assertEquals(first.machines.value, reopened.machines.value)
         val target = SnapshotRepository.open(Store())
@@ -42,6 +53,8 @@ class SnapshotRepositoryTest {
         reopened.update(shot.id, ShotDraft(grind = "14"))
         assertEquals(shot.id, reopened.history.value.single().id)
         assertEquals(shot.createdAt, reopened.history.value.single().createdAt)
+        assertEquals(null, reopened.history.value.single().extraWater)
+        assertEquals(null, reopened.history.value.single().style)
         reopened.delete(shot.id)
         assertTrue(SnapshotRepository.open(store).history.value.isEmpty())
     }
@@ -97,7 +110,7 @@ class SnapshotRepositoryTest {
     fun futureOrCorruptStorageIsNotReset() = runTest {
         val store = Store()
         val future = BackupFormat.encode(BackupFormat.create(emptyList(), emptyList()))
-            .replace("\"schemaVersion\": 1", "\"schemaVersion\": 999")
+            .replace("\"schemaVersion\": 2", "\"schemaVersion\": 999")
         store.text = future
         assertFailsWith<BackupException> { SnapshotRepository.open(store) }
         assertEquals(future, store.text)

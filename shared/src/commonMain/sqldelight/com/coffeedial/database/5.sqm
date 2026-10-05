@@ -1,0 +1,2 @@
+ALTER TABLE shot ADD COLUMN extra_water REAL;
+ALTER TABLE shot ADD COLUMN style TEXT;

@@ -60,12 +60,17 @@ class ShotRepositoryTest {
             val repository = ShotRepository(driver)
             repository.save(ShotDraft(beanName = "Brasil", grind = "12"))
             val before = repository.history.first().single()
-            repository.update(before.id, ShotDraft(beanName = "Colombia", grind = "14"))
+            repository.update(
+                before.id,
+                ShotDraft(beanName = "Colombia", grind = "14", extraWater = "100", style = "Lungo")
+            )
             val after = repository.history.first().single()
             assertEquals(before.id, after.id)
             assertEquals(before.createdAt, after.createdAt)
             assertEquals("14", after.grind)
             assertEquals("Colombia", after.bean.name)
+            assertEquals(100.0, after.extraWater)
+            assertEquals("Lungo", after.style)
         }
     }
 
@@ -94,7 +99,7 @@ class ShotRepositoryTest {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
             CoffeeDatabase.Schema.create(driver)
             val repository = ShotRepository(driver)
-            assertFailsWith<IllegalArgumentException> { repository.save(ShotDraft()) }
+            assertFailsWith<IllegalArgumentException> { repository.save(ShotDraft(grind = "")) }
             assertTrue(repository.history.first().isEmpty())
         }
     }

@@ -85,7 +85,8 @@ class SnapshotRepository private constructor(
                 val bean = beans[it.beanId] ?: BackupBeanV1(it.beanId, "Café molido", "")
                 Shot(
                     it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
-                    it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating
+                    it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating,
+                    it.extraWater, it.style
                 )
             }
         machines.value =
@@ -105,7 +106,10 @@ class SnapshotRepository private constructor(
 
     private suspend fun change(transform: (BackupV1) -> BackupV1) = mutex.withLock {
         refresh()
-        val next = transform(data).copy(exportedAt = Clock.System.now().toString())
+        val next = transform(data).copy(
+            schemaVersion = BackupFormat.CURRENT_VERSION,
+            exportedAt = Clock.System.now().toString()
+        )
         BackupFormat.validate(next)
         val text = storageJson.encodeToString(stored.copy(backup = next))
         if (!store.compareAndSet(raw, text)) {
@@ -177,7 +181,8 @@ class SnapshotRepository private constructor(
             draft.machine.trim().ifBlank {
                 null
             },
-            draft.notes.trim(), draft.rating
+            draft.notes.trim(), draft.rating, draft.extraWater.decimal(),
+            draft.style.trim().ifBlank { null }
         )
         return local.copy(
             beans = if (bean in local.beans) local.beans else local.beans + bean,
@@ -244,7 +249,12 @@ class SnapshotRepository private constructor(
     }
     override suspend fun exportBackup(): String = mutex.withLock {
         refresh()
-        BackupFormat.encode(data.copy(exportedAt = Clock.System.now().toString()))
+        BackupFormat.encode(
+            data.copy(
+                schemaVersion = BackupFormat.CURRENT_VERSION,
+                exportedAt = Clock.System.now().toString()
+            )
+        )
     }
     override suspend fun prepareImport(text: String): PreparedImport = mutex.withLock {
         val incoming = BackupFormat.decode(text)
