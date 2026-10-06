@@ -8,12 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -361,196 +356,33 @@ fun App(
                             }
                         )
 
-                        else -> when {
-                            loadError -> {
-                                Text("No pudimos leer tu historial.")
-                                Button(onClick = { retry++ }) { Text("Reintentar") }
-                            }
+                        else -> {
+                            val userName = (authState as? AuthState.LoggedIn)?.user?.displayName
+                                ?.trim()?.takeIf { it.isNotEmpty() }?.substringBefore(' ')
 
-                            shots == null -> CircularProgressIndicator()
-
-                            screen == "detail" -> {
-                                val shot = shots.orEmpty().find { it.id == selectedId }
-                                if (shot == null) {
-                                    Text("No encontramos este shot.")
-                                } else {
-                                    ShotDetail(
-                                        shot = shot,
-                                        onEdit = {
-                                            draft = ShotDraft(
-                                                beanName = shot.bean.name,
-                                                roaster = shot.bean.roaster,
-                                                dose = shot.dose.pretty(),
-                                                output = shot.output.pretty(),
-                                                seconds = shot.seconds.pretty(),
-                                                grind = shot.grind,
-                                                temperature = shot.temperature?.pretty() ?: "",
-                                                milk = shot.milk?.pretty() ?: "",
-                                                extraWater = shot.extraWater?.pretty() ?: "",
-                                                style = shot.style.orEmpty(),
-                                                machine = shot.machine ?: "",
-                                                notes = shot.notes,
-                                                rating = shot.rating,
-                                                cup = shot.cup ?: ""
-                                            )
-                                            screen = "edit"
-                                        },
-                                        onDelete = {
-                                            saving = true
-                                            scope.launch {
-                                                try {
-                                                    repository.delete(shot.id)
-                                                    screen = "history"
-                                                    scope.launch { syncEngine.performSync() }
-                                                } catch (cancelled: CancellationException) {
-                                                    throw cancelled
-                                                } catch (_: Exception) {
-                                                } finally {
-                                                    saving = false
-                                                }
-                                            }
-                                        },
-                                        saving = saving
-                                    )
-                                }
-                            }
-
-                            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                item {
-                                    if (screen == "home" && authState is AuthState.LoggedIn) {
-                                        val user = (authState as AuthState.LoggedIn).user
-                                        val name = user.displayName?.trim()?.takeIf {
-                                            it.isNotEmpty()
-                                        }
-                                            ?.substringBefore(' ')
-                                        Row(
-                                            modifier = Modifier.padding(bottom = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                if (name == null) "¡Hola!" else "¡Hola, $name!",
-                                                style = MaterialTheme.typography.titleLarge
-                                            )
-                                            androidx.compose.material3.Icon(
-                                                CoffeeCup,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        if (screen ==
-                                            "home"
-                                        ) {
-                                            "Tu próximo buen café empieza acá."
-                                        } else {
-                                            "Historial (${shots.orEmpty().size})"
-                                        },
-                                        style = MaterialTheme.typography.headlineSmall
-                                    )
-                                    Text(
-                                        "${shots.orEmpty().size} shots · guardados en este " +
-                                            "dispositivo",
-                                        modifier = Modifier.padding(vertical = 12.dp)
-                                    )
-                                    Button(onClick = {
-                                        screen = "new"
-                                    }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("Registrar un shot")
-                                    }
-                                    if (screen == "home") {
-                                        androidx.compose.foundation.layout.FlowRow(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            TextButton(onClick = {
-                                                screen = "history"
-                                            }) { Text("Historial (${shots.orEmpty().size})") }
-                                            TextButton(onClick = {
-                                                screen = "beans"
-                                            }) { Text("Cafés") }
-                                            TextButton(onClick = {
-                                                screen = "machines"
-                                            }) { Text("Máquinas") }
-                                            TextButton(onClick = {
-                                                screen = "cups"
-                                            }) { Text("Tazas") }
-                                            TextButton(onClick = {
-                                                screen = "tips"
-                                            }) { Text("Tips") }
-                                            TextButton(onClick = {
-                                                screen = "backup"
-                                            }) { Text("Backup") }
-                                            TextButton(onClick = { screen = "analysis" }) {
-                                                Text("Análisis")
-                                            }
-                                        }
-                                        Text(
-                                            "Últimos shots",
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                    }
-                                }
-                                if (screen == "history" && shots.orEmpty().isNotEmpty()) {
-                                    item {
-                                        Text("Estilo", style = MaterialTheme.typography.titleMedium)
-                                        androidx.compose.foundation.layout.FlowRow(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            FilterChip(
-                                                selected = selectedStyle == null,
-                                                onClick = {
-                                                    selectedStyle = null
-                                                },
-                                                label = { Text("Todos") }
-                                            )
-                                            styleOptions.forEach { option ->
-                                                FilterChip(
-                                                    selected =
-                                                        selectedStyle == option.lowercase(),
-                                                    onClick = {
-                                                        selectedStyle = option.lowercase()
-                                                    },
-                                                    label = {
-                                                        Text(option.ifBlank { "Sin estilo" })
-                                                    }
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            "${filteredShots.size} de ${shots.orEmpty().size} shots"
-                                        )
-                                    }
-                                    if (filteredShots.isEmpty()) {
-                                        item {
-                                            Text("No hay shots con este estilo.")
-                                        }
-                                    }
-                                }
-                                if (shots.orEmpty().isEmpty()) {
-                                    item {
-                                        Text(
-                                            "Todavía no hay shots. Registrá tu receta " +
-                                                "y empezá a encontrar tu punto ideal."
-                                        )
-                                    }
-                                }
-                                items(
-                                    if (screen ==
-                                        "home"
-                                    ) {
-                                        shots.orEmpty().take(3)
-                                    } else {
-                                        filteredShots
-                                    },
-                                    key = { it.id }
-                                ) { shot ->
-                                    ShotCard(shot) {
-                                        selectedId = shot.id
-                                        screen = "detail"
-                                    }
-                                }
-                            }
+                            HomeScreen(
+                                screen = screen,
+                                shots = shots,
+                                filteredShots = filteredShots,
+                                selectedStyle = selectedStyle,
+                                styleOptions = styleOptions,
+                                loadError = loadError,
+                                userName = userName,
+                                onSelectStyle = { selectedStyle = it },
+                                onNewShot = { screen = "new" },
+                                onSelectShot = {
+                                    selectedId = it.id
+                                    screen = "detail"
+                                },
+                                onNavigateToHistory = { screen = "history" },
+                                onNavigateToBeans = { screen = "beans" },
+                                onNavigateToMachines = { screen = "machines" },
+                                onNavigateToCups = { screen = "cups" },
+                                onNavigateToTips = { screen = "tips" },
+                                onNavigateToBackup = { screen = "backup" },
+                                onNavigateToAnalysis = { screen = "analysis" },
+                                onRetry = { retry++ }
+                            )
                         }
                     }
                 }
