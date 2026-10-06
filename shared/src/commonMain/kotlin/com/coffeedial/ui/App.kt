@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
+import com.coffeedial.auth.User
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Bean
@@ -639,9 +640,6 @@ private fun ShotForm(
                     Field("Nombre del café", draft.beanName, errors["beanName"], saving) {
                         onChange(draft.copy(beanName = it))
                     }
-                    Field("Tostador (opcional)", draft.roaster, null, saving) {
-                        onChange(draft.copy(roaster = it))
-                    }
                 }
             } else {
                 Column {
@@ -663,7 +661,7 @@ private fun ShotForm(
             }
         }
         item {
-            Field("Output · g", draft.output, errors["output"], saving, true) {
+            OutputSliderField(draft.output, errors["output"], saving) {
                 onChange(draft.copy(output = it))
             }
         }
@@ -697,13 +695,7 @@ private fun ShotForm(
             }
         }
         item {
-            Field(
-                "Agua extra · ml (opcional)",
-                draft.extraWater,
-                errors["extraWater"],
-                saving,
-                true
-            ) {
+            MlSliderField("Agua extra", draft.extraWater, errors["extraWater"], saving) {
                 onChange(draft.copy(extraWater = it))
             }
             Text(
@@ -712,7 +704,7 @@ private fun ShotForm(
             )
         }
         item {
-            Field("Leche · ml (opcional)", draft.milk, errors["milk"], saving, true) {
+            MlSliderField("Leche", draft.milk, errors["milk"], saving) {
                 onChange(draft.copy(milk = it))
             }
         }
@@ -823,7 +815,7 @@ private fun ShotForm(
             }
         }
         item {
-            Field("Tiempo · s", draft.seconds, errors["seconds"], saving, true) {
+            TimeSliderField(draft.seconds, errors["seconds"], saving) {
                 onChange(draft.copy(seconds = it))
             }
         }
@@ -967,6 +959,163 @@ private fun DoseSliderField(
 }
 
 @Composable
+private fun OutputSliderField(
+    output: String,
+    error: String?,
+    saving: Boolean,
+    onChange: (String) -> Unit
+) {
+    val currentOutputFloat = output.decimal()?.toFloat()?.coerceIn(10f, 100f) ?: 36f
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Output", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${currentOutputFloat.roundToInt()} g",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Slider(
+            value = currentOutputFloat,
+            onValueChange = { newValue ->
+                onChange(newValue.roundToInt().toString())
+            },
+            valueRange = 10f..100f,
+            steps = 89,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("10 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("100 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (error != null) {
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun MlSliderField(
+    label: String,
+    value: String,
+    error: String?,
+    saving: Boolean,
+    onChange: (String) -> Unit
+) {
+    val currentMlFloat = value.decimal()?.toFloat()?.coerceIn(0f, 250f) ?: 0f
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (currentMlFloat.roundToInt() == 0) "0 ml" else "${currentMlFloat.roundToInt()} ml",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (currentMlFloat.roundToInt() > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Slider(
+            value = currentMlFloat,
+            onValueChange = { newValue ->
+                val rounded = newValue.roundToInt()
+                onChange(if (rounded == 0) "" else rounded.toString())
+            },
+            valueRange = 0f..250f,
+            steps = 49,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("0 ml", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("250 ml", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (error != null) {
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun TimeSliderField(
+    seconds: String,
+    error: String?,
+    saving: Boolean,
+    onChange: (String) -> Unit
+) {
+    val currentSecondsFloat = seconds.decimal()?.toFloat()?.coerceIn(5f, 40f) ?: 20f
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Tiempo", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${currentSecondsFloat.roundToInt()} s",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Slider(
+            value = currentSecondsFloat,
+            onValueChange = { newValue ->
+                onChange(newValue.roundToInt().toString())
+            },
+            valueRange = 5f..40f,
+            steps = 34,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("5 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            FilterChip(
+                selected = currentSecondsFloat.roundToInt() == 20,
+                onClick = { onChange("20") },
+                enabled = !saving,
+                label = { Text("20 s") }
+            )
+
+            Text("40 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (error != null) {
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
 private fun Field(
     label: String,
     value: String,
@@ -1088,7 +1237,50 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
 // COMPOSE PREVIEWS
 // -----------------------------------------------------------------------------
 
-@Preview(name = "Tarjeta de Shot", showBackground = true)
+@Preview(name = "App Principal - Interactivo", showBackground = true, widthDp = 400, heightDp = 900)
+@Composable
+private fun AppInteractivePreview() {
+    val store = remember {
+        object : com.coffeedial.data.SnapshotStore {
+            var data: String? = null
+            override suspend fun read(): String? = data
+            override suspend fun compareAndSet(expected: String?, next: String): Boolean {
+                data = next
+                return true
+            }
+        }
+    }
+    var repository by remember { mutableStateOf<com.coffeedial.data.SnapshotRepository?>(null) }
+    LaunchedEffect(Unit) {
+        val repo = com.coffeedial.data.SnapshotRepository.open(store)
+        repo.save(mockDraft)
+        repository = repo
+    }
+
+    MaterialTheme {
+        if (repository != null) {
+            App(
+                repository = repository!!,
+                backupFiles = remember { BackupFiles() },
+                authRepository = remember {
+                    com.coffeedial.auth.InMemoryAuthRepository(
+                        AuthState.LoggedIn(
+                            User(
+                                id = "1",
+                                email = "coffee@example.com",
+                                displayName = "Agustin Sgarlata",
+                                provider = com.coffeedial.auth.AuthProvider.GOOGLE
+                            )
+                        )
+                    )
+                },
+                localWeb = false
+            )
+        }
+    }
+}
+
+@Preview(name = "Tarjeta de Shot", showBackground = true, widthDp = 400)
 @Composable
 private fun ShotCardPreview() {
     MaterialTheme {
@@ -1099,7 +1291,7 @@ private fun ShotCardPreview() {
     }
 }
 
-@Preview(name = "Detalle del Shot", showBackground = true)
+@Preview(name = "Detalle del Shot", showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
 private fun ShotDetailPreview() {
     MaterialTheme {
@@ -1107,7 +1299,7 @@ private fun ShotDetailPreview() {
     }
 }
 
-@Preview(name = "Formulario - Vacío", showBackground = true)
+@Preview(name = "Formulario - Vacío", showBackground = true, widthDp = 400, heightDp = 1000)
 @Composable
 private fun ShotFormEmptyPreview() {
     MaterialTheme {
@@ -1127,7 +1319,7 @@ private fun ShotFormEmptyPreview() {
     }
 }
 
-@Preview(name = "Formulario - Con Datos", showBackground = true)
+@Preview(name = "Formulario - Con Datos", showBackground = true, widthDp = 400, heightDp = 1000)
 @Composable
 private fun ShotFormFilledPreview() {
     MaterialTheme {
@@ -1147,7 +1339,7 @@ private fun ShotFormFilledPreview() {
     }
 }
 
-@Preview(name = "Formulario - Guardando (Loading)", showBackground = true)
+@Preview(name = "Formulario - Guardando (Loading)", showBackground = true, widthDp = 400, heightDp = 1000)
 @Composable
 private fun ShotFormSavingPreview() {
     MaterialTheme {
@@ -1167,7 +1359,7 @@ private fun ShotFormSavingPreview() {
     }
 }
 
-@Preview(name = "Formulario - Con Error de Guardado", showBackground = true)
+@Preview(name = "Formulario - Con Error de Guardado", showBackground = true, widthDp = 400, heightDp = 1000)
 @Composable
 private fun ShotFormErrorPreview() {
     MaterialTheme {
@@ -1187,7 +1379,7 @@ private fun ShotFormErrorPreview() {
     }
 }
 
-@Preview(name = "Campo de Texto Individual", showBackground = true)
+@Preview(name = "Campo de Texto Individual", showBackground = true, widthDp = 400)
 @Composable
 private fun FieldPreview() {
     MaterialTheme {
