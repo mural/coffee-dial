@@ -1,21 +1,31 @@
 package com.coffeedial.auth
 
+import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 // AuthenticationServices and GoogleSignIn are owned by the Swift host.
 class IosAuthRepository : AuthRepository {
     private val mutableState = MutableStateFlow<AuthState>(AuthState.LoggedOut)
     override val state = mutableState.asStateFlow()
     var googleIdToken: String? = null
-    override suspend fun syncCredential(): String? =
-        if ((state.value as? AuthState.LoggedIn)?.user?.provider ==
-            AuthProvider.GOOGLE
-        ) {
-            googleIdToken
-        } else {
-            null
+    var refreshGoogleAction: (((String?) -> Unit) -> Unit)? = null
+    override suspend fun syncCredential(): String? = withContext(Dispatchers.Main) {
+        val user = (state.value as? AuthState.LoggedIn)?.user
+        if (user?.provider != AuthProvider.GOOGLE) return@withContext null
+        val refresh = refreshGoogleAction ?: return@withContext null
+        suspendCancellableCoroutine { continuation ->
+            refresh { token ->
+                if (continuation.isActive) {
+                    val sameUser = (state.value as? AuthState.LoggedIn)?.user == user
+                    continuation.resume(if (sameUser) token else null)
+                }
+            }
         }
+    }
     var googleAction: (() -> Unit)? = null
     var appleAction: (() -> Unit)? = null
     var signOutAction: (() -> Unit)? = null
@@ -46,6 +56,7 @@ class IosAuthRepository : AuthRepository {
         mutableState.value = AuthState.Error(message)
     }
     fun cancelled() {
+        googleIdToken = null
         mutableState.value = AuthState.LoggedOut
     }
     override suspend fun signOut() {

@@ -42,7 +42,7 @@ La app funciona sin cuenta. El login identifica un perfil local; todavía no cre
    COFFEE_APPLE_ENTITLEMENTS = CoffeeDial.entitlements
    ```
 
-4. Probar en un iPhone con una cuenta Apple activa: consentimiento inicial, ocultar email, segundo acceso sin nombre/email, cancelar, cerrar sesión y revocar acceso desde ajustes de Apple. La comprobación de restauración se hace al iniciar la app; no hay sesión backend ni monitoreo continuo de revocaciones.
+4. Probar en un iPhone con una cuenta Apple activa: consentimiento inicial, ocultar email, segundo acceso sin nombre/email, cancelar, cerrar sesión y revocar acceso desde ajustes de Apple. Se comprueba al iniciar y al volver al primer plano, y se observa `credentialRevokedNotification`. Revocar cierra la sesión local sin borrar shots; un error temporal de red no borra la identidad. Apple aún no tiene sesión backend ni sync.
 
 ## Apple web / Android (pendiente)
 
@@ -91,3 +91,12 @@ Retorno autorizado de Google: `https://auth-coffee.muralooo.win/google/callback`
 Cada intento usa state, nonce, PKCE y cookie Secure/HttpOnly, y vence a los cinco minutos. El Worker valida la firma y claims del ID token de Google. La app recibe un código de un solo uso ligado al verificador que conserva localmente; vence como máximo a los 60 segundos y se consume atómicamente. No se persisten tokens Google ni se sincronizan shots. ALLOWED_EMAILS restringe inicialmente el acceso al propietario.
 
 El 3/10/2026 se verificó HTTPS y doce pruebas unitarias del servicio. `/health` responde `ready` tras cargar el secreto. El login completo en Android sigue pendiente.
+
+
+## Renovación de sesiones (2026-10-06)
+
+- Google web/Android: sesión propia de 30 días de inactividad; renovación autenticada diaria y logout revocable. Web persiste entre pestañas/reaperturas y verifica la sesión en `/api/session`. Android persiste cifrada con Keystore; el login nativo canjea el ID token por la sesión propia.
+- iOS Google: `refreshTokensIfNeeded` antes de devolver una credencial al sync; valida que no cambió la cuenta durante la renovación. El SDK conserva su sesión.
+- iOS Apple: restauración por estado de credencial, comprobación en foreground y notificación de revocación; se conserva el nombre/email del primer consentimiento únicamente para el mismo subject. La duración de Google no se impone a Apple.
+- Fuentes oficiales: https://developers.google.com/identity/sign-in/ios/reference/Classes/GIDGoogleUser y https://developer.apple.com/videos/play/wwdc2022/10122/.
+- El flag efectivo actual del Info.plist permite Apple. La validación de provisioning y login Apple en un dispositivo físico sigue siendo una comprobación manual; compilar no prueba consentimiento ni revocación reales.

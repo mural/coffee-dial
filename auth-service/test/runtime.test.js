@@ -24,6 +24,10 @@ test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation a
     const request = (method, credential = token, body) => mf.dispatchFetch('https://auth.test/api/sync', { method, headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
     assert.equal((await mf.dispatchFetch('https://auth.test/api/sync?email=test@example.com', { headers: { 'X-User-Email': 'test@example.com' } })).status, 401);
     assert.equal((await request('GET', `cd.${random()}`)).status, 401);
+    const profile = await mf.dispatchFetch('https://auth.test/api/session', { headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(profile.status, 200);
+    assert.equal((await profile.json()).id, 'one');
+    assert.equal((await mf.dispatchFetch('https://auth.test/api/session', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status, 400);
     const b = { ...emptyBackup(), beans: [{ id: 'b', name: 'Brasil', roaster: '' }] };
     const uploads = await Promise.all([request('POST', token, { protocol: 2, baseRevision: 0, backup: b }), request('POST', token, { protocol: 2, baseRevision: 0, backup: b })]);
     assert.deepEqual(uploads.map(x => x.status).sort(), [200, 409]);

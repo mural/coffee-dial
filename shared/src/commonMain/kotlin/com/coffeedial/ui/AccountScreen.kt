@@ -278,6 +278,28 @@ fun AccountScreen(
                                     Text("Recuperar y combinar")
                                 }
                             }
+
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch { syncEngine?.replaceWithCloud() }
+                                },
+                                enabled = syncEngine != null && syncState !is SyncState.Syncing,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Importar y sobreescribir desde la nube")
+                            }
+
+                            if (syncState is SyncState.Error) {
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch { syncEngine?.forceUploadToCloud() }
+                                    },
+                                    enabled = syncEngine != null && syncState !is SyncState.Syncing,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Sobreescribir datos en la nube")
+                                }
+                            }
                         }
                     }
                 }

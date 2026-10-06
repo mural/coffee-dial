@@ -1,7 +1,8 @@
 CREATE TABLE bean (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
-    roaster TEXT NOT NULL
+    roaster TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE machine (
@@ -9,6 +10,12 @@ CREATE TABLE machine (
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     year TEXT NOT NULL
+);
+
+CREATE TABLE cup (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    weight REAL
 );
 
 CREATE TABLE shot (
@@ -25,20 +32,21 @@ CREATE TABLE shot (
     milk REAL,
     machine TEXT,
     extra_water REAL,
-    style TEXT
+    style TEXT,
+    cup TEXT
 );
 
 CREATE INDEX shot_created_at ON shot(created_at DESC);
 CREATE INDEX shot_bean_id ON shot(bean_id);
 
 insertBean:
-INSERT OR IGNORE INTO bean(id, name, roaster) VALUES (?, ?, ?);
+INSERT OR REPLACE INTO bean(id, name, roaster, archived) VALUES (?, ?, ?, ?);
 
 findBean:
-SELECT * FROM bean WHERE name = ? AND roaster = ? ORDER BY id LIMIT 1;
+SELECT * FROM bean WHERE name = ? AND roaster = ? AND archived = 0 ORDER BY id LIMIT 1;
 
 insertShot:
-INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 history:
 SELECT shot.*, bean.name, bean.roaster
@@ -46,7 +54,19 @@ FROM shot JOIN bean ON bean.id = shot.bean_id
 ORDER BY created_at DESC, shot.id DESC;
 
 allBeans:
-SELECT * FROM bean ORDER BY id;
+SELECT * FROM bean ORDER BY name;
+
+activeBeans:
+SELECT * FROM bean WHERE archived = 0 ORDER BY name;
+
+beanForShot:
+SELECT bean.* FROM bean JOIN shot ON shot.bean_id = bean.id WHERE shot.id = ?;
+
+deleteBean:
+UPDATE bean SET archived = 1 WHERE id = ?;
+
+updateBean:
+UPDATE bean SET name = ?, roaster = ? WHERE id = ?;
 
 allShots:
 SELECT * FROM shot ORDER BY id;
@@ -55,7 +75,7 @@ deleteShot:
 DELETE FROM shot WHERE id = ?;
 
 updateShot:
-UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ?, extra_water = ?, style = ? WHERE id = ?;
+UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ?, extra_water = ?, style = ?, cup = ? WHERE id = ?;
 
 allMachines:
 SELECT * FROM machine ORDER BY name;
@@ -65,6 +85,18 @@ INSERT OR REPLACE INTO machine VALUES (?, ?, ?, ?);
 
 deleteMachine:
 DELETE FROM machine WHERE id = ?;
+
+allCups:
+SELECT * FROM cup ORDER BY name;
+
+insertCup:
+INSERT OR REPLACE INTO cup VALUES (?, ?, ?);
+
+deleteCup:
+DELETE FROM cup WHERE id = ?;
+
+updateCup:
+UPDATE cup SET name = ?, weight = ? WHERE id = ?;
 
 CREATE TABLE sync_checkpoint (id INTEGER NOT NULL PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
 
@@ -82,3 +114,6 @@ DELETE FROM bean;
 
 clearMachines:
 DELETE FROM machine;
+
+clearCups:
+DELETE FROM cup;

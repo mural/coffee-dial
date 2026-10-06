@@ -2,6 +2,12 @@ package com.coffeedial.domain
 
 data class Bean(val id: String, val name: String, val roaster: String)
 
+data class BeanDraft(val name: String = "", val roaster: String = "") {
+    fun errors(): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", "Ingresá el nombre del café")
+    }
+}
+
 data class Machine(val id: String, val name: String, val type: String, val year: String)
 
 data class MachineDraft(
@@ -13,6 +19,19 @@ data class MachineDraft(
         if (name.isBlank()) put("name", "Ingresá el nombre de la máquina")
         if (year.isNotBlank() && (year.toIntOrNull() == null || year.toInt() !in 1900..2100)) {
             put("year", "Ingresá un año válido (ej. 2022)")
+        }
+    }
+}
+
+data class Cup(val id: String, val name: String, val weight: Double? = null)
+
+data class CupDraft(val name: String = "", val weight: String = "") {
+    fun errors(): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", "Ingresá el nombre de la taza")
+        if (weight.isNotBlank() &&
+            (weight.decimal() == null || !weight.decimal()!!.isFinite() || weight.decimal()!! <= 0)
+        ) {
+            put("weight", "Ingresá un peso válido en gramos")
         }
     }
 }
@@ -31,7 +50,8 @@ data class Shot(
     val notes: String,
     val rating: Int,
     val extraWater: Double? = null,
-    val style: String? = null
+    val style: String? = null,
+    val cup: String? = null
 ) {
     val ratio: Double get() = output / dose
 }
@@ -49,7 +69,8 @@ data class ShotDraft(
     val notes: String = "",
     val rating: Int = 3,
     val extraWater: String = "",
-    val style: String = ""
+    val style: String = "",
+    val cup: String = ""
 ) {
     fun errors(): Map<String, String> = buildMap {
         if (beanName.isBlank()) put("beanName", "Ingresá el nombre del café")

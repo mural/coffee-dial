@@ -1,6 +1,7 @@
 package com.coffeedial.data
 
 import com.coffeedial.backup.BackupBeanV1
+import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
 import com.coffeedial.backup.BackupMachineV1
@@ -9,6 +10,9 @@ import com.coffeedial.backup.BackupV1
 import com.coffeedial.backup.ImportSummary
 import com.coffeedial.backup.planImport
 import com.coffeedial.domain.Bean
+import com.coffeedial.domain.BeanDraft
+import com.coffeedial.domain.Cup
+import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
@@ -40,9 +44,10 @@ class SnapshotRepository private constructor(
     private val storageJson = kotlinx.serialization.json.Json { encodeDefaults = true }
     private fun decodeStorage(text: String?): StoredSnapshot = try {
         readStorage(text)
-    } catch (_: Exception) {
+    } catch (error: Exception) {
         throw BackupException(
-            "Los datos locales tienen un formato incompatible o dañado. No se modificaron."
+            "Los datos locales tienen un formato incompatible o dañado. No se modificaron.",
+            error
         )
     }
     private fun readStorage(text: String?): StoredSnapshot {
@@ -65,6 +70,8 @@ class SnapshotRepository private constructor(
     private val mutex = Mutex()
     override val history = MutableStateFlow<List<Shot>>(emptyList())
     override val machines = MutableStateFlow<List<Machine>>(emptyList())
+    override val beans = MutableStateFlow<List<Bean>>(emptyList())
+    override val cups = MutableStateFlow<List<Cup>>(emptyList())
 
     init {
         publish()
@@ -75,22 +82,28 @@ class SnapshotRepository private constructor(
     }
 
     private fun publish() {
-        val beans = data.beans.associateBy { it.id }
+        val beansMap = data.beans.associateBy { it.id }
+        beans.value =
+            data.beans.filterNot {
+                it.archived
+            }.sortedBy { it.name }.map { Bean(it.id, it.name, it.roaster) }
         history.value =
             data.shots.sortedWith(
                 compareByDescending<BackupShotV1> {
                     it.createdAt
                 }.thenBy { it.id }
             ).map {
-                val bean = beans[it.beanId] ?: BackupBeanV1(it.beanId, "Café molido", "")
+                val bean = beansMap[it.beanId] ?: BackupBeanV1(it.beanId, "Café molido", "")
                 Shot(
                     it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
                     it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating,
-                    it.extraWater, it.style
+                    it.extraWater, it.style, it.cup
                 )
             }
         machines.value =
             data.machines.sortedBy { it.name }.map { Machine(it.id, it.name, it.type, it.year) }
+        cups.value =
+            data.cups.sortedBy { it.name }.map { Cup(it.id, it.name, it.weight) }
     }
 
     private suspend fun refresh() {
@@ -160,9 +173,14 @@ class SnapshotRepository private constructor(
         createdAt: Long
     ): BackupV1 {
         require(draft.errors().isEmpty())
+        val previousBeanId = local.shots.find { it.id == id }?.beanId
         val bean =
             local.beans.find {
-                it.name == draft.beanName.trim() &&
+                it.id == previousBeanId && it.name == draft.beanName.trim() &&
+                    it.roaster == draft.roaster.trim()
+            } ?: local.beans.find {
+                !it.archived &&
+                    it.name == draft.beanName.trim() &&
                     it.roaster == draft.roaster.trim()
             }
                 ?: BackupBeanV1(
@@ -182,7 +200,7 @@ class SnapshotRepository private constructor(
                 null
             },
             draft.notes.trim(), draft.rating, draft.extraWater.decimal(),
-            draft.style.trim().ifBlank { null }
+            draft.style.trim().ifBlank { null }, draft.cup.trim().ifBlank { null }
         )
         return local.copy(
             beans = if (bean in local.beans) local.beans else local.beans + bean,
@@ -207,6 +225,82 @@ class SnapshotRepository private constructor(
             }
         )
     }
+
+    override suspend fun saveBean(draft: BeanDraft) = change {
+        require(draft.errors().isEmpty())
+        val name = draft.name.trim()
+        val roaster = draft.roaster.trim()
+        if (it.beans.any { bean ->
+                !bean.archived && bean.name == name && bean.roaster == roaster
+            }
+        ) {
+            it
+        } else {
+            it.copy(
+                beans = it.beans + BackupBeanV1(
+                    Uuid.random().toString(),
+                    name,
+                    roaster
+                )
+            )
+        }
+    }
+
+    override suspend fun updateBean(id: String, draft: BeanDraft) = change {
+        require(draft.errors().isEmpty())
+        check(it.beans.any { b -> b.id == id && !b.archived }) { "El café ya no existe." }
+        val name = draft.name.trim()
+        val roaster = draft.roaster.trim()
+        it.copy(
+            beans = it.beans.map { bean ->
+                if (bean.id == id) BackupBeanV1(id, name, roaster) else bean
+            }
+        )
+    }
+
+    override suspend fun deleteBean(id: String) = change {
+        it.copy(
+            beans = it.beans.map { bean ->
+                if (bean.id == id) bean.copy(archived = true) else bean
+            }
+        )
+    }
+
+    override suspend fun saveCup(draft: CupDraft) = change {
+        require(draft.errors().isEmpty())
+        val name = draft.name.trim()
+        val weight = draft.weight.decimal()
+        if (it.cups.any { cup -> cup.name == name }) {
+            it
+        } else {
+            it.copy(
+                cups = it.cups + BackupCupV1(
+                    Uuid.random().toString(),
+                    name,
+                    weight
+                )
+            )
+        }
+    }
+
+    override suspend fun updateCup(id: String, draft: CupDraft) = change {
+        require(draft.errors().isEmpty())
+        check(it.cups.any { c -> c.id == id }) { "La taza ya no existe." }
+        val name = draft.name.trim()
+        val weight = draft.weight.decimal()
+        it.copy(
+            cups = it.cups.map { cup ->
+                if (cup.id == id) BackupCupV1(id, name, weight) else cup
+            }
+        )
+    }
+
+    override suspend fun deleteCup(id: String) = change {
+        it.copy(
+            cups = it.cups.filterNot { cup -> cup.id == id }
+        )
+    }
+
     override suspend fun saveMachine(draft: MachineDraft) = change {
         require(draft.errors().isEmpty())
         if (it.machines.any { machine -> machine.name == draft.name.trim() }) {
@@ -226,16 +320,13 @@ class SnapshotRepository private constructor(
     }
     override suspend fun updateMachine(id: String, draft: MachineDraft) = change {
         require(draft.errors().isEmpty())
-        check(it.machines.any { machine -> machine.id == id }) { "La máquina ya no existe." }
+        check(it.machines.any { m -> m.id == id }) { "La máquina ya no existe." }
+        val name = draft.name.trim()
+        val type = draft.type.trim()
+        val year = draft.year.trim()
         it.copy(
             machines = it.machines.map { machine ->
-                if (machine.id ==
-                    id
-                ) {
-                    BackupMachineV1(id, draft.name.trim(), draft.type.trim(), draft.year.trim())
-                } else {
-                    machine
-                }
+                if (machine.id == id) BackupMachineV1(id, name, type, year) else machine
             }
         )
     }
@@ -264,7 +355,7 @@ class SnapshotRepository private constructor(
     override suspend fun importBackup(prepared: PreparedImport): ImportSummary {
         change {
             if (it.beans != prepared.local.beans || it.shots != prepared.local.shots ||
-                it.machines != prepared.local.machines
+                it.machines != prepared.local.machines || it.cups != prepared.local.cups
             ) {
                 throw BackupException(
                     "El historial cambió. Volvé a seleccionar el backup para revisarlo."
@@ -273,7 +364,8 @@ class SnapshotRepository private constructor(
             it.copy(
                 beans = it.beans + prepared.plan.beans,
                 shots = it.shots + prepared.plan.shots,
-                machines = it.machines + prepared.plan.machines
+                machines = it.machines + prepared.plan.machines,
+                cups = it.cups + prepared.plan.cups
             )
         }
         return prepared.summary
@@ -285,10 +377,18 @@ class SnapshotRepository private constructor(
             it.copy(
                 beans = (it.beans + incoming.beans).distinctBy { bean -> bean.id },
                 shots = (it.shots + incoming.shots).distinctBy { shot -> shot.id },
-                machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id }
+                machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id },
+                cups = (it.cups + incoming.cups).distinctBy { cup -> cup.id }
             )
         }
-        return ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+        return ImportSummary(
+            incoming.beans.size,
+            incoming.shots.size,
+            incoming.machines.size,
+            0,
+            0,
+            newCups = incoming.cups.size
+        )
     }
 
     override suspend fun replaceWithBackup(text: String): ImportSummary {
@@ -297,9 +397,17 @@ class SnapshotRepository private constructor(
             it.copy(
                 beans = incoming.beans,
                 shots = incoming.shots,
-                machines = incoming.machines
+                machines = incoming.machines,
+                cups = incoming.cups
             )
         }
-        return ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+        return ImportSummary(
+            incoming.beans.size,
+            incoming.shots.size,
+            incoming.machines.size,
+            0,
+            0,
+            newCups = incoming.cups.size
+        )
     }
 }

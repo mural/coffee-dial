@@ -59,7 +59,8 @@ fun main() {
                 App(repository, files, authRepository, localWeb = false)
             }
             CoffeeBrowser.ready()
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            println("Coffee Dial startup: ${error.stackTraceToString()}")
             CoffeeBrowser.failed()
         }
     }

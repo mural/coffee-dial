@@ -1,4 +1,5 @@
 export { AdminDirectory } from './admin.js';
+import { createAccess, readAccess } from './access.js';
 import { emptySync, updateSync, seedLegacy } from './sync.js';
 import { loginDestination, callbackDestination } from './returns.js';
 import { DurableObject } from 'cloudflare:workers';
@@ -51,14 +52,13 @@ export class LoginAttempt extends DurableObject {
       if (action === '/sync_read') return json(await this.ctx.storage.get('sync_v2') || emptySync());
       if (action === '/sync_write') return json(await updateSync(this.ctx.storage, input));
       if (action === '/access_create') {
-        await this.ctx.storage.put('access', { user: input.user, expires: Date.now() + 12 * 3600000 });
-        await this.ctx.storage.setAlarm(Date.now() + 12 * 3600000);
+        await createAccess(this.ctx.storage, input.user);
         return json({ ok: true });
       }
       if (action === '/access_read') {
-        const access = await this.ctx.storage.get('access');
-        if (!access || access.expires <= Date.now()) return json({ error: 'unauthorized' }, 401);
-        return json(access.user);
+        const user = await readAccess(this.ctx.storage);
+        if (!user) return json({ error: 'unauthorized' }, 401);
+        return json(user);
       }
       if (action === '/access_revoke') { await this.ctx.storage.deleteAll(); return json({ ok: true }); }
       if (action === '/init') return json(await s.init(input));
@@ -67,7 +67,13 @@ export class LoginAttempt extends DurableObject {
       return json({ error: 'invalid' }, 400);
     } catch { return json({ error: 'invalid_or_expired' }, 400); }
   }
-  async alarm() { await this.ctx.storage.deleteAll(); }
+  async alarm() {
+    await this.ctx.storage.transaction(async tx => {
+      const access = await tx.get('access');
+      if (access && access.expires > Date.now()) await tx.setAlarm(access.expires);
+      else await tx.deleteAll();
+    });
+  }
 }
 
 export default {
@@ -80,7 +86,7 @@ export default {
     if (url.origin !== env.PUBLIC_ORIGIN) return json({ error: 'wrong_origin' }, 400);
     if (url.pathname === '/health' && request.method === 'GET') return json({ status: env.GOOGLE_CLIENT_SECRET ? 'ready' : 'not_configured' });
     if (url.pathname === '/' && request.method === 'GET') return html('<p>Servicio de acceso de Coffee Dial. Iniciá sesión desde la app.</p>');
-    if (url.pathname === '/api/sync' || url.pathname === '/api/logout' || url.pathname.startsWith('/api/admin/')) {
+    if (url.pathname === '/api/session' || url.pathname === '/api/sync' || url.pathname === '/api/logout' || url.pathname.startsWith('/api/admin/')) {
       const bearer = request.headers.get('Authorization') || '';
       if (!bearer.startsWith('Bearer ') || bearer.length > 16384) return json({ error: 'unauthorized' }, 401);
       const token = bearer.slice(7);
@@ -90,6 +96,17 @@ export default {
           ? await call(env, `access_${await hash(token)}`, 'access_read', {})
           : await verifySyncGoogle(token, env);
       } catch { return json({ error: 'unauthorized' }, 401); }
+      if (url.pathname === '/api/session') {
+        if (request.method === 'GET') return json(user);
+        if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+        // Only a freshly verified provider token can create another long-lived session.
+        if (token.startsWith('cd.')) return json({ error: 'provider_token_required' }, 400);
+        const ip = request.headers.get('CF-Connecting-IP') || 'local';
+        if (!(await env.RATE_LIMITER.limit({ key: ip })).success) return json({ error: 'too_many_requests' }, 429);
+        const syncToken = `cd.${random()}`;
+        await call(env, `access_${await hash(syncToken)}`, 'access_create', { user });
+        return json({ ...user, syncToken });
+      }
       if (url.pathname === '/api/logout' && request.method === 'POST') {
         if (token.startsWith('cd.')) await call(env, `access_${await hash(token)}`, 'access_revoke', {});
         return json({ ok: true });

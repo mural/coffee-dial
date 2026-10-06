@@ -44,6 +44,10 @@ import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
+import com.coffeedial.domain.Bean
+import com.coffeedial.domain.BeanDraft
+import com.coffeedial.domain.Cup
+import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
@@ -59,14 +63,14 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
         listOf(
             it.beanName, it.roaster, it.dose, it.output, it.seconds,
             it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toString(),
-            it.extraWater, it.style
+            it.extraWater, it.style, it.cup
         )
     },
     restore = {
         ShotDraft(
             it[0], it[1], it[2], it[3], it[4], it[5],
             it[6], it[7], it[8], it[9], it[10].toInt(),
-            it.getOrElse(11) { "" }, it.getOrElse(12) { "" }
+            it.getOrElse(11) { "" }, it.getOrElse(12) { "" }, it.getOrElse(13) { "" }
         )
     }
 )
@@ -83,8 +87,23 @@ fun App(
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
     var shots by remember { mutableStateOf<List<Shot>?>(null) }
     var machines by remember { mutableStateOf<List<Machine>>(emptyList()) }
+    var beansList by remember { mutableStateOf<List<Bean>>(emptyList()) }
+    var cupsList by remember { mutableStateOf<List<Cup>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
+    var selectedStyle by rememberSaveable { mutableStateOf<String?>(null) }
+    val styleOptions = shots.orEmpty().map { it.style.orEmpty().trim() }
+        .distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
+    LaunchedEffect(styleOptions) {
+        if (selectedStyle != null &&
+            styleOptions.none { it.lowercase() == selectedStyle }
+        ) {
+            selectedStyle = null
+        }
+    }
+    val filteredShots = shots.orEmpty().filter {
+        selectedStyle == null || it.style.orEmpty().trim().lowercase() == selectedStyle
+    }
     var saving by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -97,9 +116,14 @@ fun App(
         if (!saving && !backupFiles.busy) {
             screen = when (screen) {
                 "admin" -> "account"
+
                 "detail" -> "history"
+
                 "edit" -> "detail"
-                "machines", "account", "backup", "analysis" -> "home"
+
+                "machines", "beans", "cups",
+                "account", "backup", "analysis" -> "home"
+
                 else -> "home"
             }
         }
@@ -109,6 +133,8 @@ fun App(
         try {
             launch { repository.history.collect { shots = it } }
             launch { repository.machines.collect { machines = it } }
+            launch { repository.beans.collect { beansList = it } }
+            launch { repository.cups.collect { cupsList = it } }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -149,9 +175,14 @@ fun App(
                                 TextButton(enabled = !saving && !backupFiles.busy, onClick = {
                                     screen = when (screen) {
                                         "admin" -> "account"
+
                                         "detail" -> "history"
+
                                         "edit" -> "detail"
-                                        "machines", "account", "backup", "analysis" -> "home"
+
+                                        "machines", "beans", "cups",
+                                        "account", "backup", "analysis" -> "home"
+
                                         else -> "home"
                                     }
                                 }) {
@@ -214,9 +245,93 @@ fun App(
                             }
                         )
 
+                        "beans" -> BeansScreen(
+                            beans = beansList,
+                            saving = saving,
+                            saveError = saveError,
+                            onSaveBean = { beanId, beanDraft, onSaved ->
+                                saving = true
+                                saveError = null
+                                scope.launch {
+                                    try {
+                                        if (beanId == null) {
+                                            repository.saveBean(beanDraft)
+                                        } else {
+                                            repository.updateBean(beanId, beanDraft)
+                                        }
+                                        onSaved()
+                                        scope.launch { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                        saveError = "No pudimos guardar el café."
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
+                            },
+                            onDeleteBean = { beanId ->
+                                saving = true
+                                scope.launch {
+                                    try {
+                                        repository.deleteBean(beanId)
+                                        scope.launch { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
+                            }
+                        )
+
+                        "cups" -> CupsScreen(
+                            cups = cupsList,
+                            saving = saving,
+                            saveError = saveError,
+                            onSaveCup = { cupId, cupDraft, onSaved ->
+                                saving = true
+                                saveError = null
+                                scope.launch {
+                                    try {
+                                        if (cupId == null) {
+                                            repository.saveCup(cupDraft)
+                                        } else {
+                                            repository.updateCup(cupId, cupDraft)
+                                        }
+                                        onSaved()
+                                        scope.launch { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                        saveError = "No pudimos guardar la taza."
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
+                            },
+                            onDeleteCup = { cupId ->
+                                saving = true
+                                scope.launch {
+                                    try {
+                                        repository.deleteCup(cupId)
+                                        scope.launch { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (_: Exception) {
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
+                            }
+                        )
+
                         "new", "edit" -> ShotForm(
                             draft = draft,
                             machines = machines,
+                            beans = beansList,
+                            cups = cupsList,
                             onChange = {
                                 draft = it
                                 saveError = null
@@ -225,6 +340,8 @@ fun App(
                             saveError = saveError,
                             isEditing = screen == "edit",
                             onNavigateToMachines = { screen = "machines" },
+                            onNavigateToBeans = { screen = "beans" },
+                            onNavigateToCups = { screen = "cups" },
                             onSave = {
                                 saving = true
                                 saveError = null
@@ -281,7 +398,8 @@ fun App(
                                                 style = shot.style.orEmpty(),
                                                 machine = shot.machine ?: "",
                                                 notes = shot.notes,
-                                                rating = shot.rating
+                                                rating = shot.rating,
+                                                cup = shot.cup ?: ""
                                             )
                                             screen = "edit"
                                         },
@@ -313,11 +431,21 @@ fun App(
                                             it.isNotEmpty()
                                         }
                                             ?.substringBefore(' ')
-                                        Text(
-                                            if (name == null) "¡Hola! ☕" else "¡Hola, $name! ☕",
-                                            style = MaterialTheme.typography.titleLarge,
-                                            modifier = Modifier.padding(bottom = 8.dp)
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(bottom = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                if (name == null) "¡Hola!" else "¡Hola, $name!",
+                                                style = MaterialTheme.typography.titleLarge
+                                            )
+                                            androidx.compose.material3.Icon(
+                                                CoffeeCup,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                     Text(
                                         if (screen ==
@@ -347,8 +475,14 @@ fun App(
                                                 screen = "history"
                                             }) { Text("Historial (${shots.orEmpty().size})") }
                                             TextButton(onClick = {
+                                                screen = "beans"
+                                            }) { Text("Cafés") }
+                                            TextButton(onClick = {
                                                 screen = "machines"
                                             }) { Text("Máquinas") }
+                                            TextButton(onClick = {
+                                                screen = "cups"
+                                            }) { Text("Tazas") }
                                             TextButton(onClick = {
                                                 screen = "backup"
                                             }) { Text("Backup") }
@@ -360,6 +494,42 @@ fun App(
                                             "Últimos shots",
                                             style = MaterialTheme.typography.titleMedium
                                         )
+                                    }
+                                }
+                                if (screen == "history" && shots.orEmpty().isNotEmpty()) {
+                                    item {
+                                        Text("Estilo", style = MaterialTheme.typography.titleMedium)
+                                        androidx.compose.foundation.layout.FlowRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            FilterChip(
+                                                selected = selectedStyle == null,
+                                                onClick = {
+                                                    selectedStyle = null
+                                                },
+                                                label = { Text("Todos") }
+                                            )
+                                            styleOptions.forEach { option ->
+                                                FilterChip(
+                                                    selected =
+                                                        selectedStyle == option.lowercase(),
+                                                    onClick = {
+                                                        selectedStyle = option.lowercase()
+                                                    },
+                                                    label = {
+                                                        Text(option.ifBlank { "Sin estilo" })
+                                                    }
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            "${filteredShots.size} de ${shots.orEmpty().size} shots"
+                                        )
+                                    }
+                                    if (filteredShots.isEmpty()) {
+                                        item {
+                                            Text("No hay shots con este estilo.")
+                                        }
                                     }
                                 }
                                 if (shots.orEmpty().isEmpty()) {
@@ -376,7 +546,7 @@ fun App(
                                     ) {
                                         shots.orEmpty().take(3)
                                     } else {
-                                        shots.orEmpty()
+                                        filteredShots
                                     },
                                     key = { it.id }
                                 ) { shot ->
@@ -398,11 +568,15 @@ fun App(
 private fun ShotForm(
     draft: ShotDraft,
     machines: List<Machine>,
+    beans: List<Bean>,
+    cups: List<Cup>,
     onChange: (ShotDraft) -> Unit,
     saving: Boolean,
     saveError: String?,
     isEditing: Boolean = false,
     onNavigateToMachines: () -> Unit,
+    onNavigateToBeans: () -> Unit,
+    onNavigateToCups: () -> Unit,
     onSave: () -> Unit
 ) {
     var submitted by rememberSaveable { mutableStateOf(false) }
@@ -415,8 +589,64 @@ private fun ShotForm(
             )
         }
         item {
-            Field("Café", draft.beanName, errors["beanName"], saving) {
-                onChange(draft.copy(beanName = it))
+            if (beans.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Café guardado", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = onNavigateToBeans, enabled = !saving) {
+                            Text("Gestionar cafés")
+                        }
+                    }
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        beans.forEach { b ->
+                            FilterChip(
+                                selected = draft.beanName == b.name,
+                                onClick = {
+                                    onChange(
+                                        draft.copy(
+                                            beanName = b.name,
+                                            roaster = b.roaster
+                                        )
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        if (b.roaster.isNotBlank()) {
+                                            "${b.name} (${b.roaster})"
+                                        } else {
+                                            b.name
+                                        }
+                                    )
+                                },
+                                enabled = !saving
+                            )
+                        }
+                    }
+                    Field("Nombre del café", draft.beanName, errors["beanName"], saving) {
+                        onChange(draft.copy(beanName = it))
+                    }
+                    Field("Tostador (opcional)", draft.roaster, null, saving) {
+                        onChange(draft.copy(roaster = it))
+                    }
+                }
+            } else {
+                Column {
+                    Field("Café", draft.beanName, errors["beanName"], saving) {
+                        onChange(draft.copy(beanName = it))
+                    }
+                    Field("Tostador (opcional)", draft.roaster, null, saving) {
+                        onChange(draft.copy(roaster = it))
+                    }
+                    TextButton(onClick = onNavigateToBeans, enabled = !saving) {
+                        Text("+ Agregar café guardado")
+                    }
+                }
             }
         }
         item {
@@ -529,6 +759,62 @@ private fun ShotForm(
             }
         }
         item {
+            if (cups.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Taza", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = onNavigateToCups, enabled = !saving) {
+                            Text("Gestionar tazas")
+                        }
+                    }
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        cups.forEach { c ->
+                            FilterChip(
+                                selected = draft.cup == c.name,
+                                onClick = {
+                                    onChange(
+                                        draft.copy(
+                                            cup = if (draft.cup == c.name) "" else c.name
+                                        )
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        if (c.weight !=
+                                            null
+                                        ) {
+                                            "${c.name} (${c.weight.pretty()} g)"
+                                        } else {
+                                            c.name
+                                        }
+                                    )
+                                },
+                                enabled = !saving
+                            )
+                        }
+                    }
+                    Field("O escribir taza manualmente", draft.cup, null, saving) {
+                        onChange(draft.copy(cup = it))
+                    }
+                }
+            } else {
+                Column {
+                    Field("Taza (opcional)", draft.cup, null, saving) {
+                        onChange(draft.copy(cup = it))
+                    }
+                    TextButton(onClick = onNavigateToCups, enabled = !saving) {
+                        Text("+ Agregar taza guardada")
+                    }
+                }
+            }
+        }
+        item {
             Field("Tiempo · s", draft.seconds, errors["seconds"], saving, true) {
                 onChange(draft.copy(seconds = it))
             }
@@ -569,7 +855,7 @@ private fun ShotForm(
                         androidx.compose.material3.IconButton(onClick = {
                             onChange(draft.copy(notes = ""))
                         }) {
-                            Text("✕", style = MaterialTheme.typography.bodyMedium)
+                            ClearIcon("notas")
                         }
                     }
                 } else {
@@ -626,7 +912,7 @@ private fun Field(
         trailingIcon = if (value.isNotEmpty() && !saving) {
             {
                 androidx.compose.material3.IconButton(onClick = { onChange("") }) {
-                    Text("✕", style = MaterialTheme.typography.bodyMedium)
+                    ClearIcon(label)
                 }
             }
         } else {
@@ -644,16 +930,29 @@ private fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, sav
         if (!shot.machine.isNullOrBlank()) {
             item { Text("Máquina: ${shot.machine}") }
         }
+        if (!shot.cup.isNullOrBlank()) {
+            item { Text("Taza: ${shot.cup}") }
+        }
         item { Text(timestamp(shot.createdAt)) }
         item { Text("1:${shot.ratio.pretty()}", style = MaterialTheme.typography.displayMedium) }
         item { Text("Ratio de extracción") }
         item {
+            val total = shot.output + (shot.milk ?: 0.0) + (shot.extraWater ?: 0.0)
             Text(
                 "Entrada: ${shot.dose.pretty()} g\n" +
                     "Output: ${shot.output.pretty()} g" +
                     (shot.style?.let { "\nEstilo: $it" } ?: "") +
                     (shot.extraWater?.let { "\nAgua extra: ${it.pretty()} ml" } ?: "") +
                     (shot.milk?.let { "\nLeche: ${it.pretty()} ml" } ?: "") +
+                    (
+                        if (shot.milk != null ||
+                            shot.extraWater != null
+                        ) {
+                            "\nTotal: ${total.pretty()} g"
+                        } else {
+                            ""
+                        }
+                        ) +
                     "\nTiempo: ${shot.seconds.pretty()} s"
             )
         }
@@ -742,10 +1041,14 @@ private fun ShotFormEmptyPreview() {
         ShotForm(
             draft = ShotDraft(),
             machines = mockMachines,
+            beans = listOf(mockBean),
+            cups = emptyList(),
             onChange = {},
             saving = false,
             saveError = null,
             onNavigateToMachines = {},
+            onNavigateToBeans = {},
+            onNavigateToCups = {},
             onSave = {}
         )
     }
@@ -758,10 +1061,14 @@ private fun ShotFormFilledPreview() {
         ShotForm(
             draft = mockDraft,
             machines = mockMachines,
+            beans = listOf(mockBean),
+            cups = emptyList(),
             onChange = {},
             saving = false,
             saveError = null,
             onNavigateToMachines = {},
+            onNavigateToBeans = {},
+            onNavigateToCups = {},
             onSave = {}
         )
     }
@@ -774,10 +1081,14 @@ private fun ShotFormSavingPreview() {
         ShotForm(
             draft = mockDraft,
             machines = mockMachines,
+            beans = listOf(mockBean),
+            cups = emptyList(),
             onChange = {},
             saving = true,
             saveError = null,
             onNavigateToMachines = {},
+            onNavigateToBeans = {},
+            onNavigateToCups = {},
             onSave = {}
         )
     }
@@ -790,10 +1101,14 @@ private fun ShotFormErrorPreview() {
         ShotForm(
             draft = mockDraft,
             machines = mockMachines,
+            beans = listOf(mockBean),
+            cups = emptyList(),
             onChange = {},
             saving = false,
             saveError = "No pudimos guardar el shot. Tus datos siguen acá; intentá otra vez.",
             onNavigateToMachines = {},
+            onNavigateToBeans = {},
+            onNavigateToCups = {},
             onSave = {}
         )
     }

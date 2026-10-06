@@ -6,25 +6,29 @@ data class ImportSummary(
     val newShots: Int,
     val newMachines: Int = 0,
     val duplicates: Int,
-    val conflicts: Int
+    val conflicts: Int,
+    val newCups: Int = 0
 )
 
 internal data class ImportPlan(
     val beans: List<BackupBeanV1>,
     val shots: List<BackupShotV1>,
     val machines: List<BackupMachineV1>,
-    val summary: ImportSummary
+    val summary: ImportSummary,
+    val cups: List<BackupCupV1> = emptyList()
 )
 
 internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
     val beansById = local.beans.associateBy { it.id }.toMutableMap()
-    val beansByName = local.beans.associateBy { it.name to it.roaster }.toMutableMap()
+    val beansByName = local.beans.associateBy {
+        Triple(it.name, it.roaster, it.archived)
+    }.toMutableMap()
     val mapping = mutableMapOf<String, String>()
     val newBeans = mutableListOf<BackupBeanV1>()
     var conflicts = 0
     incoming.beans.forEach { bean ->
         val sameId = beansById[bean.id]
-        val sameName = beansByName[bean.name to bean.roaster]
+        val sameName = beansByName[Triple(bean.name, bean.roaster, bean.archived)]
         when {
             sameId != null && sameId != bean -> conflicts++
 
@@ -35,7 +39,7 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             else -> {
                 newBeans += bean
                 beansById[bean.id] = bean
-                beansByName[bean.name to bean.roaster] = bean
+                beansByName[Triple(bean.name, bean.roaster, bean.archived)] = bean
                 mapping[bean.id] = bean.id
             }
         }
@@ -60,6 +64,15 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             }
         }
     }
+    val cupsById = local.cups.associateBy { it.id }
+    val newCups = mutableListOf<BackupCupV1>()
+    incoming.cups.forEach { cup ->
+        val existing = cupsById[cup.id]
+        when {
+            existing == null -> newCups += cup
+            existing != cup -> conflicts++
+        }
+    }
     val existingShots = local.shots.associateBy { it.id }
     val newShots = mutableListOf<BackupShotV1>()
     var duplicates = 0
@@ -81,6 +94,14 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
         newBeans,
         newShots,
         newMachines,
-        ImportSummary(newBeans.size, newShots.size, newMachines.size, duplicates, conflicts)
+        ImportSummary(
+            newBeans.size,
+            newShots.size,
+            newMachines.size,
+            duplicates,
+            conflicts,
+            newCups.size
+        ),
+        newCups
     )
 }

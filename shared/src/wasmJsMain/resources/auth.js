@@ -18,7 +18,29 @@
     },
     async complete() {
       const params = new URLSearchParams(location.hash.slice(1));
-      if (!params.has('attempt')) return sessionStorage.getItem(userKey) || '';
+      if (!params.has('attempt')) {
+        const saved = localStorage.getItem(userKey) || sessionStorage.getItem(userKey);
+        if (!saved) return '';
+        const user = JSON.parse(saved);
+        if (typeof user.syncToken !== 'string') return '';
+        try {
+          const response = await fetch(origin + '/api/session', {
+            headers: { Authorization: 'Bearer ' + user.syncToken },
+            signal: AbortSignal.timeout(10000)
+          });
+          if (response.status === 401) { this.clear(); return ''; }
+          if (!response.ok) throw new Error('No se pudo validar la sesión');
+          const verified = await response.json();
+          if (verified.id !== user.id) { this.clear(); return ''; }
+          const value = JSON.stringify({ ...verified, syncToken: user.syncToken });
+          localStorage.setItem(userKey, value);
+          sessionStorage.removeItem(userKey);
+          return value;
+        } catch {
+          // Offline profile is only UI state; the server still validates every sync.
+          return saved;
+        }
+      }
       localStorage.removeItem(userKey);
       history.replaceState(null, '', location.pathname + location.search);
       const pending = JSON.parse(sessionStorage.getItem(key) || 'null');
@@ -35,7 +57,8 @@
       const user = await response.json();
       if (typeof user.id !== 'string' || !user.id) throw new Error('Identidad inválida');
       const value = JSON.stringify(user);
-      sessionStorage.setItem(userKey, value);
+      localStorage.setItem(userKey, value);
+      sessionStorage.removeItem(userKey);
       return value;
     },
     clear() {

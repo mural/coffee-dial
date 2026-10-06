@@ -63,3 +63,28 @@ test('rejects invalid optional water and style without changing storage', async 
   await assert.rejects(updateSync(storage, request(0, value)), /invalid_shot/);
   assert.equal(await storage.get('sync_v2'), undefined);
 });
+
+test('v3 upgrades stored snapshots without cups and protects cup deletions', async () => {
+  const storage = new Store();
+  const old = backup(); old.schemaVersion = 2; delete old.cups;
+  await storage.put('sync_v2', { protocol: 2, revision: 5, backup: old, deleted: { beans: [], shots: [], machines: [] } });
+  const next = { ...old, schemaVersion: 3, cups: [{ id: 'cup', name: 'Cerámica', weight: 120 }] };
+  const updated = await updateSync(storage, request(5, next));
+  assert.deepEqual(updated.backup.cups, next.cups);
+  await assert.rejects(updateSync(storage, request(6, old)), /backup_upgrade_required/);
+  const deleted = await updateSync(storage, request(6, { ...next, cups: [] }));
+  assert.deepEqual(deleted.deleted.cups, ['cup']);
+  assert.equal((await updateSync(storage, request(7, next))).conflict, true);
+});
+
+test('v4 removing a bean from the catalog preserves its shots and rejects old clients', async () => {
+  const storage = new Store();
+  const data = backup(); data.schemaVersion = 4; data.beans[0].archived = true;
+  const result = await updateSync(storage, request(0, data));
+  assert.equal(result.backup.shots.length, 1);
+  assert.equal(result.backup.beans[0].archived, true);
+  assert.deepEqual(result.deleted.beans, []);
+  await assert.rejects(updateSync(storage, request(1, backup())), /backup_upgrade_required/);
+  data.beans[0].archived = 'true';
+  await assert.rejects(updateSync(storage, request(1, data)), /invalid_bean/);
+});

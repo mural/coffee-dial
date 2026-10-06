@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.db.SqlDriver
 import com.coffeedial.backup.BackupBeanV1
+import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
 import com.coffeedial.backup.BackupMachineV1
@@ -14,6 +15,9 @@ import com.coffeedial.backup.ImportSummary
 import com.coffeedial.backup.planImport
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.Bean
+import com.coffeedial.domain.BeanDraft
+import com.coffeedial.domain.Cup
+import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
@@ -38,7 +42,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 it.id, Bean(it.bean_id, it.name, it.roaster), it.created_at,
                 it.dose, it.output, it.seconds, it.grind,
                 it.temperature, it.milk, it.machine, it.notes, it.rating.toInt(),
-                it.extra_water, it.style
+                it.extra_water, it.style, it.cup
             )
         }
     }
@@ -47,6 +51,18 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         Dispatchers.IO
     ).map { rows ->
         rows.map { Machine(it.id, it.name, it.type, it.year) }
+    }
+
+    override val beans: Flow<List<Bean>> = queries.activeBeans().asFlow().mapToList(
+        Dispatchers.IO
+    ).map { rows ->
+        rows.map { Bean(it.id, it.name, it.roaster) }
+    }
+
+    override val cups: Flow<List<Cup>> = queries.allCups().asFlow().mapToList(
+        Dispatchers.IO
+    ).map { rows ->
+        rows.map { Cup(it.id, it.name, it.weight) }
     }
 
     override suspend fun readSyncLocal(): com.coffeedial.sync.SyncLocal =
@@ -58,6 +74,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 )
             }
         }
+
     override suspend fun commitSync(
         expected: com.coffeedial.sync.SyncLocal,
         next: BackupV1,
@@ -74,13 +91,17 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.clearShots()
             queries.clearBeans()
             queries.clearMachines()
-            next.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+            queries.clearCups()
+            next.beans.forEach {
+                queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+            }
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
+            next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
             next.shots.forEach {
                 queries.insertShot(
                     it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
                     it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                    it.extraWater, it.style
+                    it.extraWater, it.style, it.cup
                 )
             }
             queries.writeSyncCheckpoint(checkpoint)
@@ -93,7 +114,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             val name = draft.beanName.trim()
             val roaster = draft.roaster.trim()
             if (queries.findBean(name, roaster).executeAsOneOrNull() == null) {
-                queries.insertBean(Uuid.random().toString(), name, roaster)
+                queries.insertBean(Uuid.random().toString(), name, roaster, 0L)
             }
             val bean = queries.findBean(name, roaster).executeAsOne()
             queries.insertShot(
@@ -105,7 +126,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 draft.grind.trim(), draft.temperature.decimal(),
                 draft.notes.trim(), draft.rating.toLong(), draft.milk.decimal(),
                 draft.machine.trim().ifBlank { null }, draft.extraWater.decimal(),
-                draft.style.trim().ifBlank { null }
+                draft.style.trim().ifBlank { null }, draft.cup.trim().ifBlank { null }
             )
         }
     }
@@ -119,10 +140,20 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         queries.transaction {
             val name = draft.beanName.trim()
             val roaster = draft.roaster.trim()
-            if (queries.findBean(name, roaster).executeAsOneOrNull() == null) {
-                queries.insertBean(Uuid.random().toString(), name, roaster)
+            val previous = queries.beanForShot(id).executeAsOneOrNull()
+            check(previous != null) { "Este shot ya no existe." }
+            val keepPrevious = previous.name == name && previous.roaster == roaster
+            if (!keepPrevious && queries.findBean(name, roaster).executeAsOneOrNull() == null) {
+                queries.insertBean(Uuid.random().toString(), name, roaster, 0L)
             }
-            val bean = queries.findBean(name, roaster).executeAsOne()
+            val bean = if (keepPrevious) {
+                previous
+            } else {
+                queries.findBean(
+                    name,
+                    roaster
+                ).executeAsOne()
+            }
             queries.updateShot(
                 bean.id,
                 requireNotNull(draft.dose.decimal()),
@@ -136,6 +167,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 draft.machine.trim().ifBlank { null },
                 draft.extraWater.decimal(),
                 draft.style.trim().ifBlank { null },
+                draft.cup.trim().ifBlank { null },
                 id
             )
         }
@@ -163,21 +195,80 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.insertMachine(id, draft.name.trim(), draft.type.trim(), draft.year.trim())
             }
         }
+
     override suspend fun deleteMachine(id: String): Unit = withContext(Dispatchers.IO) {
         queries.deleteMachine(id)
     }
 
+    override suspend fun saveBean(draft: BeanDraft): Unit = withContext(Dispatchers.IO) {
+        require(draft.errors().isEmpty()) { "El café contiene valores inválidos" }
+        queries.insertBean(
+            Uuid.random().toString(),
+            draft.name.trim(),
+            draft.roaster.trim(),
+            0L
+        )
+    }
+
+    override suspend fun updateBean(id: String, draft: BeanDraft): Unit =
+        withContext(Dispatchers.IO) {
+            require(draft.errors().isEmpty())
+            queries.transaction {
+                check(
+                    queries.allBeans().executeAsList().any {
+                        it.id == id && it.archived == 0L
+                    }
+                ) { "El café ya no existe." }
+                queries.updateBean(draft.name.trim(), draft.roaster.trim(), id)
+            }
+        }
+
+    override suspend fun deleteBean(id: String): Unit = withContext(Dispatchers.IO) {
+        queries.deleteBean(id)
+    }
+
+    override suspend fun saveCup(draft: CupDraft): Unit = withContext(Dispatchers.IO) {
+        require(draft.errors().isEmpty()) { "La taza contiene valores inválidos" }
+        queries.insertCup(
+            Uuid.random().toString(),
+            draft.name.trim(),
+            draft.weight.decimal()
+        )
+    }
+
+    override suspend fun updateCup(id: String, draft: CupDraft): Unit =
+        withContext(Dispatchers.IO) {
+            require(draft.errors().isEmpty())
+            queries.transaction {
+                check(
+                    queries.allCups().executeAsList().any {
+                        it.id == id
+                    }
+                ) { "La taza ya no existe." }
+                queries.updateCup(draft.name.trim(), draft.weight.decimal(), id)
+            }
+        }
+
+    override suspend fun deleteCup(id: String): Unit = withContext(Dispatchers.IO) {
+        queries.deleteCup(id)
+    }
+
     private fun snapshot(): BackupV1 = BackupFormat.create(
-        queries.allBeans().executeAsList().map { BackupBeanV1(it.id, it.name, it.roaster) },
+        queries.allBeans().executeAsList().map {
+            BackupBeanV1(it.id, it.name, it.roaster, it.archived != 0L)
+        },
         queries.allShots().executeAsList().map {
             BackupShotV1(
                 it.id, it.bean_id, it.created_at, it.dose, it.output, it.seconds,
                 it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toInt(),
-                it.extra_water, it.style
+                it.extra_water, it.style, it.cup
             )
         },
         queries.allMachines().executeAsList().map {
             BackupMachineV1(it.id, it.name, it.type, it.year)
+        },
+        queries.allCups().executeAsList().map {
+            BackupCupV1(it.id, it.name, it.weight)
         }
     )
 
@@ -200,22 +291,26 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 val current = snapshot()
                 if (current.beans != prepared.local.beans ||
                     current.shots != prepared.local.shots ||
-                    current.machines != prepared.local.machines
+                    current.machines != prepared.local.machines ||
+                    current.cups != prepared.local.cups
                 ) {
                     throw BackupException(
                         "El historial cambió. " +
                             "Volvé a seleccionar el backup para revisarlo."
                     )
                 }
-                prepared.plan.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+                prepared.plan.beans.forEach {
+                    queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                }
                 prepared.plan.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
                 }
+                prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
                 prepared.plan.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
                         it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                        it.extraWater, it.style
+                        it.extraWater, it.style, it.cup
                     )
                 }
                 prepared.summary
@@ -226,19 +321,31 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         withContext(Dispatchers.IO) {
             val incoming = BackupFormat.decode(text)
             queries.transaction {
-                incoming.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+                incoming.beans.forEach {
+                    queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                }
                 incoming.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
+                }
+                incoming.cups.forEach {
+                    queries.insertCup(it.id, it.name, it.weight)
                 }
                 incoming.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
                         it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                        it.extraWater, it.style
+                        it.extraWater, it.style, it.cup
                     )
                 }
             }
-            ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+            ImportSummary(
+                incoming.beans.size,
+                incoming.shots.size,
+                incoming.machines.size,
+                0,
+                0,
+                newCups = incoming.cups.size
+            )
         }
 
     override suspend fun replaceWithBackup(text: String): ImportSummary =
@@ -247,19 +354,32 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.transaction {
                 queries.allShots().executeAsList().forEach { queries.deleteShot(it.id) }
                 queries.allMachines().executeAsList().forEach { queries.deleteMachine(it.id) }
-                incoming.beans.forEach { queries.insertBean(it.id, it.name, it.roaster) }
+                queries.allCups().executeAsList().forEach { queries.deleteCup(it.id) }
+                incoming.beans.forEach {
+                    queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                }
                 incoming.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
+                }
+                incoming.cups.forEach {
+                    queries.insertCup(it.id, it.name, it.weight)
                 }
                 incoming.shots.forEach {
                     queries.insertShot(
                         it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
                         it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                        it.extraWater, it.style
+                        it.extraWater, it.style, it.cup
                     )
                 }
             }
-            ImportSummary(incoming.beans.size, incoming.shots.size, incoming.machines.size, 0, 0)
+            ImportSummary(
+                incoming.beans.size,
+                incoming.shots.size,
+                incoming.machines.size,
+                0,
+                0,
+                newCups = incoming.cups.size
+            )
         }
 }
 

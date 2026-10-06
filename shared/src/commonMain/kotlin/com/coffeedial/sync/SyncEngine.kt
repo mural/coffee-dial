@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class SyncEngine(
@@ -23,6 +24,7 @@ class SyncEngine(
     val state: StateFlow<SyncState> = mutableState.asStateFlow()
     private val mutex = Mutex()
     private val json = Json { encodeDefaults = true }
+
     suspend fun performSync(): Result<SyncResponse> = mutex.withLock {
         mutableState.value = SyncState.Syncing
         try {
@@ -109,6 +111,111 @@ class SyncEngine(
         }
     }
 
-    // Restore is a non-destructive merge; an empty cloud never clears local data.
+    suspend fun forceUploadToCloud(): Result<SyncResponse> = mutex.withLock {
+        mutableState.value = SyncState.Syncing
+        try {
+            val user =
+                (authRepository.state.value as? AuthState.LoggedIn)?.user
+                    ?: error("Debés iniciar sesión para sincronizar.")
+            val token =
+                authRepository.syncCredential()
+                    ?: error("Volvé a iniciar sesión con Google para autorizar el sync.")
+            val account = "${user.provider}:${user.id}"
+            val local = shotRepository.readSyncLocal()
+            val headers = mapOf("Authorization" to "Bearer $token")
+
+            val remoteText = runCatching { get("$baseUrl/api/sync", headers) }.getOrDefault("{}")
+            val remote = runCatching { Json.decodeFromString<SyncDocument>(remoteText) }.getOrNull()
+                ?: SyncDocument(protocol = 2, revision = 0, backup = local.backup)
+
+            val uploadBody = json.encodeToString(
+                SyncUpload(baseRevision = remote.revision, backup = local.backup, force = true)
+            )
+
+            val responseText = post("$baseUrl/api/sync", uploadBody, headers)
+            val acknowledged = Json.decodeFromString<SyncDocument>(responseText)
+
+            shotRepository.commitSync(
+                local,
+                acknowledged.backup,
+                Json.encodeToString(SyncCheckpoint(account, acknowledged))
+            )
+
+            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+            mutableState.value = SyncState.Success(now, 0, acknowledged.backup.shots.size)
+            Result.success(
+                SyncResponse(
+                    true,
+                    now,
+                    acknowledged.backup.beans,
+                    acknowledged.backup.shots,
+                    acknowledged.backup.machines
+                )
+            )
+        } catch (error: CancellationException) {
+            mutableState.value = SyncState.Idle
+            throw error
+        } catch (error: Exception) {
+            val message = error.message ?: "No se pudo sobreescribir la nube."
+            mutableState.value = SyncState.Error(message)
+            Result.failure(IllegalStateException(message, error))
+        }
+    }
+
+    suspend fun replaceWithCloud(): Result<SyncResponse> = mutex.withLock {
+        mutableState.value = SyncState.Syncing
+        try {
+            val user =
+                (authRepository.state.value as? AuthState.LoggedIn)?.user
+                    ?: error("Debés iniciar sesión para importar de la nube.")
+            val token = authRepository.syncCredential()
+                ?: error("Volvé a iniciar sesión para autorizar el sync.")
+            val headers = mapOf("Authorization" to "Bearer $token")
+
+            val responseJson = get("$baseUrl/api/sync", headers)
+
+            val remoteDoc = runCatching {
+                Json.decodeFromString<SyncDocument>(responseJson)
+            }.getOrNull()
+            val backupText = if (remoteDoc != null) {
+                json.encodeToString(remoteDoc.backup)
+            } else {
+                responseJson
+            }
+
+            shotRepository.replaceWithBackup(backupText)
+
+            val restoredBackup = BackupFormat.decode(backupText)
+            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
+            val totalItems =
+                restoredBackup.beans.size + restoredBackup.shots.size +
+                    restoredBackup.machines.size +
+                    restoredBackup.cups.size
+
+            mutableState.value = SyncState.Success(
+                lastSyncedAt = now,
+                newItemsCount = totalItems,
+                shotsCount = restoredBackup.shots.size
+            )
+
+            Result.success(
+                SyncResponse(
+                    true,
+                    now,
+                    restoredBackup.beans,
+                    restoredBackup.shots,
+                    restoredBackup.machines
+                )
+            )
+        } catch (error: CancellationException) {
+            mutableState.value = SyncState.Idle
+            throw error
+        } catch (error: Exception) {
+            val message = error.message ?: "No se pudieron importar los datos de la nube."
+            mutableState.value = SyncState.Error(message)
+            Result.failure(IllegalStateException(message, error))
+        }
+    }
+
     suspend fun restoreFromCloud(): Result<SyncResponse> = performSync()
 }

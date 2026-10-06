@@ -14,15 +14,23 @@ data class SyncDocument(
 )
 
 @Serializable
-data class SyncUpload(val protocol: Int = 2, val baseRevision: Long, val backup: BackupV1)
+data class SyncUpload(
+    val protocol: Int = 2,
+    val baseRevision: Long,
+    val backup: BackupV1,
+    val force: Boolean = false
+)
 
 @Serializable
 data class SyncCheckpoint(val account: String, val document: SyncDocument)
+
 data class SyncLocal(val backup: BackupV1, val checkpoint: String?)
+
 fun sameData(a: BackupV1, b: BackupV1): Boolean =
     a.beans.associateBy { it.id } == b.beans.associateBy { it.id } &&
         a.shots.associateBy { it.id } == b.shots.associateBy { it.id } &&
-        a.machines.associateBy { it.id } == b.machines.associateBy { it.id }
+        a.machines.associateBy { it.id } == b.machines.associateBy { it.id } &&
+        a.cups.associateBy { it.id } == b.cups.associateBy { it.id }
 
 /** Three-way comparison detects concurrent edits without trusting device clocks. */
 fun mergeSync(base: BackupV1, local: BackupV1, remote: SyncDocument): BackupV1 {
@@ -69,8 +77,10 @@ fun mergeSync(base: BackupV1, local: BackupV1, remote: SyncDocument): BackupV1 {
     return BackupFormat.create(
         merge("beans", base.beans, local.beans, remote.backup.beans) { it.id },
         merge("shots", base.shots, local.shots, remote.backup.shots) { it.id },
-        merge("machines", base.machines, local.machines, remote.backup.machines) { it.id }
+        merge("machines", base.machines, local.machines, remote.backup.machines) { it.id },
+        merge("cups", base.cups, local.cups, remote.backup.cups) { it.id }
     ).also(BackupFormat::validate)
 }
+
 fun checkpoint(text: String?): SyncCheckpoint? =
     text?.let { Json.decodeFromString<SyncCheckpoint>(it) }

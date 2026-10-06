@@ -123,3 +123,38 @@ El reporte corresponde al 2026-10-02 18:31:59 -0300, proceso CoffeeDial del simu
 - Passed: 44 Kotlin host tests; 24 Node tests including real Worker/SQLite persistence and v2 downgrade protection (one unrelated optional external local-server test skipped); ktlintCheck; Android debug, web production, and full iOS Simulator Xcode builds.
 - Chrome Agustin, isolated localhost origin: cancel new machine with entered text; save a test machine; edit/cancel retains original; save Americano with 120 ml water and default Medio; detail shows ratio 1:2 and editing preloads both fields. Production user data was not changed by these checks.
 - Native builds verified; this pass did not perform native runtime UI tests.
+
+## 2026-10-05 — read-only Admin panel
+
+- 47 Kotlin host tests passed; 25 Node tests passed (one optional external-server test skipped), including real Worker/SQLite master authorization, cross-account denial, pinned subject after restart, aggregates, pagination, logout and index recovery.
+- ktlintCheck, final Android debug build, web production bundle and full iOS Simulator Xcode build passed. Intermediate overlapping builds were retried sequentially; final outputs are successful.
+- Published auth version 49513a3f-8253-4bb9-8da5-8d44bb5a6e6a and web version 013f5a10-d997-4c93-84d9-45b25ba906a2. Live shared.js checksum matches local production bundle; unauthenticated Admin request returns 401.
+- Chrome Agustin with the authorized real account: Admin summary visible (1 account, 4 shots), detail loaded, rating 5 filter showed 2 of 4 shots. Read-only verification; no production shots edited. Native UI runtime not exercised this pass.
+- User's concurrent web notice edit in index.html was preserved and included in the published build.
+
+
+## Recuperación web, backup v3 y tarjetas — 2026-10-05
+
+- Restaurada lectura del contenedor local `storageVersion=2` y conservación del checkpoint de sync. También se acepta el backup antiguo sin contenedor; no se vacía IndexedDB ante errores.
+- Backup v3 añade tazas y taza del shot; lector compatible con v1/v2 y v2 intermedio con tazas. Importación aditiva, comparación y merge incluyen tazas. Servidor tolera snapshots/tombstones antiguos sin la colección cups y bloquea downgrade.
+- Pruebas: `ktlintCheck`, `:shared:testAndroidHostTest` (49/49), `:androidApp:assembleDebug`, `:shared:wasmJsBrowserDistribution`; Node 26 aprobadas, 1 integración externa omitida. Xcode build de simulador aprobado.
+- Chrome Agustin, producción: apertura conservó los 5 shots existentes; Google login, sync automático y Recuperar y combinar exitosos (5 shots). No se borró almacenamiento ni se reemplazó el historial. Copia de diagnóstico local guardada en Downloads con nombre `coffee-dial-diagnostico-storage-2026-10-06.json` (contenedor interno, no backup para importar).
+- UI verificada: saludo con icono vectorial, tarjetas con Hoy/hora local GMT-3 y leche/agua; filtro Espresso muestra 2 de 5 shots. Formulario abierto y cancelado sin guardar datos de prueba; controles de borrado usan vectores.
+- Deploy auth: `8daf74e0-cb1f-411c-94be-40db4c0dfad1`; web final: `38d1d3e8-b2a8-4433-b7d2-ec83fc020125`. Durante propagación se observó una carga de JS anterior con wasm ya reemplazado; recarga posterior abrió correctamente.
+
+
+## Sesiones renovables y borrado de cafés — 2026-10-06
+
+- Web/Android: sesión propia de 30 días de inactividad autenticada, renovación diaria, expiración/revocación verificadas en servidor. Web persiste al reabrir y verifica `/api/session`; Android cifra el token con Keystore y canjea el ID token nativo verificado. Se quitaron fallbacks email/ID para autenticación.
+- Google iOS: renovación del SDK antes de entregar un token a sync, con comprobación de cuenta/generación. Apple iOS: consulta de estado en arranque/foreground y observación de revocación; errores de red no eliminan la identidad. Apple web/Android y sync Apple continúan fuera de implementación.
+- Cafés: archive interno, oculto en catálogo/selector; se conservan shots y nombre/tostador. Editar el shot no recrea el café en catálogo. Schema 8 y backup v4; pruebas de reapertura, edición, importación, merge y SQLite con FK activas.
+- Verificación: ktlint, 51 tests Kotlin aprobados; 33 tests Node aprobados y 1 integración externa omitida; builds Android debug, web producción e iOS simulador aprobados. Se corrigió el fixture de migración para insertar columnas explícitas y se mantuvo validación de backup alineada con el servidor.
+- Producción: auth `0ac5dea0-9d40-4c92-b633-77cae2da5e26`, web `9eaecf55-f6c3-4ecd-85c2-b21a0f99ea89`. Health ready, sesión sin credencial devuelve 401, hash de auth.js coincide con el build local.
+- Login interactivo final no ejecutado: Chrome Agustin estaba siendo utilizado y rechazó las acciones por cambio de usuario. Persistencia/reapertura/401/logout se cubrieron con tests de JS y Worker real local. Consentimiento y revocación Apple en iPhone requieren verificación manual; el build no prueba ese flujo real. Una sesión ya expirada exige entrar una vez nuevamente. No se alteraron shots reales para probar el borrado de cafés.
+
+## Shot card en dos columnas — 2026-10-06
+
+- Dosis/Output, Leche/Agua extra (opcionales), Total/Tiempo. Íconos vectoriales propios (grano, cartón, gota, taza, cronómetro) y café existente para Output, sin depender de emojis.
+- Ratio `1:` con tipografía base y segundo valor a 20 sp en negrita. Total conservando la suma existente, mostrado como volumen aproximado porque combina output en gramos con agregados en ml.
+- ktlintCheck, assembleDebug, compileKotlinIosSimulatorArm64 y wasmJsBrowserDistribution aprobados. No se añadieron tests que dupliquen una modificación visual.
+- Web desplegada: `1dd69d07-ffbe-4ddf-b211-3e963c12db38`.

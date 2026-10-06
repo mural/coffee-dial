@@ -22,7 +22,7 @@ class BackupFormatTest {
     @Test
     fun readsFrozenV1AndRoundTripsWithoutLoss() {
         val backup = BackupFormat.decode(V1_FIXTURE)
-        assertEquals(2, backup.schemaVersion)
+        assertEquals(BackupFormat.CURRENT_VERSION, backup.schemaVersion)
         assertEquals(null, backup.shots.single().extraWater)
         assertEquals(null, backup.shots.single().style)
         assertEquals("Café ☕", backup.beans.single().name)
@@ -49,7 +49,7 @@ class BackupFormatTest {
 
     @Test
     fun rejectsFutureVersionBeforeReadingItsPayload() {
-        val future = """{"format":"coffee-dial-backup","schemaVersion":3,"differentData":{}}"""
+        val future = """{"format":"coffee-dial-backup","schemaVersion":999,"differentData":{}}"""
         val error = assertFailsWith<BackupException> { BackupFormat.decode(future) }
         assertTrue(error.message.orEmpty().contains("Actualizá"))
     }

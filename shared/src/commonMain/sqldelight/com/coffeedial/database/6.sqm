@@ -1,0 +1,7 @@
+CREATE TABLE cup (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    weight REAL
+);
+
+ALTER TABLE shot ADD COLUMN cup TEXT;

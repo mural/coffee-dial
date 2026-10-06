@@ -110,12 +110,89 @@ class SnapshotRepositoryTest {
     fun futureOrCorruptStorageIsNotReset() = runTest {
         val store = Store()
         val future = BackupFormat.encode(BackupFormat.create(emptyList(), emptyList()))
-            .replace("\"schemaVersion\": 2", "\"schemaVersion\": 999")
+            .replace("\"schemaVersion\": 4", "\"schemaVersion\": 999")
         store.text = future
         assertFailsWith<BackupException> { SnapshotRepository.open(store) }
         assertEquals(future, store.text)
         store.text = "broken"
         assertFailsWith<BackupException> { SnapshotRepository.open(store) }
         assertEquals("broken", store.text)
+    }
+
+    @Test
+    fun legacyWrapperKeepsCheckpointWhileAddingAndRestoringCups() = runTest {
+        val store = Store()
+        val legacy = BackupFormat.encode(
+            BackupFormat.create(emptyList(), emptyList()).copy(schemaVersion = 2)
+        )
+        store.text = """{"storageVersion":2,"backup":$legacy,"checkpoint":"saved-base"}"""
+        val repo = SnapshotRepository.open(store)
+        assertEquals("saved-base", repo.readSyncLocal().checkpoint)
+        repo.saveCup(com.coffeedial.domain.CupDraft("Cerámica", "120"))
+        val reopened = SnapshotRepository.open(store)
+        assertEquals("saved-base", reopened.readSyncLocal().checkpoint)
+        assertEquals("Cerámica", reopened.cups.value.single().name)
+        val target = SnapshotRepository.open(Store())
+        val preview = target.prepareImport(reopened.exportBackup())
+        assertEquals(1, preview.summary.newCups)
+        target.importBackup(preview)
+        assertEquals(reopened.cups.value, target.cups.value)
+        val local = reopened.readSyncLocal()
+        reopened.commitSync(local, local.backup, "new-base")
+        assertEquals("new-base", SnapshotRepository.open(store).readSyncLocal().checkpoint)
+    }
+
+    @Test
+    fun bareV2BackupRemainsReadableAndCupChangesParticipateInSync() = runTest {
+        val store = Store()
+        store.text = BackupFormat.encode(
+            BackupFormat.create(emptyList(), emptyList()).copy(schemaVersion = 2)
+        )
+        val repo = SnapshotRepository.open(store)
+        val before = repo.readSyncLocal().backup
+        repo.saveCup(com.coffeedial.domain.CupDraft("Vidrio"))
+        val after = repo.readSyncLocal().backup
+        assertTrue(!com.coffeedial.sync.sameData(before, after))
+        val merged = com.coffeedial.sync.mergeSync(
+            before,
+            after,
+            com.coffeedial.sync.SyncDocument(backup = before)
+        )
+        assertEquals(after.cups, merged.cups)
+        assertFailsWith<IllegalArgumentException> {
+            repo.saveCup(com.coffeedial.domain.CupDraft("Inválida", "NaN"))
+        }
+    }
+
+    @Test
+    fun deletingBeanPreservesShotAndStaysDeletedAfterEditRestoreAndSync() = runTest {
+        val store = Store()
+        val repo = SnapshotRepository.open(store)
+        val draft = ShotDraft(beanName = "Brasil", roaster = "Tostador")
+        repo.save(draft)
+        val original = repo.history.value.single()
+        val base = repo.readSyncLocal().backup
+        repo.deleteBean(original.bean.id)
+        assertTrue(repo.beans.value.isEmpty())
+        assertEquals(original, repo.history.value.single())
+        repo.update(original.id, draft.copy(notes = "Editado"))
+        assertTrue(repo.beans.value.isEmpty())
+        assertEquals(original.bean, repo.history.value.single().bean)
+        assertTrue(SnapshotRepository.open(store).beans.value.isEmpty())
+        val target = SnapshotRepository.open(Store())
+        target.importBackup(target.prepareImport(repo.exportBackup()))
+        assertTrue(target.beans.value.isEmpty())
+        assertEquals(repo.history.value, target.history.value)
+        val merged = com.coffeedial.sync.mergeSync(
+            base,
+            base,
+            com.coffeedial.sync.SyncDocument(backup = repo.readSyncLocal().backup)
+        )
+        assertTrue(merged.beans.single().archived)
+        assertEquals(1, merged.shots.size)
+        repo.save(draft)
+        assertEquals(1, repo.beans.value.size)
+        assertEquals(2, repo.history.value.size)
+        assertTrue(repo.beans.value.single().id != original.bean.id)
     }
 }

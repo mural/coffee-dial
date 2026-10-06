@@ -33,7 +33,9 @@ class AndroidAuthRepository(
     private var completing = false
     private var generation = 0
     private var syncToken: String? = null
-    override suspend fun syncCredential(): String? = syncToken
+    private val tokenStore by lazy { AuthTokenStore(context) }
+
+    override suspend fun syncCredential(): String? = syncToken ?: tokenStore.read()
 
     fun attach(activity: Activity) {
         this.activity = WeakReference(activity)
@@ -44,7 +46,9 @@ class AndroidAuthRepository(
     }
 
     fun onResume() {
-        if (web.expire()) fail("El intento de acceso venció. Volvé a intentarlo.")
+        if (mutableState.value !is AuthState.LoggedIn && web.pending && web.expire()) {
+            fail("El intento de acceso venció. Volvé a intentarlo.")
+        }
     }
 
     private fun readSavedUser(): AuthState {
@@ -60,7 +64,11 @@ class AndroidAuthRepository(
         )
     }
 
-    private fun saveUserSession(user: User) {
+    private fun saveUserSession(user: User, token: String? = null) {
+        if (token != null) {
+            syncToken = token
+            tokenStore.write(token)
+        }
         prefs.edit()
             .putString("user_id", user.id)
             .putString("user_email", user.email)
@@ -71,6 +79,7 @@ class AndroidAuthRepository(
     }
 
     private fun clearUserSession() {
+        syncToken = null
         prefs.edit().clear().apply()
     }
 
@@ -124,8 +133,19 @@ class AndroidAuthRepository(
                     AuthProvider.GOOGLE
                 )
             if (generation == attemptGeneration) {
-                syncToken = google.idToken
-                saveUserSession(user)
+                val response = com.coffeedial.sync.httpPostJson(
+                    "https://auth-coffee.muralooo.win/api/session",
+                    "{}",
+                    mapOf("Authorization" to "Bearer ${google.idToken}")
+                )
+                val verified = Json.parseToJsonElement(response).jsonObject
+                check(verified["id"]?.jsonPrimitive?.content == subject)
+                val token = requireNotNull(verified["syncToken"]?.jsonPrimitive?.content)
+                if (generation != attemptGeneration) {
+                    revokeSyncCredential(token)
+                    return@withContext
+                }
+                saveUserSession(user, token)
                 mutableState.value = AuthState.LoggedIn(user)
             }
         } catch (e: GetCredentialCancellationException) {
@@ -175,8 +195,7 @@ class AndroidAuthRepository(
         try {
             val user = web.complete(uri)
             if (user != null && generation == callbackGeneration) {
-                syncToken = web.syncToken
-                saveUserSession(user)
+                saveUserSession(user, web.syncToken)
                 mutableState.value = AuthState.LoggedIn(user)
             } else if (!web.pending) {
                 mutableState.value = AuthState.LoggedOut
@@ -201,10 +220,9 @@ class AndroidAuthRepository(
     }
 
     override suspend fun signOut() {
-        val oldToken = syncToken
+        val oldToken = syncCredential()
         generation++
         web.clear()
-        syncToken = null
         clearUserSession()
         mutableState.value = AuthState.LoggedOut
         revokeSyncCredential(oldToken)

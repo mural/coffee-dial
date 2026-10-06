@@ -6,6 +6,7 @@ import GoogleSignIn
 
 @main
 struct CoffeeDialApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var backup = BackupCoordinator()
     @StateObject private var account = AccountCoordinator()
 
@@ -14,6 +15,9 @@ struct CoffeeDialApp: App {
             CoffeeDialView(files: backup.files, account: account.repository).ignoresSafeArea()
                 .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
                 .task { account.restore() }
+                .onChange(of: scenePhase) { phase in
+                    if phase == .active { account.checkAppleCredential() }
+                }
                 .fileExporter(
                     isPresented: $backup.exporting,
                     document: backup.document,
@@ -136,10 +140,28 @@ private final class AccountCoordinator: NSObject, ObservableObject,
     private var restored = false
     private var generation = 0
     private var appleGeneration = 0
+    private var revocationObserver: NSObjectProtocol?
     private let defaults = UserDefaults.standard
 
     override init() {
         super.init()
+        repository.refreshGoogleAction = { [weak self] done in
+            guard let self, let user = GIDSignIn.sharedInstance.currentUser,
+                  self.defaults.string(forKey: "coffee.auth.provider") == "google" else {
+                done(nil); return
+            }
+            let attempt = self.generation
+            user.refreshTokensIfNeeded { [weak self] refreshed, error in
+                guard let self, self.generation == attempt, error == nil,
+                      refreshed?.userID == user.userID else { done(nil); return }
+                self.repository.googleIdToken = refreshed?.idToken?.tokenString
+                done(self.repository.googleIdToken)
+            }
+        }
+        revocationObserver = NotificationCenter.default.addObserver(
+            forName: ASAuthorizationAppleIDProvider.credentialRevokedNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.checkAppleCredential() }
         repository.googleAction = { [weak self] in self?.google() }
         repository.appleAction = { [weak self] in self?.apple() }
         repository.signOutAction = { [weak self] in
@@ -185,16 +207,30 @@ private final class AccountCoordinator: NSObject, ObservableObject,
                 guard let self, self.generation == attempt, let user else { return }
                 self.acceptGoogle(user)
             }
-        } else if defaults.string(forKey: "coffee.auth.provider") == "apple", appleConfigured,
-                  let id = defaults.string(forKey: "coffee.apple.id") {
-            ASAuthorizationAppleIDProvider().getCredentialState(forUserID: id) { [weak self] state, error in
-                DispatchQueue.main.async {
-                    guard let self, self.generation == attempt else { return }
-                    if state == .authorized && error == nil {
-                        self.acceptApple(id: id, email: nil, name: nil)
-                    } else {
-                        self.defaults.removeObject(forKey: "coffee.auth.provider")
-                    }
+        } else {
+            checkAppleCredential()
+        }
+    }
+
+    deinit {
+        if let revocationObserver { NotificationCenter.default.removeObserver(revocationObserver) }
+    }
+
+    func checkAppleCredential() {
+        guard defaults.string(forKey: "coffee.auth.provider") == "apple", appleConfigured,
+              let id = defaults.string(forKey: "coffee.apple.id") else { return }
+        let attempt = generation
+        ASAuthorizationAppleIDProvider().getCredentialState(forUserID: id) { [weak self] state, error in
+            DispatchQueue.main.async {
+                guard let self, self.generation == attempt, error == nil else { return }
+                switch state {
+                case .authorized:
+                    self.acceptApple(id: id, email: nil, name: nil)
+                case .revoked, .notFound, .transferred:
+                    self.generation += 1
+                    self.defaults.removeObject(forKey: "coffee.auth.provider")
+                    self.repository.cancelled()
+                @unknown default: break
                 }
             }
         }

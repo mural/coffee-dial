@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class SyncPersistenceTest {
@@ -74,8 +75,33 @@ class SyncPersistenceTest {
                 ShotDraft(beanName = "Brasil", extraWater = "150", style = "Americano")
             )
             assertEquals(150.0, repo.readSyncLocal().backup.shots.single().extraWater)
-            driver.execute(null, "INSERT INTO bean VALUES ('b2', 'Brasil', '')", 0)
+            driver.execute(
+                null,
+                "INSERT INTO bean (id, name, roaster) VALUES ('b2', 'Brasil', '')",
+                0
+            )
             assertEquals(2, repo.readSyncLocal().backup.beans.size)
+        }
+    }
+
+    @Test fun deletingBeanKeepsSqlHistoryAndBackupWithoutRestoringCatalogEntry() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+            val repo = ShotRepository(driver)
+            val draft = ShotDraft(beanName = "Brasil")
+            repo.save(draft)
+            val shot = repo.history.first().single()
+            repo.deleteBean(shot.bean.id)
+            assertEquals(emptyList(), repo.beans.first())
+            assertEquals(shot, repo.history.first().single())
+            repo.update(shot.id, draft.copy(notes = "Editado"))
+            assertEquals(emptyList(), repo.beans.first())
+            val backup = repo.exportBackup()
+            repo.replaceWithBackup(backup)
+            assertEquals(emptyList(), repo.beans.first())
+            assertEquals(shot.bean, repo.history.first().single().bean)
+            assertEquals("Editado", repo.history.first().single().notes)
         }
     }
 }
