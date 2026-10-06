@@ -167,7 +167,9 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         repository.signOutAction = { [weak self] in
             guard let self else { return }
             self.generation += 1
-            self.controller?.cancel()
+            if #available(iOS 16.0, *) {
+                self.controller?.cancel()
+            }
             self.controller = nil
             GIDSignIn.sharedInstance.signOut()
             self.defaults.removeObject(forKey: "coffee.auth.provider")
@@ -178,9 +180,14 @@ private final class AccountCoordinator: NSObject, ObservableObject,
     }
 
     private var window: UIWindow? {
-        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            .filter { $0.activationState == .foregroundActive }
-            .flatMap(\.windows).first(where: \.isKeyWindow)
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)
+        ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first
     }
     private var presenter: UIViewController? {
         var presenter = window?.rootViewController

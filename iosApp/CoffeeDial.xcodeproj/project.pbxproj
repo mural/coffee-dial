@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-        B00000000000000000000001 = {isa = PBXBuildFile; productRef = B00000000000000000000002; };
 		A00000000000000000000001 /* CoffeeDialApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* CoffeeDialApp.swift */; };
+		A00000000000000000000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000019 /* Assets.xcassets */; };
+		B00000000000000000000001 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B00000000000000000000002 /* GoogleSignIn */; };
 /* End PBXBuildFile section */
-        B00000000000000000000002 = {isa = XCSwiftPackageProductDependency; package = B00000000000000000000003; productName = GoogleSignIn; };
-        B00000000000000000000003 = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/google/GoogleSignIn-iOS"; requirement = {kind = exactVersion; version = 9.0.0; }; };
 
 /* Begin PBXFileReference section */
-        B00000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Auth.xcconfig; sourceTree = "<group>"; };
 		A00000000000000000000002 /* CoffeeDialApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoffeeDialApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000003 /* CoffeeDial.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoffeeDial.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000019 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B00000000000000000000004 /* Auth.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Auth.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -24,18 +24,30 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-                B00000000000000000000001,
+				B00000000000000000000001 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000020 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000018 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXGroup section */
 		A00000000000000000000004 = {
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000002 /* CoffeeDialApp.swift */,
-                B00000000000000000000004 /* Auth.xcconfig */,
+				A00000000000000000000019 /* Assets.xcassets */,
+				B00000000000000000000004 /* Auth.xcconfig */,
 				A00000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -58,14 +70,17 @@
 				A00000000000000000000008 /* Build shared Kotlin framework */,
 				A00000000000000000000009 /* Sources */,
 				A0000000000000000000000A /* Frameworks */,
+				A00000000000000000000020 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = CoffeeDial;
-			packageProductDependencies = (B00000000000000000000002);
-            productName = CoffeeDial;
+			packageProductDependencies = (
+				B00000000000000000000002 /* GoogleSignIn */,
+			);
+			productName = CoffeeDial;
 			productReference = A00000000000000000000003 /* CoffeeDial.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -87,9 +102,11 @@
 				Base,
 			);
 			mainGroup = A00000000000000000000004;
+			packageReferences = (
+				B00000000000000000000003 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			productRefGroup = A00000000000000000000005 /* Products */;
-			packageReferences = (B00000000000000000000003);
-            projectDirPath = "";
+			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				A00000000000000000000007 /* CoffeeDial */,
@@ -100,18 +117,21 @@
 /* Begin PBXShellScriptBuildPhase section */
 		A00000000000000000000008 /* Build shared Kotlin framework */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			inputFileListPaths = (
 			);
 			inputPaths = (
 			);
 			name = "Build shared Kotlin framework";
+			outputFileListPaths = (
+			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\ncd \"$SRCROOT/..\"\nif [ -z \"$JAVA_HOME\" ] && [ -d \"/Applications/Android Studio.app/Contents/jbr/Contents/Home\" ]; then\n  export JAVA_HOME=\"/Applications/Android Studio.app/Contents/jbr/Contents/Home\"\nfi\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n    exit 0\nfi\ncd \"$SRCROOT/..\"\nJAVA_HOME=\"$(/usr/libexec/java_home 2>/dev/null || echo \"/usr/bin\")\" ./gradlew :shared:embedAndSignAppleFrameworkForXcode -Pandroid.overridePathCheck=true || true\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -127,36 +147,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A00000000000000000000012 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = arm64;
-				CLANG_ENABLE_MODULES = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		A00000000000000000000013 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = arm64;
-				CLANG_ENABLE_MODULES = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
 		A00000000000000000000014 /* Debug */ = {
 			isa = XCBuildConfiguration;
-            baseConfigurationReference = B00000000000000000000004;
+			baseConfigurationReference = B00000000000000000000004 /* Auth.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
 				CODE_SIGN_STYLE = Automatic;
-                CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
+				DEVELOPMENT_TEAM = YBVEPU8A54;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -168,6 +166,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -176,17 +175,22 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.coffeedial.app;
 				PRODUCT_NAME = CoffeeDial;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
 		A00000000000000000000015 /* Release */ = {
 			isa = XCBuildConfiguration;
-            baseConfigurationReference = B00000000000000000000004;
+			baseConfigurationReference = B00000000000000000000004 /* Auth.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
 				CODE_SIGN_STYLE = Automatic;
-                CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
+				DEVELOPMENT_TEAM = YBVEPU8A54;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -198,6 +202,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -206,7 +211,10 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.coffeedial.app;
 				PRODUCT_NAME = CoffeeDial;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -217,8 +225,8 @@
 		A00000000000000000000010 /* Build configuration list for PBXProject "CoffeeDial" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A00000000000000000000012 /* Debug */,
-				A00000000000000000000013 /* Release */,
+				A00000000000000000000014 /* Debug */,
+				A00000000000000000000015 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -233,6 +241,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B00000000000000000000003 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin CSCSwiftPackageProductDependency section */
+		B00000000000000000000002 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B00000000000000000000003 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End CSCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000006 /* Project object */;
 }

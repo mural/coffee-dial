@@ -66,6 +66,7 @@ fun App(
     repository: ShotRepository,
     backupFiles: BackupFiles,
     authRepository: AuthRepository,
+    localWeb: Boolean = false
 ) {
     var screen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -134,8 +135,7 @@ fun App(
             secondaryContainer = Color(0xFFEDE0CF)
         )
     ) {
-        SelectionContainer {
-            Scaffold { padding ->
+        Scaffold { padding ->
                 Column(
                     Modifier.widthIn(
                         max = 960.dp
@@ -356,6 +356,52 @@ fun App(
                             }
                         )
 
+                        "detail" -> {
+                            val shot = shots.orEmpty().find { it.id == selectedId }
+                            if (shot == null) {
+                                Text("No encontramos este shot.")
+                            } else {
+                                ShotDetail(
+                                    shot = shot,
+                                    onEdit = {
+                                        draft = ShotDraft(
+                                            beanName = shot.bean.name,
+                                            roaster = shot.bean.roaster,
+                                            dose = shot.dose.pretty(),
+                                            output = shot.output.pretty(),
+                                            seconds = shot.seconds.pretty(),
+                                            grind = shot.grind,
+                                            temperature = shot.temperature?.pretty() ?: "",
+                                            milk = shot.milk?.pretty() ?: "",
+                                            extraWater = shot.extraWater?.pretty() ?: "",
+                                            style = shot.style.orEmpty(),
+                                            machine = shot.machine ?: "",
+                                            notes = shot.notes,
+                                            rating = shot.rating,
+                                            cup = shot.cup ?: ""
+                                        )
+                                        screen = "edit"
+                                    },
+                                    onDelete = {
+                                        saving = true
+                                        scope.launch {
+                                            try {
+                                                repository.delete(shot.id)
+                                                screen = "history"
+                                                scope.launch { syncEngine.performSync() }
+                                            } catch (cancelled: CancellationException) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                            } finally {
+                                                saving = false
+                                            }
+                                        }
+                                    },
+                                    saving = saving
+                                )
+                            }
+                        }
+
                         else -> {
                             val userName = (authState as? AuthState.LoggedIn)?.user?.displayName
                                 ?.trim()?.takeIf { it.isNotEmpty() }?.substringBefore(' ')
@@ -387,7 +433,6 @@ fun App(
                     }
                 }
             }
-        }
     }
 }
 
