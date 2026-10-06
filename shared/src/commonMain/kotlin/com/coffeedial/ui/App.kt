@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
@@ -51,8 +52,10 @@ import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
+import com.coffeedial.domain.decimal
 import com.coffeedial.sync.SyncEngine
 import kotlin.math.round
+import kotlin.math.roundToInt
 import kotlin.time.Instant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -655,7 +658,7 @@ private fun ShotForm(
             }
         }
         item {
-            Field("Dosis de entrada · g", draft.dose, errors["dose"], saving, true) {
+            DoseSliderField(draft.dose, errors["dose"], saving) {
                 onChange(draft.copy(dose = it))
             }
         }
@@ -894,6 +897,71 @@ private fun ShotForm(
                     }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DoseSliderField(
+    dose: String,
+    error: String?,
+    saving: Boolean,
+    onChange: (String) -> Unit
+) {
+    val currentDoseFloat = dose.decimal()?.toFloat()?.coerceIn(10f, 40f) ?: 18f
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Dosis de entrada", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${currentDoseFloat.roundToInt()} g",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Slider(
+            value = currentDoseFloat,
+            onValueChange = { newValue ->
+                onChange(newValue.roundToInt().toString())
+            },
+            valueRange = 10f..40f,
+            steps = 29,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("10 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = currentDoseFloat.roundToInt() == 18,
+                    onClick = { onChange("18") },
+                    enabled = !saving,
+                    label = { Text("18 g") }
+                )
+                FilterChip(
+                    selected = currentDoseFloat.roundToInt() == 36,
+                    onClick = { onChange("36") },
+                    enabled = !saving,
+                    label = { Text("36 g") }
+                )
+            }
+
+            Text("40 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        if (error != null) {
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
