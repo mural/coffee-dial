@@ -301,7 +301,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         guard !id.isEmpty else { repository.cancelled(); return }
         let sameUser = defaults.string(forKey: "coffee.apple.id") == id
         let savedEmail = email ?? (sameUser ? defaults.string(forKey: "coffee.apple.email") : nil)
-        let savedName = name.flatMap { $0.isEmpty ? nil : $0 } ?? (sameUser ? defaults.string(forKey: "coffee.apple.name") : nil)
+        let savedName = name.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } ?? (sameUser ? defaults.string(forKey: "coffee.apple.name") : nil)
         defaults.set(id, forKey: "coffee.apple.id")
         defaults.set(savedEmail, forKey: "coffee.apple.email")
         defaults.set(savedName, forKey: "coffee.apple.name")

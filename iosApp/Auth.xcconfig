@@ -1,6 +1,6 @@
 // Public OAuth identifiers. Never place client secrets here.
 COFFEE_GOOGLE_IOS_CLIENT_ID = 260197318794-dle7fel1us34ffughest6qd2e8pna1tf.apps.googleusercontent.com
 COFFEE_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.260197318794-dle7fel1us34ffughest6qd2e8pna1tf
-COFFEE_APPLE_SIGN_IN_ENABLED = NO
-COFFEE_APPLE_ENTITLEMENTS =
+COFFEE_APPLE_SIGN_IN_ENABLED = YES
+COFFEE_APPLE_ENTITLEMENTS = CoffeeDial.entitlements
 #include? "Auth.local.xcconfig"
