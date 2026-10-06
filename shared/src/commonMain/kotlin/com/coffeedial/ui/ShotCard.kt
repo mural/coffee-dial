@@ -34,7 +34,7 @@ internal class ShotPreviewParameterProvider : PreviewParameterProvider<Shot> {
             id = "2",
             bean = Bean(id = "2", name = "Colombia Excelso", roaster = "Puerto Blest"),
             dose = 18.0,
-            output = 36.0,
+            output = 26.0,
             seconds = 28.0,
             grind = "14",
             temperature = 93.0,
@@ -66,7 +66,7 @@ internal class ShotPreviewParameterProvider : PreviewParameterProvider<Shot> {
             id = "4",
             bean = Bean(id = "4", name = "Brasil Mogiana", roaster = "Indumentaria Coffee"),
             dose = 19.0,
-            output = 38.0,
+            output = 58.0,
             seconds = 25.0,
             grind = "11",
             temperature = 92.0,
@@ -135,12 +135,26 @@ internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
                 ShotMetric(MugIcon, "Total", "≈ ${total.pretty()} ml", Modifier.weight(1f))
                 ShotMetric(TimerIcon, "Tiempo", "${shot.seconds.pretty()} s", Modifier.weight(1f))
             }
+
+            val ratioCategory = when {
+                shot.ratio <= 1.5 -> "ristretto"
+                shot.ratio <= 2.5 -> "espresso"
+                shot.ratio <= 3.0 -> "espresso largo"
+                else -> "lungo"
+            }
+
             Text(
                 buildAnnotatedString {
                     append("Ratio 1:")
-                    withStyle(SpanStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)) {
+                    withStyle(
+                        SpanStyle(
+                            fontSize = if (shot.ratio < 3) 20.sp else 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) {
                         append(shot.ratio.pretty())
                     }
+                    append(" -> $ratioCategory")
                 },
                 style = MaterialTheme.typography.bodyLarge
             )

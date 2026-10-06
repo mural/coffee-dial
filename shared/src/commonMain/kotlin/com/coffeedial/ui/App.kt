@@ -180,7 +180,7 @@ fun App(
 
                                         "edit" -> "detail"
 
-                                        "machines", "beans", "cups",
+                                        "machines", "beans", "cups", "tips",
                                         "account", "backup", "analysis" -> "home"
 
                                         else -> "home"
@@ -203,6 +203,8 @@ fun App(
                         "admin" -> AdminScreen(authRepository)
 
                         "analysis" -> AnalysisScreen(shots.orEmpty())
+
+                        "tips" -> TipsScreen()
 
                         "machines" -> MachinesScreen(
                             machines = machines,
@@ -483,6 +485,9 @@ fun App(
                                             TextButton(onClick = {
                                                 screen = "cups"
                                             }) { Text("Tazas") }
+                                            TextButton(onClick = {
+                                                screen = "tips"
+                                            }) { Text("Tips") }
                                             TextButton(onClick = {
                                                 screen = "backup"
                                             }) { Text("Backup") }
