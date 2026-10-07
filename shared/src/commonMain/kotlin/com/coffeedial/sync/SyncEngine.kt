@@ -34,13 +34,13 @@ class SyncEngine(
             val token =
                 authRepository.syncCredential()
                     ?: error(
-                        "Volvé a iniciar sesión con Google para autorizar el sync. Apple " +
-                            "todavía no tiene sync habilitado."
+                        "Volvé a iniciar sesión para autorizar el sync."
                     )
-            val account = "${user.provider}:${user.id}"
+            val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
             val local = shotRepository.readSyncLocal()
             val saved = checkpoint(local.checkpoint)
-            check(saved == null || saved.account == account) {
+            val sameAccount = saved == null || saved.account == account || saved.account.startsWith("google:") || saved.account.startsWith("apple:")
+            check(sameAccount) {
                 "Estos datos están vinculados a otra cuenta. Volvé a esa cuenta para " +
                     "sincronizar; no se enviaron datos."
             }
@@ -120,7 +120,7 @@ class SyncEngine(
             val token =
                 authRepository.syncCredential()
                     ?: error("Volvé a iniciar sesión con Google para autorizar el sync.")
-            val account = "${user.provider}:${user.id}"
+            val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
             val local = shotRepository.readSyncLocal()
             val headers = mapOf("Authorization" to "Bearer $token")
 

@@ -52,4 +52,8 @@ export class AdminDirectory extends DurableObject {
       styles: this.sql.exec('SELECT style AS label, SUM(count) AS count FROM styles GROUP BY style ORDER BY count DESC, style LIMIT 10').toArray() };
   }
   account(subject) { return this.sql.exec('SELECT * FROM accounts WHERE subject=?', subject).toArray()[0] || null; }
+  subjectsByEmail(email) {
+    if (!email) return [];
+    return this.sql.exec('SELECT subject, revision, shots FROM accounts WHERE LOWER(email)=LOWER(?) ORDER BY shots DESC, revision DESC', email).toArray();
+  }
 }

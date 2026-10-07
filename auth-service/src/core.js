@@ -7,6 +7,8 @@ const b64 = bytes => btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').re
 export const hash = async value => b64(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))));
 export class AuthError extends Error {}
 const googleKeys = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+const appleKeys = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
+
 export async function verifyGoogle(token, env, nonce, keys = googleKeys) {
   const { payload } = await jwtVerify(token, keys, {
     issuer: ['https://accounts.google.com', 'accounts.google.com'], audience: env.GOOGLE_CLIENT_ID,
@@ -15,16 +17,48 @@ export async function verifyGoogle(token, env, nonce, keys = googleKeys) {
   if (payload.nonce !== nonce || !payload.sub || payload.email_verified !== true || typeof payload.email !== 'string') throw new AuthError('identity');
   const allowed = env.ALLOWED_EMAILS.split(',').map(s => s.trim().toLowerCase());
   if (!allowed.includes(payload.email.toLowerCase())) throw new AuthError('not_allowed');
-  return { id: payload.sub, email: payload.email, displayName: typeof payload.name === 'string' ? payload.name : null };
+  return { id: payload.sub, email: payload.email, displayName: typeof payload.name === 'string' ? payload.name : null, provider: 'google' };
 }
+
 export async function verifySyncGoogle(token, env, keys = googleKeys) {
   const audience = [env.GOOGLE_CLIENT_ID, env.GOOGLE_IOS_CLIENT_ID].filter(Boolean);
   const { payload } = await jwtVerify(token, keys, { issuer: ['https://accounts.google.com', 'accounts.google.com'], audience,
     algorithms: ['RS256'], requiredClaims: ['exp', 'iat', 'sub'], maxTokenAge: '70m', clockTolerance: 10 });
   if (typeof payload.sub !== 'string' || !payload.sub || payload.email_verified !== true || typeof payload.email !== 'string') throw new AuthError('identity');
   if (!env.ALLOWED_EMAILS.split(',').map(s => s.trim().toLowerCase()).includes(payload.email.toLowerCase())) throw new AuthError('not_allowed');
-  return { id: payload.sub, email: payload.email, displayName: typeof payload.name === 'string' ? payload.name : null };
+  return { id: payload.sub, email: payload.email, displayName: typeof payload.name === 'string' ? payload.name : null, provider: 'google' };
 }
+
+export async function verifySyncApple(token, env, keys = appleKeys) {
+  const audience = [env.APPLE_CLIENT_ID, env.APPLE_BUNDLE_ID, 'com.coffeedial.app', 'mural.coffee-dial'].filter(Boolean);
+  const { payload } = await jwtVerify(token, keys, {
+    issuer: 'https://appleid.apple.com',
+    audience: audience.length > 0 ? audience : undefined,
+    algorithms: ['RS256'], requiredClaims: ['exp', 'iat', 'sub'], maxTokenAge: '180m', clockTolerance: 10
+  });
+  if (typeof payload.sub !== 'string' || !payload.sub || typeof payload.email !== 'string') throw new AuthError('identity');
+  const emailVerified = payload.email_verified === true || payload.email_verified === 'true';
+  if (!emailVerified) throw new AuthError('identity');
+  if (!env.ALLOWED_EMAILS.split(',').map(s => s.trim().toLowerCase()).includes(payload.email.toLowerCase())) throw new AuthError('not_allowed');
+  return { id: payload.sub, email: payload.email, displayName: null, provider: 'apple' };
+}
+
+export async function verifySyncToken(token, env, gKeys = googleKeys, aKeys = appleKeys) {
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+      const payload = JSON.parse(payloadStr);
+      if (payload.iss === 'https://appleid.apple.com') {
+        return await verifySyncApple(token, env, aKeys);
+      }
+    }
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+  }
+  return await verifySyncGoogle(token, env, gKeys);
+}
+
 export async function googleExchange(code, record, env) {
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

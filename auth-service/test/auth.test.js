@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPair, SignJWT, createLocalJWKSet, exportJWK } from 'jose';
-import { Session, random, hash, verifyGoogle, verifySyncGoogle, TTL } from '../src/core.js';
+import { Session, random, hash, verifyGoogle, verifySyncGoogle, verifySyncToken, TTL } from '../src/core.js';
 class Store {
   map = new Map(); queue = Promise.resolve();
   async get(k) { return structuredClone(this.map.get(k)); }
@@ -103,4 +103,23 @@ test('sync verifies signed Google subject, audience, expiry and verified email',
     await assert.rejects(verifySyncGoogle(await token(overrides), env, keys));
   }
   await assert.rejects(verifySyncGoogle('test@example.com', env, keys));
+});
+
+test('sync verifies signed Apple identity, audience, expiry and verified email', async () => {
+  const applePrivateKeyPair = await generateKeyPair('RS256');
+  const appleJwk = await exportJWK(applePrivateKeyPair.publicKey); appleJwk.kid = 'apple-test';
+  const appleKeys = createLocalJWKSet({ keys: [appleJwk] });
+  const appleEnv = { APPLE_CLIENT_ID: 'com.coffeedial.app', ALLOWED_EMAILS: 'test@example.com' };
+  const appleToken = await new SignJWT({ sub: 'apple-sub-123', email: 'test@example.com', email_verified: true })
+    .setProtectedHeader({ alg: 'RS256', kid: 'apple-test' })
+    .setIssuer('https://appleid.apple.com')
+    .setAudience('com.coffeedial.app')
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(applePrivateKeyPair.privateKey);
+
+  const user = await verifySyncToken(appleToken, appleEnv, keys, appleKeys);
+  assert.equal(user.id, 'apple-sub-123');
+  assert.equal(user.email, 'test@example.com');
+  assert.equal(user.provider, 'apple');
 });

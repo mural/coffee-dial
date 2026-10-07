@@ -145,6 +145,9 @@ private final class AccountCoordinator: NSObject, ObservableObject,
 
     override init() {
         super.init()
+        repository.onSyncTokenObtained = { [weak self] token in
+            self?.defaults.set(token, forKey: "coffee.syncToken")
+        }
         repository.refreshGoogleAction = { [weak self] done in
             guard let self, let user = GIDSignIn.sharedInstance.currentUser,
                   self.defaults.string(forKey: "coffee.auth.provider") == "google" else {
@@ -173,6 +176,8 @@ private final class AccountCoordinator: NSObject, ObservableObject,
             self.controller = nil
             GIDSignIn.sharedInstance.signOut()
             self.defaults.removeObject(forKey: "coffee.auth.provider")
+            self.defaults.removeObject(forKey: "coffee.apple.idToken")
+            self.defaults.removeObject(forKey: "coffee.syncToken")
             // Keep Apple's first-consent profile for subsequent logins to the same subject.
         }
         // Email-only legacy entries were never verified and must not restore a session.
@@ -208,6 +213,9 @@ private final class AccountCoordinator: NSObject, ObservableObject,
     func restore() {
         guard !restored else { return }
         restored = true
+        if let syncToken = defaults.string(forKey: "coffee.syncToken") {
+            repository.syncToken = syncToken
+        }
         let attempt = generation
         if defaults.string(forKey: "coffee.auth.provider") == "google", googleConfigured {
             GIDSignIn.sharedInstance.restorePreviousSignIn { [weak self] user, _ in
@@ -232,10 +240,18 @@ private final class AccountCoordinator: NSObject, ObservableObject,
                 guard let self, self.generation == attempt, error == nil else { return }
                 switch state {
                 case .authorized:
+                    if let savedToken = self.defaults.string(forKey: "coffee.apple.idToken") {
+                        self.repository.appleIdToken = savedToken
+                    }
+                    if let syncToken = self.defaults.string(forKey: "coffee.syncToken") {
+                        self.repository.syncToken = syncToken
+                    }
                     self.acceptApple(id: id, email: nil, name: nil)
                 case .revoked, .notFound, .transferred:
                     self.generation += 1
                     self.defaults.removeObject(forKey: "coffee.auth.provider")
+                    self.defaults.removeObject(forKey: "coffee.apple.idToken")
+                    self.defaults.removeObject(forKey: "coffee.syncToken")
                     self.repository.cancelled()
                 @unknown default: break
                 }
@@ -263,6 +279,9 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         guard let id = google.userID, !id.isEmpty else { repository.cancelled(); return }
         defaults.set("google", forKey: "coffee.auth.provider")
         repository.googleIdToken = google.idToken?.tokenString
+        if let syncToken = defaults.string(forKey: "coffee.syncToken") {
+            repository.syncToken = syncToken
+        }
         repository.authenticated(user: User(id: id, email: google.profile?.email,
             displayName: google.profile?.name, photoUrl: nil, provider: .google, linkedAt: 0))
     }
@@ -295,6 +314,9 @@ private final class AccountCoordinator: NSObject, ObservableObject,
             return
         }
         let name = credential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
+        let idToken = credential.identityToken.flatMap { String(data: $0, encoding: .utf8) }
+        if let idToken { defaults.set(idToken, forKey: "coffee.apple.idToken") }
+        repository.appleIdToken = idToken
         acceptApple(id: credential.user, email: credential.email, name: name)
     }
     private func acceptApple(id: String, email: String?, name: String?) {
@@ -306,6 +328,12 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         defaults.set(savedEmail, forKey: "coffee.apple.email")
         defaults.set(savedName, forKey: "coffee.apple.name")
         defaults.set("apple", forKey: "coffee.auth.provider")
+        if let token = defaults.string(forKey: "coffee.apple.idToken") {
+            repository.appleIdToken = token
+        }
+        if let syncToken = defaults.string(forKey: "coffee.syncToken") {
+            repository.syncToken = syncToken
+        }
         repository.authenticated(user: User(id: id, email: savedEmail, displayName: savedName,
             photoUrl: nil, provider: .apple, linkedAt: 0))
     }

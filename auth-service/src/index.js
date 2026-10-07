@@ -3,7 +3,7 @@ import { createAccess, readAccess } from './access.js';
 import { emptySync, updateSync, seedLegacy } from './sync.js';
 import { loginDestination, callbackDestination } from './returns.js';
 import { DurableObject } from 'cloudflare:workers';
-import { Session, random, hash, validProof, verifySyncGoogle } from './core.js';
+import { Session, random, hash, validProof, verifySyncToken } from './core.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,55 +23,58 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), { stat
 const html = (body, status = 200, extra = {}) => new Response(`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Coffee Dial</title><body><h1>Coffee Dial</h1>${body}</body></html>`, { status, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8', ...extra } });
 const cookieName = state => `__Host-coffee-${state}`;
 const cookie = (state, value, maxAge) => `${cookieName(state)}=${value}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
-const session = (env, id) => env.SESSIONS.get(env.SESSIONS.idFromName(id));
 
-async function call(env, id, action, input) {
-  const result = await session(env, id).fetch(new Request(`https://session/${action}`, { method: 'POST', body: JSON.stringify(input) }));
-  if (!result.ok) throw new Error('invalid');
-  return result.json();
+async function boundedJson(request, maxBytes = 100_000) {
+  const length = Number.parseInt(request.headers.get('Content-Length') || '0', 10);
+  if (Number.isFinite(length) && length > maxBytes) throw new Error('payload_too_large');
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error('invalid');
+  let bytes = 0; const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > maxBytes) throw new Error('payload_too_large');
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.byteLength; }
+  return JSON.parse(new TextDecoder().decode(merged));
 }
 
-async function boundedJson(request, limit = 16384) {
-  if (!(request.headers.get('Content-Type') || '').startsWith('application/json')) throw new Error('type');
-  const reader = request.body?.getReader(); if (!reader) throw new Error('body');
-  let size = 0, text = ''; const decoder = new TextDecoder();
-  while (true) { const { done, value } = await reader.read(); if (done) break;
-    size += value.length; if (size > limit) { await reader.cancel(); throw new Error('size'); }
-    text += decoder.decode(value, { stream: true }); }
-  return JSON.parse(text + decoder.decode());
+async function call(env, id, method, body) {
+  const ns = env.SESSIONS.idFromName(id);
+  const response = await env.SESSIONS.get(ns).fetch('https://internal/do', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method, body }),
+  });
+  if (!response.ok) throw new Error('do');
+  return response.json();
 }
 
 export class LoginAttempt extends DurableObject {
   async fetch(request) {
-    try {
-      const s = new Session(this.ctx.storage, this.env);
-      const action = new URL(request.url).pathname;
-      const input = await request.json();
-      if (action === '/legacy_read') return json({ data: await this.ctx.storage.get('user_sync_data') || null });
-      if (action === '/sync_seed') return json(await seedLegacy(this.ctx.storage, input.backup));
-      if (action === '/sync_read') return json(await this.ctx.storage.get('sync_v2') || emptySync());
-      if (action === '/sync_write') return json(await updateSync(this.ctx.storage, input));
-      if (action === '/access_create') {
-        await createAccess(this.ctx.storage, input.user);
-        return json({ ok: true });
-      }
-      if (action === '/access_read') {
-        const user = await readAccess(this.ctx.storage);
-        if (!user) return json({ error: 'unauthorized' }, 401);
-        return json(user);
-      }
-      if (action === '/access_revoke') { await this.ctx.storage.deleteAll(); return json({ ok: true }); }
-      if (action === '/init') return json(await s.init(input));
-      if (action === '/callback') return json(await s.callback(input));
-      if (action === '/consume') return json(await s.consume(input));
-      return json({ error: 'invalid' }, 400);
-    } catch { return json({ error: 'invalid_or_expired' }, 400); }
+    const url = new URL(request.url);
+    const input = await request.json();
+    const method = input.method || url.pathname.slice(1);
+    const body = input.body || input;
+    if (method === 'init') return json(await new Session(this.ctx.storage, this.env).init(body));
+    if (method === 'callback') return json(await new Session(this.ctx.storage, this.env).callback(body));
+    if (method === 'consume') return json(await new Session(this.ctx.storage, this.env).consume(body));
+    if (method === 'access_create') return json(await createAccess(this.ctx.storage, body.user));
+    if (method === 'access_read') return json(await readAccess(this.ctx.storage));
+    if (method === 'access_revoke') { await this.ctx.storage.deleteAll(); return json({ ok: true }); }
+    if (method === 'sync_read') return json(await this.ctx.storage.get('sync_v2') || emptySync());
+    if (method === 'sync_write') return json(await updateSync(this.ctx.storage, body));
+    if (method === 'sync_seed') return json(await seedLegacy(this.ctx.storage, body.backup));
+    if (method === 'legacy_read') return json({ data: await this.ctx.storage.get('backup_v1') });
+    return json({ error: 'invalid_method' }, 400);
   }
   async alarm() {
     await this.ctx.storage.transaction(async tx => {
+      if (await tx.get('session')) await tx.delete('session');
       const access = await tx.get('access');
-      if (access && access.expires > Date.now()) await tx.setAlarm(access.expires);
-      else await tx.deleteAll();
+      if (access && access.expires <= Date.now()) await tx.delete('access');
     });
   }
 }
@@ -94,7 +97,8 @@ export default {
       try {
         user = token.startsWith('cd.') && validProof(token.slice(3))
           ? await call(env, `access_${await hash(token)}`, 'access_read', {})
-          : await verifySyncGoogle(token, env);
+          : await verifySyncToken(token, env);
+        if (!user || typeof user.email !== 'string') return json({ error: 'unauthorized' }, 401);
       } catch { return json({ error: 'unauthorized' }, 401); }
       if (url.pathname === '/api/session') {
         if (request.method === 'GET') return json(user);
@@ -126,24 +130,56 @@ export default {
           if (url.pathname === '/api/admin/account') {
             const subject = url.searchParams.get('subject') || '';
             if (!subject || subject.length > 200) return json({ error: 'invalid' }, 400);
-            const account = await directory.account(subject);
-            if (!account) return json({ error: 'not_found' }, 404);
-            const document = await call(env, `sync_v2_google_${subject}`, 'sync_read', {});
-            return json({ account, revision: document.revision,
+            const accountInfo = await directory.account(subject);
+            if (!accountInfo) return json({ error: 'not_found' }, 404);
+            const emailHash = accountInfo.email ? await hash(accountInfo.email.trim().toLowerCase()) : '';
+            let document = emailHash ? await call(env, `sync_v2_email_${emailHash}`, 'sync_read', {}) : { revision: 0, backup: emptyBackup() };
+            if (document.revision === 0 || (document.backup?.shots?.length === 0 && document.backup?.beans?.length === 0)) {
+              document = await call(env, `sync_v2_google_${subject}`, 'sync_read', {});
+            }
+            return json({ account: accountInfo, revision: document.revision,
               beans: document.backup.beans, shots: document.backup.shots });
           }
           return json({ error: 'not_found' }, 404);
         } catch { return json({ error: 'admin_unavailable' }, 503); }
       }
-      const account = `sync_v2_google_${user.id}`;
+      const normalizedEmail = user.email.trim().toLowerCase();
+      const emailHash = await hash(normalizedEmail);
+      const account = `sync_v2_email_${emailHash}`;
       try {
         if (request.method === 'GET') {
           let document = await call(env, account, 'sync_read', {});
-          if (document.revision === 0) {
-            // Only a cryptographically verified email may recover the legacy namespace.
-            // Its original contents remain untouched for recovery.
-            const legacy = await call(env, `sync_${user.email.trim().toLowerCase()}`, 'legacy_read', {});
-            if (legacy.data) document = await call(env, account, 'sync_seed', { backup: JSON.parse(legacy.data) });
+          const shotsCount = document.backup?.shots?.length || 0;
+          const beansCount = document.backup?.beans?.length || 0;
+          if (document.revision === 0 || (shotsCount === 0 && beansCount === 0)) {
+            // Check legacy google namespace sync_v2_google_${user.id} first
+            let googleLegacy = await call(env, `sync_v2_google_${user.id}`, 'sync_read', {});
+            if (googleLegacy.revision > 0 && googleLegacy.backup?.shots?.length > 0) {
+              document = await call(env, account, 'sync_seed', { backup: googleLegacy.backup });
+            } else {
+              // Look up all subjects for this email in AdminDirectory
+              let foundLegacy = false;
+              if (env.ADMIN_DIRECTORY) {
+                try {
+                  const directory = env.ADMIN_DIRECTORY.getByName('directory-v1');
+                  const subjects = await directory.subjectsByEmail(normalizedEmail);
+                  for (const sub of subjects) {
+                    if (sub.subject === user.id) continue;
+                    const subLegacy = await call(env, `sync_v2_google_${sub.subject}`, 'sync_read', {});
+                    if (subLegacy.revision > 0 && subLegacy.backup?.shots?.length > 0) {
+                      document = await call(env, account, 'sync_seed', { backup: subLegacy.backup });
+                      foundLegacy = true;
+                      break;
+                    }
+                  }
+                } catch {}
+              }
+              if (!foundLegacy && document.revision === 0 && normalizedEmail) {
+                // Check legacy email namespace sync_${normalizedEmail}
+                const legacy = await call(env, `sync_${normalizedEmail}`, 'legacy_read', {});
+                if (legacy.data) document = await call(env, account, 'sync_seed', { backup: JSON.parse(legacy.data) });
+              }
+            }
           }
           if (env.ADMIN_DIRECTORY) await env.ADMIN_DIRECTORY.getByName('directory-v1').record(user, document);
           return json(document);

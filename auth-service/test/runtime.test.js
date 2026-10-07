@@ -11,14 +11,14 @@ import { emptyBackup } from '../src/sync.js';
 test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation and restart', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'coffee-sync-runtime-'));
   const bundle = await build({ entryPoints: [new URL('../src/index.js', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'browser', external: ['cloudflare:workers'], write: false });
-  const options = { modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-10-03', durableObjects: { SESSIONS: { className: 'LoginAttempt', useSQLite: true } }, durableObjectsPersist: dir, bindings: { PUBLIC_ORIGIN: 'https://auth.test', GOOGLE_CLIENT_ID: 'test', ALLOWED_EMAILS: 'test@example.com' } };
+  const options = { modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-10-03', durableObjects: { SESSIONS: { className: 'LoginAttempt', useSQLite: true } }, durableObjectsPersist: dir, bindings: { PUBLIC_ORIGIN: 'https://auth.test', GOOGLE_CLIENT_ID: 'test', ALLOWED_EMAILS: 'test@example.com,user1@example.com,user2@example.com' } };
   let mf = new Miniflare({ ...convertV4MiniflareOptions(options), resourcePersistencePath: dir });
   try {
     const namespace = await mf.getDurableObjectNamespace('SESSIONS');
     const token = `cd.${random()}`, other = `cd.${random()}`;
-    for (const [credential, id] of [[token, 'one'], [other, 'two']]) {
+    for (const [credential, id, email] of [[token, 'one', 'user1@example.com'], [other, 'two', 'user2@example.com']]) {
       const stub = namespace.get(namespace.idFromName(`access_${await hash(credential)}`));
-      const response = await stub.fetch('https://session/access_create', { method: 'POST', body: JSON.stringify({ user: { id, email: 'test@example.com' } }) });
+      const response = await stub.fetch('https://session/access_create', { method: 'POST', body: JSON.stringify({ user: { id, email } }) });
       assert.equal(response.status, 200);
     }
     const request = (method, credential = token, body) => mf.dispatchFetch('https://auth.test/api/sync', { method, headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
