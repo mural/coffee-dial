@@ -1,6 +1,7 @@
 export { AdminDirectory } from './admin.js';
+import { ServiceError, serviceError } from './errors.js';
 import { createAccess, readAccess } from './access.js';
-import { emptySync, updateSync, seedLegacy } from './sync.js';
+import { emptyBackup, emptySync, updateSync, seedLegacy } from './sync.js';
 import { loginDestination, callbackDestination } from './returns.js';
 import { DurableObject } from 'cloudflare:workers';
 import { Session, random, hash, validProof, verifySyncToken } from './core.js';
@@ -48,12 +49,22 @@ async function call(env, id, method, body) {
   const response = await env.SESSIONS.get(ns).fetch('https://internal/do', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method, body }),
   });
-  if (!response.ok) throw new Error('do');
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ServiceError(data.error || 'service_unavailable', response.status);
+  }
   return response.json();
+}
+
+async function recordAdmin(env, user, document) {
+  if (!env.ADMIN_DIRECTORY) return;
+  try { await env.ADMIN_DIRECTORY.getByName('directory-v1').record(user, document); }
+  catch { console.warn(JSON.stringify({ event: 'admin_index_delayed' })); }
 }
 
 export class LoginAttempt extends DurableObject {
   async fetch(request) {
+    try {
     const url = new URL(request.url);
     const input = await request.json();
     const method = input.method || url.pathname.slice(1);
@@ -61,20 +72,25 @@ export class LoginAttempt extends DurableObject {
     if (method === 'init') return json(await new Session(this.ctx.storage, this.env).init(body));
     if (method === 'callback') return json(await new Session(this.ctx.storage, this.env).callback(body));
     if (method === 'consume') return json(await new Session(this.ctx.storage, this.env).consume(body));
-    if (method === 'access_create') return json(await createAccess(this.ctx.storage, body.user));
+    if (method === 'access_create') { await createAccess(this.ctx.storage, body.user); return json({ ok: true }); }
     if (method === 'access_read') return json(await readAccess(this.ctx.storage));
     if (method === 'access_revoke') { await this.ctx.storage.deleteAll(); return json({ ok: true }); }
     if (method === 'sync_read') return json(await this.ctx.storage.get('sync_v2') || emptySync());
     if (method === 'sync_write') return json(await updateSync(this.ctx.storage, body));
     if (method === 'sync_seed') return json(await seedLegacy(this.ctx.storage, body.backup));
-    if (method === 'legacy_read') return json({ data: await this.ctx.storage.get('backup_v1') });
+    if (method === 'legacy_read') return json({ data: await this.ctx.storage.get('user_sync_data') || await this.ctx.storage.get('backup_v1') || null });
     return json({ error: 'invalid_method' }, 400);
+    } catch (error) {
+      const failure = serviceError(error);
+      return json({ error: failure.message }, failure.status);
+    }
   }
   async alarm() {
     await this.ctx.storage.transaction(async tx => {
       if (await tx.get('session')) await tx.delete('session');
       const access = await tx.get('access');
       if (access && access.expires <= Date.now()) await tx.delete('access');
+      else if (access) await tx.setAlarm(access.expires);
     });
   }
 }
@@ -99,7 +115,11 @@ export default {
           ? await call(env, `access_${await hash(token)}`, 'access_read', {})
           : await verifySyncToken(token, env);
         if (!user || typeof user.email !== 'string') return json({ error: 'unauthorized' }, 401);
-      } catch { return json({ error: 'unauthorized' }, 401); }
+      } catch (error) {
+        const unavailable = error instanceof ServiceError && error.status >= 500 ||
+          error?.code === 'ERR_JWKS_TIMEOUT' || error instanceof TypeError;
+        return json({ error: unavailable ? 'provider_unavailable' : 'unauthorized' }, unavailable ? 503 : 401);
+      }
       if (url.pathname === '/api/session') {
         if (request.method === 'GET') return json(user);
         if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -149,9 +169,7 @@ export default {
       try {
         if (request.method === 'GET') {
           let document = await call(env, account, 'sync_read', {});
-          const shotsCount = document.backup?.shots?.length || 0;
-          const beansCount = document.backup?.beans?.length || 0;
-          if (document.revision === 0 || (shotsCount === 0 && beansCount === 0)) {
+          if (document.revision === 0) {
             // Check legacy google namespace sync_v2_google_${user.id} first
             let googleLegacy = await call(env, `sync_v2_google_${user.id}`, 'sync_read', {});
             if (googleLegacy.revision > 0 && googleLegacy.backup?.shots?.length > 0) {
@@ -181,17 +199,21 @@ export default {
               }
             }
           }
-          if (env.ADMIN_DIRECTORY) await env.ADMIN_DIRECTORY.getByName('directory-v1').record(user, document);
+          await recordAdmin(env, user, document);
           return json(document);
         }
         if (request.method === 'POST') {
           const input = await boundedJson(request, 1500000);
           const result = await call(env, account, 'sync_write', input);
-          if (!result.conflict && env.ADMIN_DIRECTORY) await env.ADMIN_DIRECTORY.getByName('directory-v1').record(user, result);
+          if (!result.conflict) await recordAdmin(env, user, result);
           return json(result, result.conflict ? 409 : 200);
         }
         return json({ error: 'method_not_allowed' }, 405);
-      } catch { return json({ error: 'sync_failed' }, 400); }
+      } catch (error) {
+        const failure = serviceError(error);
+        console.warn(JSON.stringify({ event: 'sync_rejected', code: failure.message, status: failure.status }));
+        return json({ error: failure.message }, failure.status);
+      }
     }
 
     if (!env.GOOGLE_CLIENT_SECRET) return html('<p>El acceso web todavía no está configurado. Volvé a la app.</p>', 503);

@@ -37,6 +37,19 @@ class AndroidAuthRepository(
 
     override suspend fun syncCredential(): String? = syncToken ?: tokenStore.read()
 
+    override suspend fun refreshSyncCredential(rejected: String): String? {
+        val stored = syncCredential()
+        return stored?.takeIf { it != rejected }
+    }
+
+    override fun authenticationRequired(rejected: String?) {
+        val current = syncToken ?: tokenStore.read()
+        if (rejected != null && current != null && current != rejected) return
+        syncToken = null
+        prefs.edit().remove("sync_token").remove("sync_token_encrypted").apply()
+        fail("Volvé a continuar con Google para renovar el acceso. Tus datos se conservan.")
+    }
+
     fun attach(activity: Activity) {
         this.activity = WeakReference(activity)
     }

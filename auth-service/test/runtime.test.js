@@ -20,6 +20,7 @@ test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation a
       const stub = namespace.get(namespace.idFromName(`access_${await hash(credential)}`));
       const response = await stub.fetch('https://session/access_create', { method: 'POST', body: JSON.stringify({ user: { id, email } }) });
       assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { ok: true });
     }
     const request = (method, credential = token, body) => mf.dispatchFetch('https://auth.test/api/sync', { method, headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
     assert.equal((await mf.dispatchFetch('https://auth.test/api/sync?email=test@example.com', { headers: { 'X-User-Email': 'test@example.com' } })).status, 401);
@@ -47,7 +48,7 @@ test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation a
     const upgraded = await (await request('GET')).json();
     assert.equal(upgraded.backup.shots[0].extraWater, 120);
     assert.equal(upgraded.backup.shots[0].style, 'Americano');
-    assert.equal((await request('POST', token, { protocol: 2, baseRevision: 3, backup: emptyBackup() })).status, 400);
+    assert.equal((await request('POST', token, { protocol: 2, baseRevision: 3, backup: emptyBackup() })).status, 426);
     assert.equal((await (await request('GET')).json()).revision, 3);
     assert.equal((await mf.dispatchFetch('https://auth.test/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status, 200);
     assert.equal((await request('GET')).status, 401);

@@ -6,6 +6,7 @@ export function validateBackup(b) {
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  b.machines ??= [];
   b.cups ??= [];
   for (const kind of ['beans', 'shots', 'machines', 'cups']) {
     if (!Array.isArray(b[kind]) || b[kind].length > 50000 || b[kind].some(x => !x || !id(x.id)) || new Set(b[kind].map(x => x.id)).size !== b[kind].length) throw new Error('invalid_ids');
@@ -18,18 +19,23 @@ export function validateBackup(b) {
   if (b.shots.some(x => !beans.has(x.beanId) || !Number.isSafeInteger(x.createdAt) || x.createdAt < 0 || x.createdAt > 253402300799999 || !positive(x.dose) || !positive(x.output) || !positive(x.seconds) || !text(x.grind) || !x.grind.trim() || !text(x.notes, 1000000) || !Number.isInteger(x.rating) || x.rating < 1 || x.rating > 5 || (x.temperature != null && !positive(x.temperature)) || (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 200)) || (x.machine != null && !text(x.machine)) || (x.cup != null && !text(x.cup)) || (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) || (x.style != null && !text(x.style, 100)) || (b.schemaVersion < 2 && (x.extraWater != null || x.style != null)))) throw new Error('invalid_shot');
 }
 export async function updateSync(storage, input) {
+  if (!input || typeof input !== 'object') throw new Error('invalid_protocol');
+  // Kotlin clients historically omitted values equal to serializer defaults.
+  input.protocol ??= 2;
+  if (input.force !== undefined && typeof input.force !== 'boolean') throw new Error('invalid_protocol');
   validateBackup(input.backup);
   if (input.protocol !== 2 || !Number.isSafeInteger(input.baseRevision) || input.baseRevision < 0) throw new Error('invalid_protocol');
   return storage.transaction(async tx => {
     const previous = await tx.get('sync_v2') || emptySync();
     if (input.backup.schemaVersion < previous.backup.schemaVersion) throw new Error("backup_upgrade_required");
-    if (!input.force && previous.revision !== input.baseRevision) return { conflict: true };
+    if (previous.revision !== input.baseRevision) return { conflict: true };
     const deleted = {};
     for (const kind of ['beans', 'shots', 'machines', 'cups']) {
       const tombstones = new Set(previous.deleted[kind] || []);
       const ids = new Set(input.backup[kind].map(x => x.id));
       if (!input.force && [...ids].some(id => tombstones.has(id))) return { conflict: true };
       for (const record of previous.backup[kind] || []) if (!ids.has(record.id)) tombstones.add(record.id);
+      if (input.force) for (const id of ids) tombstones.delete(id);
       deleted[kind] = [...tombstones].sort();
     }
     const next = { protocol: 2, revision: previous.revision + 1, backup: input.backup, deleted };

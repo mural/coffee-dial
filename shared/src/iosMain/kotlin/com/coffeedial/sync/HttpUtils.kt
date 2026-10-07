@@ -70,7 +70,7 @@ actual suspend fun httpPostJson(
 
                         if (statusCode !in 200..299) {
                             continuation.resumeWithException(
-                                IllegalStateException("HTTP Error $statusCode: $text")
+                                httpFailure(statusCode.toInt(), text)
                             )
                         } else {
                             continuation.resume(text)
@@ -121,7 +121,7 @@ actual suspend fun httpGetText(url: String, headers: Map<String, String>): Strin
 
                             if (statusCode !in 200..299) {
                                 continuation.resumeWithException(
-                                    IllegalStateException("HTTP Error $statusCode: $text")
+                                    httpFailure(statusCode.toInt(), text)
                                 )
                             } else {
                                 continuation.resume(text)

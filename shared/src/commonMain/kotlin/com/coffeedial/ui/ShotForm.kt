@@ -382,7 +382,11 @@ private fun DoseSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("10 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "10 g",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
@@ -399,11 +403,19 @@ private fun DoseSliderField(
                 )
             }
 
-            Text("40 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "40 g",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         if (error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -447,12 +459,24 @@ private fun OutputSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("10 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("100 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "10 g",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "100 g",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         if (error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -475,9 +499,21 @@ private fun MlSliderField(
         ) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
             Text(
-                if (currentMlFloat.roundToInt() == 0) "0 ml" else "${currentMlFloat.roundToInt()} ml",
+                if (currentMlFloat.roundToInt() ==
+                    0
+                ) {
+                    "0 ml"
+                } else {
+                    "${currentMlFloat.roundToInt()} ml"
+                },
                 style = MaterialTheme.typography.titleMedium,
-                color = if (currentMlFloat.roundToInt() > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (currentMlFloat.roundToInt() >
+                    0
+                ) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
         }
 
@@ -498,12 +534,24 @@ private fun MlSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("0 ml", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("250 ml", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "0 ml",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "250 ml",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         if (error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -547,7 +595,11 @@ private fun TimeSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("5 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "5 s",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             FilterChip(
                 selected = currentSecondsFloat.roundToInt() == 20,
@@ -556,11 +608,19 @@ private fun TimeSliderField(
                 label = { Text("20 s") }
             )
 
-            Text("40 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "40 s",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         if (error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -633,7 +693,12 @@ private fun ShotFormFilledPreview() {
     }
 }
 
-@Preview(name = "Formulario - Guardando (Loading)", showBackground = true, widthDp = 400, heightDp = 1800)
+@Preview(
+    name = "Formulario - Guardando (Loading)",
+    showBackground = true,
+    widthDp = 400,
+    heightDp = 1800
+)
 @Composable
 private fun ShotFormSavingPreview() {
     MaterialTheme {
@@ -653,7 +718,12 @@ private fun ShotFormSavingPreview() {
     }
 }
 
-@Preview(name = "Formulario - Con Error de Guardado", showBackground = true, widthDp = 400, heightDp = 1800)
+@Preview(
+    name = "Formulario - Con Error de Guardado",
+    showBackground = true,
+    widthDp = 400,
+    heightDp = 1800
+)
 @Composable
 private fun ShotFormErrorPreview() {
     MaterialTheme {

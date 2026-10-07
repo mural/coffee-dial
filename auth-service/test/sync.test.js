@@ -88,3 +88,22 @@ test('v4 removing a bean from the catalog preserves its shots and rejects old cl
   data.beans[0].archived = 'true';
   await assert.rejects(updateSync(storage, request(1, data)), /invalid_bean/);
 });
+
+
+test('Kotlin omitted defaults remain compatible', async () => {
+  const data = backup(); delete data.machines; delete data.cups;
+  const result = await updateSync(new Store(), { baseRevision: 0, backup: data });
+  assert.equal(result.protocol, 2);
+  assert.deepEqual(result.backup.machines, []);
+  assert.deepEqual(result.backup.cups, []);
+});
+test('explicit overwrite respects CAS and clears restored tombstones', async () => {
+  const storage = new Store();
+  await updateSync(storage, request(0));
+  await updateSync(storage, request(1, emptyBackup()));
+  assert.equal((await updateSync(storage, { ...request(1), force: true })).conflict, true);
+  const restored = await updateSync(storage, { ...request(2), force: true });
+  assert.deepEqual(restored.deleted.shots, []);
+  assert.deepEqual(restored.deleted.beans, []);
+  assert.equal((await updateSync(storage, request(3))).revision, 4);
+});

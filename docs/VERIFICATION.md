@@ -158,3 +158,21 @@ El reporte corresponde al 2026-10-02 18:31:59 -0300, proceso CoffeeDial del simu
 - Ratio `1:` con tipografía base y segundo valor a 20 sp en negrita. Total conservando la suma existente, mostrado como volumen aproximado porque combina output en gramos con agregados en ml.
 - ktlintCheck, assembleDebug, compileKotlinIosSimulatorArm64 y wasmJsBrowserDistribution aprobados. No se añadieron tests que dupliquen una modificación visual.
 - Web desplegada: `1dd69d07-ffbe-4ddf-b211-3e963c12db38`.
+
+
+## 2026-10-07 — recuperación de sesión y sync
+
+- Servidor: 36 tests OK; 1 test omitido por la suite. Incluye Worker/SQLite real,
+  JSON de creación de sesión, defaults omitidos y force con CAS/tombstones.
+- Android: 55 tests OK y assembleDebug OK.
+- iOS simulator ARM64: 46 tests OK y xcodebuild ARCHS=arm64 OK.
+  El destino genérico sin ARCHS intentó enlazar x86_64, no disponible en el framework KMP.
+- Web: wasmJsBrowserDistribution OK (avisos de tamaño de bundle).
+- ktlintCheck OK; el formatter normalizó también formato en cinco archivos UI existentes.
+- Deploy auth: b73fd483-c2ae-46f5-bebc-8bb4a21dd0fa.
+- Deploy web: 7e97cdd6-d816-42ac-8c07-d16be00aaad7.
+- No se probaron sobrescrituras con los datos reales ni login interactivo Apple en dispositivo.
+
+- Chrome, perfil Agustin, producción: login Google completo OK; Cuenta mostró
+  sincronización exitosa de 5 shots. Tras recargar, mantuvo sesión y volvió a
+  mostrar sync exitoso. No se utilizó sobrescritura.

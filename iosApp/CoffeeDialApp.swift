@@ -148,6 +148,13 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         repository.onSyncTokenObtained = { [weak self] token in
             self?.defaults.set(token, forKey: "coffee.syncToken")
         }
+        repository.onSyncTokenCleared = { [weak self] in
+            self?.defaults.removeObject(forKey: "coffee.syncToken")
+        }
+        repository.onAuthenticationRequired = { [weak self] in
+            self?.defaults.removeObject(forKey: "coffee.auth.provider")
+            self?.defaults.removeObject(forKey: "coffee.apple.idToken")
+        }
         repository.refreshGoogleAction = { [weak self] done in
             guard let self, let user = GIDSignIn.sharedInstance.currentUser,
                   self.defaults.string(forKey: "coffee.auth.provider") == "google" else {

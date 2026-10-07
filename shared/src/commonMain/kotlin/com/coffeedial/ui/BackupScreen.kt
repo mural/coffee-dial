@@ -139,7 +139,10 @@ internal fun BackupScreen(
                 }) { Text("Reemplazar todo con este backup") }
             }
 
-            TextButton(enabled = !busy, onClick = { preview = null; lastImportText = null }) { Text("Cancelar") }
+            TextButton(enabled = !busy, onClick = {
+                preview = null
+                lastImportText = null
+            }) { Text("Cancelar") }
         }
     }
 }

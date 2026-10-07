@@ -27,7 +27,7 @@ actual suspend fun httpPostJson(
     val stream = if (status in 200..299) conn.inputStream else conn.errorStream
     val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
     if (status !in 200..299) {
-        throw IllegalStateException("HTTP Error $status: $responseText")
+        throw httpFailure(status, responseText)
     }
     responseText
 }
@@ -45,7 +45,7 @@ actual suspend fun httpGetText(url: String, headers: Map<String, String>): Strin
         val stream = if (status in 200..299) conn.inputStream else conn.errorStream
         val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
         if (status !in 200..299) {
-            throw IllegalStateException("HTTP Error $status: $responseText")
+            throw httpFailure(status, responseText)
         }
         responseText
     }

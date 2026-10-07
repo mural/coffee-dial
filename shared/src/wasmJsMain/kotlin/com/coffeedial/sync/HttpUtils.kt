@@ -19,7 +19,7 @@ actual suspend fun httpPostJson(
     val response = window.fetch(url, init).await()
     val text = response.text().await().toString()
     if (!response.ok) {
-        throw IllegalStateException("HTTP Error ${response.status}: $text")
+        throw httpFailure(response.status.toInt(), text)
     }
     return text
 }
@@ -33,7 +33,7 @@ actual suspend fun httpGetText(url: String, headers: Map<String, String>): Strin
     val response = window.fetch(url, init).await()
     val text = response.text().await().toString()
     if (!response.ok) {
-        throw IllegalStateException("HTTP Error ${response.status}: $text")
+        throw httpFailure(response.status.toInt(), text)
     }
     return text
 }

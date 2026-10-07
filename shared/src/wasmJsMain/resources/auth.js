@@ -61,6 +61,14 @@
       sessionStorage.removeItem(userKey);
       return value;
     },
+    credential() {
+      const saved = localStorage.getItem(userKey) || sessionStorage.getItem(userKey);
+      return saved || '';
+    },
+    rejected(token) {
+      const saved = this.credential();
+      if (!saved || JSON.parse(saved).syncToken === token) this.clear();
+    },
     clear() {
       sessionStorage.removeItem(key);
       sessionStorage.removeItem(userKey);

@@ -18,6 +18,8 @@ import kotlinx.serialization.json.jsonPrimitive
 private external object CoffeeAuth {
     fun start(): Promise<JsString>
     fun complete(): Promise<JsString>
+    fun credential(): String
+    fun rejected(token: String)
     fun clear()
 }
 
@@ -28,6 +30,25 @@ class WasmAuthRepository : AuthRepository {
     private var generation = 0
     private var syncToken: String? = null
     override suspend fun syncCredential(): String? = syncToken
+
+    override suspend fun refreshSyncCredential(rejected: String): String? {
+        val user = (state.value as? AuthState.LoggedIn)?.user ?: return null
+        val saved = runCatching {
+            Json.parseToJsonElement(CoffeeAuth.credential()).jsonObject
+        }.getOrNull() ?: return null
+        if (saved["id"]?.jsonPrimitive?.content != user.id) return null
+        return saved["syncToken"]?.jsonPrimitive?.contentOrNull?.takeIf { it != rejected }
+            ?.also { syncToken = it }
+    }
+
+    override fun authenticationRequired(rejected: String?) {
+        if (rejected != null && syncToken != null && syncToken != rejected) return
+        syncToken?.let { CoffeeAuth.rejected(it) }
+        syncToken = null
+        mutableState.value = AuthState.Error(
+            "Volvé a continuar con Google para renovar el acceso. Tus datos se conservan."
+        )
+    }
 
     init {
         val initialGeneration = generation

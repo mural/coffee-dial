@@ -32,13 +32,55 @@ private data class TimeTip(
 )
 
 private val timeTipsList = listOf(
-    TimeTip("<15 s", "Muy rápido", "🔵 Muy subextraído", "Aguado, ácido/agrio, poco cuerpo", "Molienda mucho más fina"),
-    TimeTip("15-20 s", "Rápido", "🔵 Subextraído", "Ácido, poco dulce, final corto", "Molienda más fina"),
-    TimeTip("20-25 s", "Algo rápido", "🟡 Puede estar subextraído", "Ya puede ser rico, depende del grano", "Algo más fino si le falta cuerpo"),
-    TimeTip("25-30 s", "Normal", "🟢 Zona clásica", "Balance, dulzor, cuerpo perfecto", "Ajustar fino según el gusto"),
-    TimeTip("30-35 s", "Lento", "🟢/🟡 Puede estar perfecto", "Más cuerpo e intensidad", "Si está rico, no tocar nada"),
-    TimeTip("35-40 s", "Muy lento", "🟠 Tendencia a sobreextracción", "Amargo, seco / astringente", "Molienda algo más gruesa"),
-    TimeTip(">40-45 s", "Goteo / restricción", "🔴 Probable sobreextracción", "Muy amargo, seco, áspero", "Molienda más gruesa")
+    TimeTip(
+        "<15 s",
+        "Muy rápido",
+        "🔵 Muy subextraído",
+        "Aguado, ácido/agrio, poco cuerpo",
+        "Molienda mucho más fina"
+    ),
+    TimeTip(
+        "15-20 s",
+        "Rápido",
+        "🔵 Subextraído",
+        "Ácido, poco dulce, final corto",
+        "Molienda más fina"
+    ),
+    TimeTip(
+        "20-25 s",
+        "Algo rápido",
+        "🟡 Puede estar subextraído",
+        "Ya puede ser rico, depende del grano",
+        "Algo más fino si le falta cuerpo"
+    ),
+    TimeTip(
+        "25-30 s",
+        "Normal",
+        "🟢 Zona clásica",
+        "Balance, dulzor, cuerpo perfecto",
+        "Ajustar fino según el gusto"
+    ),
+    TimeTip(
+        "30-35 s",
+        "Lento",
+        "🟢/🟡 Puede estar perfecto",
+        "Más cuerpo e intensidad",
+        "Si está rico, no tocar nada"
+    ),
+    TimeTip(
+        "35-40 s",
+        "Muy lento",
+        "🟠 Tendencia a sobreextracción",
+        "Amargo, seco / astringente",
+        "Molienda algo más gruesa"
+    ),
+    TimeTip(
+        ">40-45 s",
+        "Goteo / restricción",
+        "🔴 Probable sobreextracción",
+        "Muy amargo, seco, áspero",
+        "Molienda más gruesa"
+    )
 )
 
 private data class StyleTip(
@@ -49,26 +91,70 @@ private data class StyleTip(
 )
 
 private val styleTipsList = listOf(
-    StyleTip("Ristretto", "Ratio 1:1 a 1:1,5", "Ratio 1:1.2 -> ristretto", "Shot corto y concentrado. Sabor intenso, cuerpo espeso, dulzor marcado y acidez limpia con amargor mínimo."),
-    StyleTip("Espresso", "Ratio 1:1,5 a 1:2,5", "Ratio 1:2 -> espresso", "La zona dorada estándar. Balance perfecto entre cuerpo, crema avellanada, acidez aromática y notas dulces."),
-    StyleTip("Espresso largo", "Ratio 1:2,5 a 1:3", "Ratio 1:2.8 -> espresso largo", "Extracción extendida que resalta notas florales y frutales con menor densidad de crema y cuerpo más fluido."),
-    StyleTip("Lungo", "Ratio mayor a 1:3", "Ratio 1:3.5 -> lungo", "Volumen amplio obtenido pasando más agua. Trae sabores más estirados y ligeros, ideal para bebidas compuestas.")
+    StyleTip(
+        "Ristretto",
+        "Ratio 1:1 a 1:1,5",
+        "Ratio 1:1.2 -> ristretto",
+        "Shot corto y concentrado. Sabor intenso, cuerpo espeso, dulzor marcado y acidez limpia con amargor mínimo."
+    ),
+    StyleTip(
+        "Espresso",
+        "Ratio 1:1,5 a 1:2,5",
+        "Ratio 1:2 -> espresso",
+        "La zona dorada estándar. Balance perfecto entre cuerpo, crema avellanada, acidez aromática y notas dulces."
+    ),
+    StyleTip(
+        "Espresso largo",
+        "Ratio 1:2,5 a 1:3",
+        "Ratio 1:2.8 -> espresso largo",
+        "Extracción extendida que resalta notas florales y frutales con menor densidad de crema y cuerpo más fluido."
+    ),
+    StyleTip(
+        "Lungo",
+        "Ratio mayor a 1:3",
+        "Ratio 1:3.5 -> lungo",
+        "Volumen amplio obtenido pasando más agua. Trae sabores más estirados y ligeros, ideal para bebidas compuestas."
+    )
 )
 
-private data class GrainTip(
-    val name: String,
-    val type: String,
-    val profile: String
-)
+private data class GrainTip(val name: String, val type: String, val profile: String)
 
 private val grainTipsList = listOf(
-    GrainTip("Arábica vs. Robusta", "Especies principales", "Arábica: Complejidad aromática, acidez refinada y dulzor (cafeína 1.2%). Robusta: Alto cuerpo, crema espesa, amargor persistente (cafeína 2.2%)."),
-    GrainTip("Bourbon / Caturra / Catuaí", "Varietales clásicos de especialidad", "Cuerpo sedoso, notas chocolatadas, caramelo, frutas rojas y acidez cítrica muy balanceada."),
-    GrainTip("Geisha / Gesha", "Varietal exótico de alta gama", "Aroma floral penetrante (Jazmín), acidez cítrica brillante (Bergamota), notas a lima y cuerpo ligero estilo té."),
-    GrainTip("Pacamara / Maragogipe", "Granos de tamaño gigante", "Notas complejas a especias, chocolate amargo, frutos secos y acidez vinosa profunda."),
-    GrainTip("Origen Colombia", "Perfil de origen", "Notas a chocolate con leche, frutos rojos, caramelo de caña y cuerpo redondo súper versátil."),
-    GrainTip("Origen Etiopía", "Cuna del café", "Perfil cítrico, notas a jazmín, bergamota, té negro y frutas de hueso con acidez viva."),
-    GrainTip("Origen Brasil", "Perfil de origen", "Cuerpo denso, acidez baja, notas avellanadas, manteca de cacao y dulzor de nuez.")
+    GrainTip(
+        "Arábica vs. Robusta",
+        "Especies principales",
+        "Arábica: Complejidad aromática, acidez refinada y dulzor (cafeína 1.2%). Robusta: Alto cuerpo, crema espesa, amargor persistente (cafeína 2.2%)."
+    ),
+    GrainTip(
+        "Bourbon / Caturra / Catuaí",
+        "Varietales clásicos de especialidad",
+        "Cuerpo sedoso, notas chocolatadas, caramelo, frutas rojas y acidez cítrica muy balanceada."
+    ),
+    GrainTip(
+        "Geisha / Gesha",
+        "Varietal exótico de alta gama",
+        "Aroma floral penetrante (Jazmín), acidez cítrica brillante (Bergamota), notas a lima y cuerpo ligero estilo té."
+    ),
+    GrainTip(
+        "Pacamara / Maragogipe",
+        "Granos de tamaño gigante",
+        "Notas complejas a especias, chocolate amargo, frutos secos y acidez vinosa profunda."
+    ),
+    GrainTip(
+        "Origen Colombia",
+        "Perfil de origen",
+        "Notas a chocolate con leche, frutos rojos, caramelo de caña y cuerpo redondo súper versátil."
+    ),
+    GrainTip(
+        "Origen Etiopía",
+        "Cuna del café",
+        "Perfil cítrico, notas a jazmín, bergamota, té negro y frutas de hueso con acidez viva."
+    ),
+    GrainTip(
+        "Origen Brasil",
+        "Perfil de origen",
+        "Cuerpo denso, acidez baja, notas avellanadas, manteca de cacao y dulzor de nuez."
+    )
 )
 
 @Composable
@@ -84,7 +170,18 @@ fun TipsScreen() {
                 Tab(
                     selected = selectedTab == index,
                     onClick = { selectedTab = index },
-                    text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
+                    text = {
+                        Text(
+                            title,
+                            fontWeight = if (selectedTab ==
+                                index
+                            ) {
+                                FontWeight.Bold
+                            } else {
+                                FontWeight.Normal
+                            }
+                        )
+                    }
                 )
             }
         }
@@ -123,10 +220,22 @@ private fun StylesTabContent() {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(tip.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(tip.range, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            tip.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            tip.range,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                    Text("Ejemplo: ${tip.example}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Ejemplo: ${tip.example}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Text(tip.description, style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -160,11 +269,23 @@ private fun TimesTabContent() {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Tiempo: ${tip.timeRange}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Tiempo: ${tip.timeRange}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text(tip.trend, style = MaterialTheme.typography.labelMedium)
                     }
-                    Text("Flujo: ${tip.flow} · Sabor: ${tip.taste}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Qué probar: ${tip.advice}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "Flujo: ${tip.flow} · Sabor: ${tip.taste}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Qué probar: ${tip.advice}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -192,8 +313,16 @@ private fun GrainsTabContent() {
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(tip.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(tip.type, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        tip.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        tip.type,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                     Text(tip.profile, style = MaterialTheme.typography.bodyMedium)
                 }
             }

@@ -181,7 +181,12 @@ fun HomeScreen(
     }
 }
 
-@Preview(name = "Pantalla Principal (HomeScreen) - Con Usuario", showBackground = true, widthDp = 400, heightDp = 800)
+@Preview(
+    name = "Pantalla Principal (HomeScreen) - Con Usuario",
+    showBackground = true,
+    widthDp = 400,
+    heightDp = 800
+)
 @Composable
 private fun HomeScreenWithUserPreview() {
     MaterialTheme {
@@ -208,7 +213,12 @@ private fun HomeScreenWithUserPreview() {
     }
 }
 
-@Preview(name = "Pantalla Historial (HomeScreen) - Lista Completa", showBackground = true, widthDp = 400, heightDp = 800)
+@Preview(
+    name = "Pantalla Historial (HomeScreen) - Lista Completa",
+    showBackground = true,
+    widthDp = 400,
+    heightDp = 800
+)
 @Composable
 private fun HomeScreenHistoryPreview() {
     MaterialTheme {

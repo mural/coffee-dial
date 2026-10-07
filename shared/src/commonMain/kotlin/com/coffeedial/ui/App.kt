@@ -136,303 +136,303 @@ fun App(
         )
     ) {
         Scaffold { padding ->
-                Column(
-                    Modifier.widthIn(
-                        max = 960.dp
-                    ).fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
+            Column(
+                Modifier.widthIn(
+                    max = 960.dp
+                ).fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Coffee Dial",
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (screen == "home") {
-                                TextButton(onClick = { screen = "account" }) {
-                                    Text("Cuenta")
-                                }
-                            } else if (screen != "home") {
-                                TextButton(enabled = !saving && !backupFiles.busy, onClick = {
-                                    screen = when (screen) {
-                                        "admin" -> "account"
-
-                                        "detail" -> "history"
-
-                                        "edit" -> "detail"
-
-                                        "machines", "beans", "cups", "tips",
-                                        "account", "backup", "analysis" -> "home"
-
-                                        else -> "home"
-                                    }
-                                }) {
-                                    Text("Volver")
-                                }
+                    Text(
+                        "Coffee Dial",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (screen == "home") {
+                            TextButton(onClick = { screen = "account" }) {
+                                Text("Cuenta")
                             }
-                        }
-                    }
-                    when (screen) {
-                        "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
+                        } else if (screen != "home") {
+                            TextButton(enabled = !saving && !backupFiles.busy, onClick = {
+                                screen = when (screen) {
+                                    "admin" -> "account"
 
-                        "account" -> AccountScreen(
-                            authRepository = authRepository,
-                            syncEngine = syncEngine,
-                            onAdmin = { screen = "admin" }
-                        )
+                                    "detail" -> "history"
 
-                        "admin" -> AdminScreen(authRepository)
+                                    "edit" -> "detail"
 
-                        "analysis" -> AnalysisScreen(shots.orEmpty())
+                                    "machines", "beans", "cups", "tips",
+                                    "account", "backup", "analysis" -> "home"
 
-                        "tips" -> TipsScreen()
-
-                        "machines" -> MachinesScreen(
-                            machines = machines,
-                            saving = saving,
-                            saveError = saveError,
-                            onSaveMachine = { machineId, machineDraft, onSaved ->
-                                saving = true
-                                saveError = null
-                                scope.launch {
-                                    try {
-                                        if (machineId == null) {
-                                            repository.saveMachine(machineDraft)
-                                        } else {
-                                            repository.updateMachine(machineId, machineDraft)
-                                        }
-                                        onSaved()
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        saveError = "No pudimos guardar la máquina."
-                                    } finally {
-                                        saving = false
-                                    }
+                                    else -> "home"
                                 }
-                            },
-                            onDeleteMachine = { machineId ->
-                                saving = true
-                                scope.launch {
-                                    try {
-                                        repository.deleteMachine(machineId)
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
+                            }) {
+                                Text("Volver")
                             }
-                        )
-
-                        "beans" -> BeansScreen(
-                            beans = beansList,
-                            saving = saving,
-                            saveError = saveError,
-                            onSaveBean = { beanId, beanDraft, onSaved ->
-                                saving = true
-                                saveError = null
-                                scope.launch {
-                                    try {
-                                        if (beanId == null) {
-                                            repository.saveBean(beanDraft)
-                                        } else {
-                                            repository.updateBean(beanId, beanDraft)
-                                        }
-                                        onSaved()
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        saveError = "No pudimos guardar el café."
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            },
-                            onDeleteBean = { beanId ->
-                                saving = true
-                                scope.launch {
-                                    try {
-                                        repository.deleteBean(beanId)
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            }
-                        )
-
-                        "cups" -> CupsScreen(
-                            cups = cupsList,
-                            saving = saving,
-                            saveError = saveError,
-                            onSaveCup = { cupId, cupDraft, onSaved ->
-                                saving = true
-                                saveError = null
-                                scope.launch {
-                                    try {
-                                        if (cupId == null) {
-                                            repository.saveCup(cupDraft)
-                                        } else {
-                                            repository.updateCup(cupId, cupDraft)
-                                        }
-                                        onSaved()
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        saveError = "No pudimos guardar la taza."
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            },
-                            onDeleteCup = { cupId ->
-                                saving = true
-                                scope.launch {
-                                    try {
-                                        repository.deleteCup(cupId)
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            }
-                        )
-
-                        "new", "edit" -> ShotForm(
-                            draft = draft,
-                            machines = machines,
-                            beans = beansList,
-                            cups = cupsList,
-                            onChange = {
-                                draft = it
-                                saveError = null
-                            },
-                            saving = saving,
-                            saveError = saveError,
-                            isEditing = screen == "edit",
-                            onNavigateToMachines = { screen = "machines" },
-                            onNavigateToBeans = { screen = "beans" },
-                            onNavigateToCups = { screen = "cups" },
-                            onSave = {
-                                saving = true
-                                saveError = null
-                                scope.launch {
-                                    try {
-                                        if (screen == "edit" && selectedId != null) {
-                                            repository.update(selectedId!!, draft)
-                                            screen = "detail"
-                                        } else {
-                                            repository.save(draft)
-                                            screen = "history"
-                                        }
-                                        draft = ShotDraft()
-                                        scope.launch { syncEngine.performSync() }
-                                    } catch (cancelled: CancellationException) {
-                                        throw cancelled
-                                    } catch (_: Exception) {
-                                        saveError =
-                                            "No pudimos guardar el shot. Tus datos siguen acá; " +
-                                            "intentá otra vez."
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            }
-                        )
-
-                        "detail" -> {
-                            val shot = shots.orEmpty().find { it.id == selectedId }
-                            if (shot == null) {
-                                Text("No encontramos este shot.")
-                            } else {
-                                ShotDetail(
-                                    shot = shot,
-                                    onEdit = {
-                                        draft = ShotDraft(
-                                            beanName = shot.bean.name,
-                                            roaster = shot.bean.roaster,
-                                            dose = shot.dose.pretty(),
-                                            output = shot.output.pretty(),
-                                            seconds = shot.seconds.pretty(),
-                                            grind = shot.grind,
-                                            temperature = shot.temperature?.pretty() ?: "",
-                                            milk = shot.milk?.pretty() ?: "",
-                                            extraWater = shot.extraWater?.pretty() ?: "",
-                                            style = shot.style.orEmpty(),
-                                            machine = shot.machine ?: "",
-                                            notes = shot.notes,
-                                            rating = shot.rating,
-                                            cup = shot.cup ?: ""
-                                        )
-                                        screen = "edit"
-                                    },
-                                    onDelete = {
-                                        saving = true
-                                        scope.launch {
-                                            try {
-                                                repository.delete(shot.id)
-                                                screen = "history"
-                                                scope.launch { syncEngine.performSync() }
-                                            } catch (cancelled: CancellationException) {
-                                                throw cancelled
-                                            } catch (_: Exception) {
-                                            } finally {
-                                                saving = false
-                                            }
-                                        }
-                                    },
-                                    saving = saving
-                                )
-                            }
-                        }
-
-                        else -> {
-                            val userName = (authState as? AuthState.LoggedIn)?.user?.displayName
-                                ?.trim()?.takeIf { it.isNotEmpty() }?.substringBefore(' ')
-
-                            HomeScreen(
-                                screen = screen,
-                                shots = shots,
-                                filteredShots = filteredShots,
-                                selectedStyle = selectedStyle,
-                                styleOptions = styleOptions,
-                                loadError = loadError,
-                                userName = userName,
-                                onSelectStyle = { selectedStyle = it },
-                                onNewShot = { screen = "new" },
-                                onSelectShot = {
-                                    selectedId = it.id
-                                    screen = "detail"
-                                },
-                                onNavigateToHistory = { screen = "history" },
-                                onNavigateToBeans = { screen = "beans" },
-                                onNavigateToMachines = { screen = "machines" },
-                                onNavigateToCups = { screen = "cups" },
-                                onNavigateToTips = { screen = "tips" },
-                                onNavigateToBackup = { screen = "backup" },
-                                onNavigateToAnalysis = { screen = "analysis" },
-                                onRetry = { retry++ }
-                            )
                         }
                     }
                 }
+                when (screen) {
+                    "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
+
+                    "account" -> AccountScreen(
+                        authRepository = authRepository,
+                        syncEngine = syncEngine,
+                        onAdmin = { screen = "admin" }
+                    )
+
+                    "admin" -> AdminScreen(authRepository)
+
+                    "analysis" -> AnalysisScreen(shots.orEmpty())
+
+                    "tips" -> TipsScreen()
+
+                    "machines" -> MachinesScreen(
+                        machines = machines,
+                        saving = saving,
+                        saveError = saveError,
+                        onSaveMachine = { machineId, machineDraft, onSaved ->
+                            saving = true
+                            saveError = null
+                            scope.launch {
+                                try {
+                                    if (machineId == null) {
+                                        repository.saveMachine(machineDraft)
+                                    } else {
+                                        repository.updateMachine(machineId, machineDraft)
+                                    }
+                                    onSaved()
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    saveError = "No pudimos guardar la máquina."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        },
+                        onDeleteMachine = { machineId ->
+                            saving = true
+                            scope.launch {
+                                try {
+                                    repository.deleteMachine(machineId)
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    )
+
+                    "beans" -> BeansScreen(
+                        beans = beansList,
+                        saving = saving,
+                        saveError = saveError,
+                        onSaveBean = { beanId, beanDraft, onSaved ->
+                            saving = true
+                            saveError = null
+                            scope.launch {
+                                try {
+                                    if (beanId == null) {
+                                        repository.saveBean(beanDraft)
+                                    } else {
+                                        repository.updateBean(beanId, beanDraft)
+                                    }
+                                    onSaved()
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    saveError = "No pudimos guardar el café."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        },
+                        onDeleteBean = { beanId ->
+                            saving = true
+                            scope.launch {
+                                try {
+                                    repository.deleteBean(beanId)
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    )
+
+                    "cups" -> CupsScreen(
+                        cups = cupsList,
+                        saving = saving,
+                        saveError = saveError,
+                        onSaveCup = { cupId, cupDraft, onSaved ->
+                            saving = true
+                            saveError = null
+                            scope.launch {
+                                try {
+                                    if (cupId == null) {
+                                        repository.saveCup(cupDraft)
+                                    } else {
+                                        repository.updateCup(cupId, cupDraft)
+                                    }
+                                    onSaved()
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    saveError = "No pudimos guardar la taza."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        },
+                        onDeleteCup = { cupId ->
+                            saving = true
+                            scope.launch {
+                                try {
+                                    repository.deleteCup(cupId)
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    )
+
+                    "new", "edit" -> ShotForm(
+                        draft = draft,
+                        machines = machines,
+                        beans = beansList,
+                        cups = cupsList,
+                        onChange = {
+                            draft = it
+                            saveError = null
+                        },
+                        saving = saving,
+                        saveError = saveError,
+                        isEditing = screen == "edit",
+                        onNavigateToMachines = { screen = "machines" },
+                        onNavigateToBeans = { screen = "beans" },
+                        onNavigateToCups = { screen = "cups" },
+                        onSave = {
+                            saving = true
+                            saveError = null
+                            scope.launch {
+                                try {
+                                    if (screen == "edit" && selectedId != null) {
+                                        repository.update(selectedId!!, draft)
+                                        screen = "detail"
+                                    } else {
+                                        repository.save(draft)
+                                        screen = "history"
+                                    }
+                                    draft = ShotDraft()
+                                    scope.launch { syncEngine.performSync() }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    saveError =
+                                        "No pudimos guardar el shot. Tus datos siguen acá; " +
+                                        "intentá otra vez."
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                    )
+
+                    "detail" -> {
+                        val shot = shots.orEmpty().find { it.id == selectedId }
+                        if (shot == null) {
+                            Text("No encontramos este shot.")
+                        } else {
+                            ShotDetail(
+                                shot = shot,
+                                onEdit = {
+                                    draft = ShotDraft(
+                                        beanName = shot.bean.name,
+                                        roaster = shot.bean.roaster,
+                                        dose = shot.dose.pretty(),
+                                        output = shot.output.pretty(),
+                                        seconds = shot.seconds.pretty(),
+                                        grind = shot.grind,
+                                        temperature = shot.temperature?.pretty() ?: "",
+                                        milk = shot.milk?.pretty() ?: "",
+                                        extraWater = shot.extraWater?.pretty() ?: "",
+                                        style = shot.style.orEmpty(),
+                                        machine = shot.machine ?: "",
+                                        notes = shot.notes,
+                                        rating = shot.rating,
+                                        cup = shot.cup ?: ""
+                                    )
+                                    screen = "edit"
+                                },
+                                onDelete = {
+                                    saving = true
+                                    scope.launch {
+                                        try {
+                                            repository.delete(shot.id)
+                                            screen = "history"
+                                            scope.launch { syncEngine.performSync() }
+                                        } catch (cancelled: CancellationException) {
+                                            throw cancelled
+                                        } catch (_: Exception) {
+                                        } finally {
+                                            saving = false
+                                        }
+                                    }
+                                },
+                                saving = saving
+                            )
+                        }
+                    }
+
+                    else -> {
+                        val userName = (authState as? AuthState.LoggedIn)?.user?.displayName
+                            ?.trim()?.takeIf { it.isNotEmpty() }?.substringBefore(' ')
+
+                        HomeScreen(
+                            screen = screen,
+                            shots = shots,
+                            filteredShots = filteredShots,
+                            selectedStyle = selectedStyle,
+                            styleOptions = styleOptions,
+                            loadError = loadError,
+                            userName = userName,
+                            onSelectStyle = { selectedStyle = it },
+                            onNewShot = { screen = "new" },
+                            onSelectShot = {
+                                selectedId = it.id
+                                screen = "detail"
+                            },
+                            onNavigateToHistory = { screen = "history" },
+                            onNavigateToBeans = { screen = "beans" },
+                            onNavigateToMachines = { screen = "machines" },
+                            onNavigateToCups = { screen = "cups" },
+                            onNavigateToTips = { screen = "tips" },
+                            onNavigateToBackup = { screen = "backup" },
+                            onNavigateToAnalysis = { screen = "analysis" },
+                            onRetry = { retry++ }
+                        )
+                    }
+                }
             }
+        }
     }
 }
 
@@ -476,7 +476,7 @@ private fun AppInteractivePreview() {
                             )
                         )
                     )
-                },
+                }
             )
         }
     }

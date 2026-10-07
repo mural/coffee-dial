@@ -41,3 +41,24 @@ Pruebas: firmas/audience/expiración, PKCE, rutas permitidas, aislamiento entre 
 Después de publicar, probar con dos dispositivos actualizados: iniciar sesión, crear un shot, sincronizar, editarlo desde el otro y sincronizar; borrar y comprobar que no reaparece. Dos ediciones incompatibles del mismo shot deben mostrar conflicto y conservar las dos copias.
 
 Schema 8 (`7.sqm`) añade `bean.archived`: eliminar del catálogo conserva la referencia y los datos del café en shots anteriores. Backup v4 conserva ese estado en exportación, importación y merge; clientes anteriores deben actualizarse antes de sincronizar con v4.
+
+
+## Reparación de sesiones y sync — 7/10/2026
+
+El cliente envía explícitamente los defaults (protocol=2, máquinas y tazas vacías).
+El servidor sigue aceptando clientes que omitían esos defaults. Los errores se separan:
+401 requiere renovar identidad; 409 indica concurrencia; 422 datos inválidos; 426 una
+app anterior al backup de la nube; 413 tamaño; 503 servicio temporalmente indisponible.
+Un fallo de red o 503 no descarta la cuenta.
+
+Un 401 permite una sola renovación/reintento. iOS valida la sesión propia restaurada
+contra el proveedor y subject actual; Google puede renovar mediante su SDK. Apple
+requiere consentimiento otra vez si ya no hay sesión propia ni token Apple vigente.
+Web puede recuperar una sesión más reciente guardada por otra pestaña. Android/web
+ofrecen volver a entrar cuando la credencial ya no es renovable, sin borrar los datos.
+La sesión propia mantiene 30 días de inactividad y se extiende con el uso.
+
+Sobrescribir requiere leer la revisión actual; incluso force respeta CAS. Restaurar
+aplica datos y checkpoint juntos y se cancela si hubo ediciones/cambio de cuenta durante
+la descarga. Restaurar IDs borrados explícitamente elimina sus tombstones. Un fallo del
+índice Admin no convierte un guardado correcto en un sync fallido.

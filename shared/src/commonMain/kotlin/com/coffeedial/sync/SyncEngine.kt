@@ -2,18 +2,16 @@ package com.coffeedial.sync
 
 import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
+import com.coffeedial.auth.User
+import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
 import com.coffeedial.data.ShotRepository
-import com.coffeedial.domain.Bean
-import com.coffeedial.domain.Machine
-import com.coffeedial.domain.Shot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class SyncEngine(
@@ -24,68 +22,135 @@ class SyncEngine(
     private val post: suspend (String, String, Map<String, String>) -> String = ::httpPostJson
 ) {
     private val mutex = Mutex()
-    private val json = Json { ignoreUnknownKeys = true }
+
+    // The server needs protocol and empty collections even when they equal Kotlin defaults.
+    private val json = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
     private val mutableState = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = mutableState.asStateFlow()
+    private enum class Mode { MERGE, UPLOAD, DOWNLOAD }
 
-    suspend fun performSync(): Result<SyncResponse> = mutex.withLock {
+    suspend fun performSync(): Result<SyncResponse> = run(Mode.MERGE)
+    suspend fun forceUploadToCloud(): Result<SyncResponse> = run(Mode.UPLOAD)
+    suspend fun replaceWithCloud(): Result<SyncResponse> = run(Mode.DOWNLOAD)
+    suspend fun restoreFromCloud(): Result<SyncResponse> = performSync()
+
+    private fun checkUser(user: User) {
+        val current = (authRepository.state.value as? AuthState.LoggedIn)?.user
+        check(current?.id == user.id && current.provider == user.provider) {
+            "La cuenta cambió. Volvé a sincronizar; no se reemplazaron tus datos locales."
+        }
+    }
+
+    private fun document(text: String): SyncDocument {
+        val result = json.decodeFromString<SyncDocument>(text)
+        check(result.protocol == 2 && result.revision >= 0) {
+            "Actualizá Coffee Dial: el formato de sincronización no es compatible."
+        }
+        BackupFormat.validate(result.backup)
+        return result
+    }
+
+    private suspend fun run(mode: Mode): Result<SyncResponse> = mutex.withLock {
         mutableState.value = SyncState.Syncing
+        val initialUser = (authRepository.state.value as? AuthState.LoggedIn)?.user
         try {
-            val user =
-                (authRepository.state.value as? AuthState.LoggedIn)?.user
-                    ?: error("Debés iniciar sesión para sincronizar.")
-            val token =
-                authRepository.syncCredential()
-                    ?: error(
-                        "Volvé a iniciar sesión para autorizar el sync."
-                    )
-            val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
+            val user = initialUser
+                ?: error("Entrá a Cuenta para iniciar sesión y sincronizar.")
+            var token = authRepository.syncCredential()
+            checkUser(user)
+            if (token == null) {
+                authRepository.authenticationRequired(null)
+                throw SyncHttpException(401, "unauthorized")
+            }
+            var renewed = false
+            suspend fun request(body: String? = null): String {
+                suspend fun send(): String {
+                    checkUser(user)
+                    val headers = mapOf("Authorization" to "Bearer $token")
+                    return if (body == null) {
+                        get("$baseUrl/api/sync", headers)
+                    } else {
+                        post("$baseUrl/api/sync", body, headers)
+                    }
+                }
+                try {
+                    return send()
+                } catch (error: SyncHttpException) {
+                    if (error.status != 401) throw error
+                    checkUser(user)
+                    val replacement = if (!renewed) {
+                        renewed = true
+                        authRepository.refreshSyncCredential(requireNotNull(token))
+                    } else {
+                        null
+                    }
+                    checkUser(user)
+                    if (replacement == null || replacement == token) {
+                        authRepository.authenticationRequired(token)
+                        throw error
+                    }
+                    token = replacement
+                    try {
+                        return send()
+                    } catch (retry: SyncHttpException) {
+                        if (retry.status == 401) authRepository.authenticationRequired(token)
+                        throw retry
+                    }
+                }
+            }
+            val account = user.email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+                ?.let { "email:$it" } ?: "${user.provider}:${user.id}"
             val local = shotRepository.readSyncLocal()
             val saved = checkpoint(local.checkpoint)
-            val savedEmail = saved?.account?.takeIf { it.startsWith("email:") }?.removePrefix("email:")
-            val userEmail = user.email?.lowercase()?.trim()
-            val sameAccount = saved == null ||
-                saved.account == account ||
-                saved.account.startsWith("google:") ||
-                saved.account.startsWith("apple:") ||
-                savedEmail == null ||
-                userEmail.isNullOrBlank() ||
-                savedEmail == userEmail
-            check(sameAccount) {
-                "Estos datos están vinculados a otra cuenta ($savedEmail). Volvé a esa cuenta para " +
-                    "sincronizar; no se enviaron datos."
+            if (mode != Mode.DOWNLOAD) {
+                val providerAccount = "${user.provider}:${user.id}"
+                check(
+                    saved == null || saved.account == account ||
+                        saved.account == providerAccount ||
+                        saved.account == "${user.provider.name.lowercase()}:${user.id}"
+                ) {
+                    "Los datos locales pertenecen a otra cuenta. Volvé a esa cuenta para " +
+                        "sincronizar, o exportá un backup antes de cambiar de cuenta."
+                }
             }
-            val headers = mapOf("Authorization" to "Bearer $token")
-            val remote = Json.decodeFromString<SyncDocument>(get("$baseUrl/api/sync", headers))
-            BackupFormat.validate(remote.backup)
-            val base = saved?.document?.backup ?: BackupFormat.create(emptyList(), emptyList())
-            val merged = mergeSync(base, local.backup, remote)
-            check((authRepository.state.value as? AuthState.LoggedIn)?.user == user) {
-                "La cuenta cambió. Volvé a sincronizar."
+            val remote = document(request())
+            val next = when (mode) {
+                Mode.MERGE -> mergeSync(
+                    saved?.document?.backup ?: BackupFormat.create(emptyList(), emptyList()),
+                    local.backup,
+                    remote
+                )
+
+                Mode.UPLOAD -> local.backup.copy(schemaVersion = BackupFormat.CURRENT_VERSION)
+
+                Mode.DOWNLOAD -> remote.backup
             }
-            val acknowledged = if (sameData(merged, remote.backup)) {
+            BackupFormat.validate(next)
+            val acknowledged = if (mode == Mode.DOWNLOAD || sameData(next, remote.backup)) {
                 remote
             } else {
-                Json.decodeFromString<SyncDocument>(
-                    post(
-                        "$baseUrl/api/sync",
+                document(
+                    request(
                         json.encodeToString(
-                            SyncUpload(baseRevision = remote.revision, backup = merged)
-                        ),
-                        headers
+                            SyncUpload(
+                                baseRevision = remote.revision,
+                                backup = next,
+                                force = mode == Mode.UPLOAD
+                            )
+                        )
                     )
                 )
             }
-            check(acknowledged.protocol == 2 && sameData(acknowledged.backup, merged)) {
-                "Respuesta de sync incompatible."
-            }
-            check((authRepository.state.value as? AuthState.LoggedIn)?.user == user) {
-                "La cuenta cambió. Volvé a sincronizar."
-            }
+            check(sameData(acknowledged.backup, next)) { "Respuesta de sync incompatible." }
+            checkUser(user)
+            // One atomic CAS also protects explicit restore from edits made during the download.
             shotRepository.commitSync(
                 local,
                 acknowledged.backup,
-                Json.encodeToString(SyncCheckpoint(account, acknowledged))
+                json.encodeToString(SyncCheckpoint(account, acknowledged))
             )
             val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
             mutableState.value = SyncState.Success(now, 0, acknowledged.backup.shots.size)
@@ -98,144 +163,24 @@ class SyncEngine(
                     acknowledged.backup.machines
                 )
             )
-        } catch (error: CancellationException) {
+        } catch (cancelled: CancellationException) {
             mutableState.value = SyncState.Idle
-            throw error
+            throw cancelled
         } catch (error: Exception) {
-            val message = when {
-                error.message.orEmpty().contains(
-                    "401"
-                ) -> "La autorización venció. Volvé a iniciar sesión."
-
-                error.message.orEmpty().contains(
-                    "409"
-                ) ->
-                    "Otro dispositivo guardó cambios. " +
-                        "Volvé a sincronizar; no se perdió ningún dato."
-
-                else ->
-                    error.message
-                        ?: "No se pudo sincronizar. Tus datos siguen guardados localmente."
+            val current = (authRepository.state.value as? AuthState.LoggedIn)?.user
+            if (error is SyncHttpException && error.status == 401 && initialUser != null &&
+                current?.id == initialUser.id && current.provider == initialUser.provider
+            ) {
+                authRepository.authenticationRequired(null)
+            }
+            val message = when (error) {
+                is SyncHttpException -> error.message.orEmpty()
+                is BackupException -> error.message.orEmpty()
+                is IllegalStateException -> error.message ?: "No se pudo sincronizar."
+                else -> "No se pudo conectar. Tus datos siguen guardados; probá nuevamente."
             }
             mutableState.value = SyncState.Error(message)
             Result.failure(IllegalStateException(message, error))
         }
     }
-
-    suspend fun forceUploadToCloud(): Result<SyncResponse> = mutex.withLock {
-        mutableState.value = SyncState.Syncing
-        try {
-            val user =
-                (authRepository.state.value as? AuthState.LoggedIn)?.user
-                    ?: error("Debés iniciar sesión para sincronizar.")
-            val token =
-                authRepository.syncCredential()
-                    ?: error("Volvé a iniciar sesión para autorizar el sync.")
-            val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
-            val local = shotRepository.readSyncLocal()
-            val headers = mapOf("Authorization" to "Bearer $token")
-
-            val remoteText = runCatching { get("$baseUrl/api/sync", headers) }.getOrDefault("{}")
-            val remote = runCatching { Json.decodeFromString<SyncDocument>(remoteText) }.getOrNull()
-                ?: SyncDocument(protocol = 2, revision = 0, backup = local.backup)
-
-            val uploadBody = json.encodeToString(
-                SyncUpload(baseRevision = remote.revision, backup = local.backup, force = true)
-            )
-
-            val responseText = post("$baseUrl/api/sync", uploadBody, headers)
-            val acknowledged = Json.decodeFromString<SyncDocument>(responseText)
-
-            shotRepository.commitSync(
-                local,
-                acknowledged.backup,
-                Json.encodeToString(SyncCheckpoint(account, acknowledged))
-            )
-
-            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
-            mutableState.value = SyncState.Success(now, 0, acknowledged.backup.shots.size)
-            Result.success(
-                SyncResponse(
-                    true,
-                    now,
-                    acknowledged.backup.beans,
-                    acknowledged.backup.shots,
-                    acknowledged.backup.machines
-                )
-            )
-        } catch (error: CancellationException) {
-            mutableState.value = SyncState.Idle
-            throw error
-        } catch (error: Exception) {
-            val message = error.message ?: "No se pudo sobreescribir la nube."
-            mutableState.value = SyncState.Error(message)
-            Result.failure(IllegalStateException(message, error))
-        }
-    }
-
-    suspend fun replaceWithCloud(): Result<SyncResponse> = mutex.withLock {
-        mutableState.value = SyncState.Syncing
-        try {
-            val user =
-                (authRepository.state.value as? AuthState.LoggedIn)?.user
-                    ?: error("Debés iniciar sesión para importar de la nube.")
-            val token = authRepository.syncCredential()
-                ?: error("Volvé a iniciar sesión para autorizar el sync.")
-            val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
-            val headers = mapOf("Authorization" to "Bearer $token")
-
-            val responseJson = get("$baseUrl/api/sync", headers)
-
-            val remoteDoc = runCatching {
-                Json.decodeFromString<SyncDocument>(responseJson)
-            }.getOrNull()
-            val backupText = if (remoteDoc != null) {
-                json.encodeToString(remoteDoc.backup)
-            } else {
-                responseJson
-            }
-
-            shotRepository.replaceWithBackup(backupText)
-            if (remoteDoc != null) {
-                val local = shotRepository.readSyncLocal()
-                shotRepository.commitSync(
-                    local,
-                    remoteDoc.backup,
-                    Json.encodeToString(SyncCheckpoint(account, remoteDoc))
-                )
-            }
-
-            val restoredBackup = BackupFormat.decode(backupText)
-            val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
-            val totalItems =
-                restoredBackup.beans.size + restoredBackup.shots.size +
-                    restoredBackup.machines.size +
-                    restoredBackup.cups.size
-
-            mutableState.value = SyncState.Success(
-                lastSyncedAt = now,
-                newItemsCount = totalItems,
-                shotsCount = restoredBackup.shots.size
-            )
-
-            Result.success(
-                SyncResponse(
-                    true,
-                    now,
-                    restoredBackup.beans,
-                    restoredBackup.shots,
-                    restoredBackup.machines
-                )
-            )
-        } catch (error: CancellationException) {
-            mutableState.value = SyncState.Idle
-            throw error
-        } catch (error: Exception) {
-            val message = error.message ?: "No se pudieron importar los datos de la nube."
-            mutableState.value = SyncState.Error(message)
-            Result.failure(IllegalStateException(message, error))
-        }
-    }
-
-    suspend fun restoreFromCloud(): Result<SyncResponse> = performSync()
 }

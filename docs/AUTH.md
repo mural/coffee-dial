@@ -1,6 +1,6 @@
 # Cuenta: activación y alcance
 
-La app funciona sin cuenta. El login identifica un perfil local; todavía no crea una cuenta en un servidor, ni sincroniza o separa los cafés por usuario. Cerrar sesión no borra los cafés. Los backups no contienen credenciales.
+La app funciona sin cuenta. Google y Apple en iOS pueden autenticar la sincronización mediante el servicio de Coffee Dial. El servidor vincula el historial al email verificado; el cliente protege los datos locales al cambiar de cuenta. Cerrar sesión no borra los cafés. Los backups no contienen credenciales. Ver SYNC.md para recuperación y duración de sesiones.
 
 ## Estado
 

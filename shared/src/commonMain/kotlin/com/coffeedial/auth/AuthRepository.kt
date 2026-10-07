@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface AuthRepository {
     suspend fun syncCredential(): String? = null
+    suspend fun refreshSyncCredential(rejected: String): String? = null
+    fun authenticationRequired(rejected: String?) {}
     val isWebPlatform: Boolean get() = false
     val supportsBrowserSignIn: Boolean get() = false
     suspend fun signInWithBrowser() {}
