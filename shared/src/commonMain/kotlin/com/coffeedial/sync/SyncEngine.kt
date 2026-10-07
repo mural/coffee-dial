@@ -4,6 +4,9 @@ import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
 import com.coffeedial.backup.BackupFormat
 import com.coffeedial.data.ShotRepository
+import com.coffeedial.domain.Bean
+import com.coffeedial.domain.Machine
+import com.coffeedial.domain.Shot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,10 +23,10 @@ class SyncEngine(
     private val get: suspend (String, Map<String, String>) -> String = ::httpGetText,
     private val post: suspend (String, String, Map<String, String>) -> String = ::httpPostJson
 ) {
+    private val mutex = Mutex()
+    private val json = Json { ignoreUnknownKeys = true }
     private val mutableState = MutableStateFlow<SyncState>(SyncState.Idle)
     val state: StateFlow<SyncState> = mutableState.asStateFlow()
-    private val mutex = Mutex()
-    private val json = Json { encodeDefaults = true }
 
     suspend fun performSync(): Result<SyncResponse> = mutex.withLock {
         mutableState.value = SyncState.Syncing
@@ -39,9 +42,17 @@ class SyncEngine(
             val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
             val local = shotRepository.readSyncLocal()
             val saved = checkpoint(local.checkpoint)
-            val sameAccount = saved == null || saved.account == account || saved.account.startsWith("google:") || saved.account.startsWith("apple:")
+            val savedEmail = saved?.account?.takeIf { it.startsWith("email:") }?.removePrefix("email:")
+            val userEmail = user.email?.lowercase()?.trim()
+            val sameAccount = saved == null ||
+                saved.account == account ||
+                saved.account.startsWith("google:") ||
+                saved.account.startsWith("apple:") ||
+                savedEmail == null ||
+                userEmail.isNullOrBlank() ||
+                savedEmail == userEmail
             check(sameAccount) {
-                "Estos datos están vinculados a otra cuenta. Volvé a esa cuenta para " +
+                "Estos datos están vinculados a otra cuenta ($savedEmail). Volvé a esa cuenta para " +
                     "sincronizar; no se enviaron datos."
             }
             val headers = mapOf("Authorization" to "Bearer $token")
@@ -94,7 +105,7 @@ class SyncEngine(
             val message = when {
                 error.message.orEmpty().contains(
                     "401"
-                ) -> "La autorización venció. Cerrá sesión y volvé a entrar con Google."
+                ) -> "La autorización venció. Volvé a iniciar sesión."
 
                 error.message.orEmpty().contains(
                     "409"
@@ -119,7 +130,7 @@ class SyncEngine(
                     ?: error("Debés iniciar sesión para sincronizar.")
             val token =
                 authRepository.syncCredential()
-                    ?: error("Volvé a iniciar sesión con Google para autorizar el sync.")
+                    ?: error("Volvé a iniciar sesión para autorizar el sync.")
             val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
             val local = shotRepository.readSyncLocal()
             val headers = mapOf("Authorization" to "Bearer $token")
@@ -170,6 +181,7 @@ class SyncEngine(
                     ?: error("Debés iniciar sesión para importar de la nube.")
             val token = authRepository.syncCredential()
                 ?: error("Volvé a iniciar sesión para autorizar el sync.")
+            val account = if (!user.email.isNullOrBlank()) "email:${user.email.lowercase().trim()}" else "${user.provider}:${user.id}"
             val headers = mapOf("Authorization" to "Bearer $token")
 
             val responseJson = get("$baseUrl/api/sync", headers)
@@ -184,6 +196,14 @@ class SyncEngine(
             }
 
             shotRepository.replaceWithBackup(backupText)
+            if (remoteDoc != null) {
+                val local = shotRepository.readSyncLocal()
+                shotRepository.commitSync(
+                    local,
+                    remoteDoc.backup,
+                    Json.encodeToString(SyncCheckpoint(account, remoteDoc))
+                )
+            }
 
             val restoredBackup = BackupFormat.decode(backupText)
             val now = kotlin.time.Clock.System.now().toEpochMilliseconds()

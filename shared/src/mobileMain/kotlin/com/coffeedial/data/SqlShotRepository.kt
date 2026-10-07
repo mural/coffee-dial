@@ -39,10 +39,21 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     ).map { rows ->
         rows.map {
             Shot(
-                it.id, Bean(it.bean_id, it.name, it.roaster), it.created_at,
-                it.dose, it.output, it.seconds, it.grind,
-                it.temperature, it.milk, it.machine, it.notes, it.rating.toInt(),
-                it.extra_water, it.style, it.cup
+                id = it.id,
+                bean = Bean(it.bean_id, it.name, it.roaster),
+                createdAt = it.created_at,
+                dose = it.dose,
+                output = it.output,
+                seconds = it.seconds,
+                grind = it.grind,
+                temperature = it.temperature,
+                milk = it.milk,
+                machine = it.machine,
+                notes = it.notes,
+                rating = it.rating.toInt(),
+                extraWater = it.extra_water,
+                style = it.style,
+                cup = it.cup
             )
         }
     }
@@ -99,9 +110,21 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
             next.shots.forEach {
                 queries.insertShot(
-                    it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                    it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                    it.extraWater, it.style, it.cup
+                    id = it.id,
+                    bean_id = it.beanId,
+                    created_at = it.createdAt,
+                    dose = it.dose,
+                    output = it.output,
+                    seconds = it.seconds,
+                    grind = it.grind,
+                    temperature = it.temperature,
+                    notes = it.notes,
+                    rating = it.rating.toLong(),
+                    milk = it.milk,
+                    machine = it.machine,
+                    extra_water = it.extraWater,
+                    style = it.style,
+                    cup = it.cup
                 )
             }
             queries.writeSyncCheckpoint(checkpoint)
@@ -118,15 +141,21 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             }
             val bean = queries.findBean(name, roaster).executeAsOne()
             queries.insertShot(
-                Uuid.random().toString(), bean.id, Clock.System.now().toEpochMilliseconds(),
-                requireNotNull(draft.dose.decimal()), requireNotNull(draft.output.decimal()),
-                requireNotNull(
-                    draft.seconds.decimal()
-                ),
-                draft.grind.trim(), draft.temperature.decimal(),
-                draft.notes.trim(), draft.rating.toLong(), draft.milk.decimal(),
-                draft.machine.trim().ifBlank { null }, draft.extraWater.decimal(),
-                draft.style.trim().ifBlank { null }, draft.cup.trim().ifBlank { null }
+                id = Uuid.random().toString(),
+                bean_id = bean.id,
+                created_at = Clock.System.now().toEpochMilliseconds(),
+                dose = requireNotNull(draft.dose.decimal()),
+                output = requireNotNull(draft.output.decimal()),
+                seconds = requireNotNull(draft.seconds.decimal()),
+                grind = draft.grind.trim(),
+                temperature = draft.temperature.decimal(),
+                notes = draft.notes.trim(),
+                rating = draft.rating.toLong(),
+                milk = draft.milk.decimal(),
+                machine = draft.machine.trim().ifBlank { null },
+                extra_water = draft.extraWater.decimal(),
+                style = draft.style.trim().ifBlank { null },
+                cup = draft.cup.trim().ifBlank { null }
             )
         }
     }
@@ -149,10 +178,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             val bean = if (keepPrevious) {
                 previous
             } else {
-                queries.findBean(
-                    name,
-                    roaster
-                ).executeAsOne()
+                queries.findBean(name, roaster).executeAsOne()
             }
             queries.updateShot(
                 bean.id,
@@ -254,20 +280,32 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     }
 
     private fun snapshot(): BackupV1 = BackupFormat.create(
-        queries.allBeans().executeAsList().map {
+        beans = queries.allBeans().executeAsList().map {
             BackupBeanV1(it.id, it.name, it.roaster, it.archived != 0L)
         },
-        queries.allShots().executeAsList().map {
+        shots = queries.allShots().executeAsList().map {
             BackupShotV1(
-                it.id, it.bean_id, it.created_at, it.dose, it.output, it.seconds,
-                it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toInt(),
-                it.extra_water, it.style, it.cup
+                id = it.id,
+                beanId = it.bean_id,
+                createdAt = it.created_at,
+                dose = it.dose,
+                output = it.output,
+                seconds = it.seconds,
+                grind = it.grind,
+                temperature = it.temperature,
+                milk = it.milk,
+                machine = it.machine,
+                notes = it.notes,
+                rating = it.rating.toInt(),
+                extraWater = it.extra_water,
+                style = it.style,
+                cup = it.cup
             )
         },
-        queries.allMachines().executeAsList().map {
+        machines = queries.allMachines().executeAsList().map {
             BackupMachineV1(it.id, it.name, it.type, it.year)
         },
-        queries.allCups().executeAsList().map {
+        cups = queries.allCups().executeAsList().map {
             BackupCupV1(it.id, it.name, it.weight)
         }
     )
@@ -308,9 +346,21 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
                 prepared.plan.shots.forEach {
                     queries.insertShot(
-                        it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                        it.extraWater, it.style, it.cup
+                        id = it.id,
+                        bean_id = it.beanId,
+                        created_at = it.createdAt,
+                        dose = it.dose,
+                        output = it.output,
+                        seconds = it.seconds,
+                        grind = it.grind,
+                        temperature = it.temperature,
+                        notes = it.notes,
+                        rating = it.rating.toLong(),
+                        milk = it.milk,
+                        machine = it.machine,
+                        extra_water = it.extraWater,
+                        style = it.style,
+                        cup = it.cup
                     )
                 }
                 prepared.summary
@@ -332,9 +382,21 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 }
                 incoming.shots.forEach {
                     queries.insertShot(
-                        it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                        it.extraWater, it.style, it.cup
+                        id = it.id,
+                        bean_id = it.beanId,
+                        created_at = it.createdAt,
+                        dose = it.dose,
+                        output = it.output,
+                        seconds = it.seconds,
+                        grind = it.grind,
+                        temperature = it.temperature,
+                        notes = it.notes,
+                        rating = it.rating.toLong(),
+                        milk = it.milk,
+                        machine = it.machine,
+                        extra_water = it.extraWater,
+                        style = it.style,
+                        cup = it.cup
                     )
                 }
             }
@@ -352,9 +414,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         withContext(Dispatchers.IO) {
             val incoming = BackupFormat.decode(text)
             queries.transaction {
-                queries.allShots().executeAsList().forEach { queries.deleteShot(it.id) }
-                queries.allMachines().executeAsList().forEach { queries.deleteMachine(it.id) }
-                queries.allCups().executeAsList().forEach { queries.deleteCup(it.id) }
+                queries.clearShots()
+                queries.clearBeans()
+                queries.clearMachines()
+                queries.clearCups()
                 incoming.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                 }
@@ -366,9 +429,21 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 }
                 incoming.shots.forEach {
                     queries.insertShot(
-                        it.id, it.beanId, it.createdAt, it.dose, it.output, it.seconds,
-                        it.grind, it.temperature, it.notes, it.rating.toLong(), it.milk, it.machine,
-                        it.extraWater, it.style, it.cup
+                        id = it.id,
+                        bean_id = it.beanId,
+                        created_at = it.createdAt,
+                        dose = it.dose,
+                        output = it.output,
+                        seconds = it.seconds,
+                        grind = it.grind,
+                        temperature = it.temperature,
+                        notes = it.notes,
+                        rating = it.rating.toLong(),
+                        milk = it.milk,
+                        machine = it.machine,
+                        extra_water = it.extraWater,
+                        style = it.style,
+                        cup = it.cup
                     )
                 }
             }

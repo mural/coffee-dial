@@ -38,6 +38,7 @@ internal fun BackupScreen(
     setProcessing: (Boolean) -> Unit
 ) {
     var preview by remember { mutableStateOf<PreparedImport?>(null) }
+    var lastImportText by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val busy = processing || files.busy
@@ -62,6 +63,7 @@ internal fun BackupScreen(
         snapshotFlow { files.importedText }.filterNotNull().collect { text ->
             files.consumeImport()
             preview = null
+            lastImportText = text
             perform { preview = repository.prepareImport(text) }
         }
     }
@@ -78,6 +80,7 @@ internal fun BackupScreen(
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 preview = null
+                lastImportText = null
                 files.finish(null)
                 scope.launch { perform { files.requestExport(repository.exportBackup()) } }
             }
@@ -87,6 +90,7 @@ internal fun BackupScreen(
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 preview = null
+                lastImportText = null
                 message = null
                 files.requestImport()
             }
@@ -101,26 +105,41 @@ internal fun BackupScreen(
                 "${summary.newBeans} cafés · ${summary.newShots} shots · " +
                     "${summary.newMachines} máquinas · ${summary.newCups} tazas nuevas"
             )
-            Text("${summary.duplicates} shots ya existentes: no se duplicarán.")
-            if (summary.conflicts > 0) {
-                Text("${summary.conflicts} registros con conflictos: se omitirán.")
-                Text("Se conservan los datos actuales. No se sobrescribe ni se borra nada.")
+            if (summary.duplicates > 0) {
+                Text("${summary.duplicates} shots ya existentes.")
             }
-            if (summary.newBeans + summary.newShots + summary.newMachines + summary.newCups == 0) {
-                Text("No hay datos nuevos para importar.")
-            } else {
-                Button(enabled = !busy, onClick = {
+
+            Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+                scope.launch {
+                    perform {
+                        val result = if (lastImportText != null) {
+                            repository.forceImportBackup(lastImportText!!)
+                        } else {
+                            repository.importBackup(prepared)
+                        }
+                        preview = null
+                        lastImportText = null
+                        message = "Importación completa: ${result.newBeans} cafés, " +
+                            "${result.newShots} shots y ${result.newCups} tazas procesados."
+                    }
+                }
+            }) { Text("Combinar datos del backup") }
+
+            if (!lastImportText.isNullOrBlank()) {
+                OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                     scope.launch {
                         perform {
-                            val result = repository.importBackup(prepared)
+                            val result = repository.replaceWithBackup(lastImportText!!)
                             preview = null
-                            message = "Importación completa: ${result.newBeans} cafés y " +
-                                "${result.newShots} shots agregados."
+                            lastImportText = null
+                            message = "Reemplazo completo: ${result.newBeans} cafés, " +
+                                "${result.newShots} shots, ${result.newMachines} máquinas y ${result.newCups} tazas cargados desde el backup."
                         }
                     }
-                }) { Text("Confirmar importación de nuevos") }
+                }) { Text("Reemplazar todo con este backup") }
             }
-            TextButton(enabled = !busy, onClick = { preview = null }) { Text("Cancelar") }
+
+            TextButton(enabled = !busy, onClick = { preview = null; lastImportText = null }) { Text("Cancelar") }
         }
     }
 }
