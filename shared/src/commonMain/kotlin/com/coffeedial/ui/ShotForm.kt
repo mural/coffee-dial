@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -17,12 +18,16 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Bean
@@ -270,7 +275,7 @@ fun ShotForm(
             }
         }
         item {
-            Field("Molienda · ajuste del molino", draft.grind, errors["grind"], saving) {
+            GrindSliderField(draft.grind, errors["grind"], saving) {
                 onChange(draft.copy(grind = it))
             }
         }
@@ -339,6 +344,137 @@ fun ShotForm(
                     }
                 )
             }
+        }
+    }
+}
+
+private val grindTypes = listOf(
+    "Muy fino",
+    "Fino",
+    "Medio fino",
+    "Medio",
+    "Medio grueso",
+    "Grueso",
+    "Muy grueso"
+)
+
+@Composable
+private fun GrindSliderField(
+    grind: String,
+    error: String?,
+    saving: Boolean,
+    onChange: (String) -> Unit
+) {
+    val selected = grindTypes.indexOfFirst { it.equals(grind.trim(), ignoreCase = true) }
+    val description = if (selected >= 0) grindTypes[selected] else "Ajuste personalizado"
+
+    val parts = grind.trim().split(".")
+    val hasProFormat = parts.size == 3 && parts.all { p -> p.all { c -> c.isDigit() } }
+    var showProFields by rememberSaveable { mutableStateOf(hasProFormat) }
+
+    var rotations by remember(grind) { mutableStateOf(if (hasProFormat) parts[0] else "") }
+    var dialNumber by remember(grind) { mutableStateOf(if (hasProFormat) parts[1] else "") }
+    var extraClicks by remember(grind) { mutableStateOf(if (hasProFormat) parts[2] else "") }
+
+    fun updateProNotation(r: String, d: String, c: String) {
+        rotations = r
+        dialNumber = d
+        extraClicks = c
+        val rVal = if (r.isBlank()) "0" else r
+        val dVal = if (d.isBlank()) "0" else d
+        val cVal = if (c.isBlank()) "0" else c
+        onChange("$rVal.$dVal.$cVal")
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Molienda", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            description,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Slider(
+            value = (if (selected >= 0) selected else 3).toFloat(),
+            onValueChange = { onChange(grindTypes[it.roundToInt().coerceIn(grindTypes.indices)]) },
+            valueRange = 0f..grindTypes.lastIndex.toFloat(),
+            steps = grindTypes.size - 2,
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth().semantics {
+                contentDescription = "Tipo de molienda"
+                stateDescription = description
+            }
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Muy fino", style = MaterialTheme.typography.labelSmall)
+            Text("Medio", style = MaterialTheme.typography.labelSmall)
+            Text("Muy grueso", style = MaterialTheme.typography.labelSmall)
+        }
+
+        Field("Ajuste manual del molino (ej: 1.4.2 o 18 clics)", grind, error, saving, onChange = onChange)
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = showProFields,
+                onCheckedChange = { showProFields = it },
+                enabled = !saving
+            )
+            Text(
+                "Ajuste detallado pro (1Zpresso, Comandante, Niche, etc.)",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        if (showProFields) {
+            val rText = if (rotations.isBlank()) "0" else rotations
+            val dText = if (dialNumber.isBlank()) "0" else dialNumber
+            val cText = if (extraClicks.isBlank()) "0" else extraClicks
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = rotations,
+                        onValueChange = { newR -> updateProNotation(newR, dialNumber, extraClicks) },
+                        label = { Text("Vueltas") },
+                        placeholder = { Text("0") },
+                        enabled = !saving,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = dialNumber,
+                        onValueChange = { newD -> updateProNotation(rotations, newD, extraClicks) },
+                        label = { Text("Dial") },
+                        placeholder = { Text("4") },
+                        enabled = !saving,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = extraClicks,
+                        onValueChange = { newC -> updateProNotation(rotations, dialNumber, newC) },
+                        label = { Text("Clics") },
+                        placeholder = { Text("2") },
+                        enabled = !saving,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Text(
+                    "Formato resultante: $rText.$dText.$cText (Vueltas.Dial.Clics)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            Text(
+                "Elegí un tipo general o escribí el ajuste manual de tu molino.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
