@@ -144,18 +144,22 @@ export default {
           if (!allowed) return json({ error: 'forbidden' }, 403);
           if (url.pathname === '/api/admin/overview') {
             const after = url.searchParams.get('after') || '';
-            if (after.length > 200) return json({ error: 'invalid' }, 400);
+            if (after.length > 512) return json({ error: 'invalid' }, 400);
             return json(await directory.overview(after));
           }
           if (url.pathname === '/api/admin/account') {
             const subject = url.searchParams.get('subject') || '';
-            if (!subject || subject.length > 200) return json({ error: 'invalid' }, 400);
+            if (!subject || subject.length > 512) return json({ error: 'invalid' }, 400);
             const accountInfo = await directory.account(subject);
             if (!accountInfo) return json({ error: 'not_found' }, 404);
             const emailHash = accountInfo.email ? await hash(accountInfo.email.trim().toLowerCase()) : '';
             let document = emailHash ? await call(env, `sync_v2_email_${emailHash}`, 'sync_read', {}) : { revision: 0, backup: emptyBackup() };
-            if (document.revision === 0 || (document.backup?.shots?.length === 0 && document.backup?.beans?.length === 0)) {
-              document = await call(env, `sync_v2_google_${subject}`, 'sync_read', {});
+            if (document.revision === 0) {
+              const identities = await directory.subjectsByEmail(accountInfo.email);
+              for (const identity of identities) {
+                const legacy = await call(env, `sync_v2_google_${identity.subject}`, 'sync_read', {});
+                if (legacy.revision > 0) { document = legacy; break; }
+              }
             }
             return json({ account: accountInfo, revision: document.revision,
               beans: document.backup.beans, shots: document.backup.shots });

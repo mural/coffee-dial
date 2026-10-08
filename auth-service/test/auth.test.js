@@ -123,3 +123,13 @@ test('sync verifies signed Apple identity, audience, expiry and verified email',
   assert.equal(user.email, 'test@example.com');
   assert.equal(user.provider, 'apple');
 });
+
+test('explicit second email can log in and sync without opening the allowlist', async () => {
+  const allowed = { ...env, ALLOWED_EMAILS: 'test@example.com,second@example.com' };
+  const signed = await token({ email: 'second@example.com' });
+  assert.equal((await verifyGoogle(signed, allowed, 'nonce', keys)).email, 'second@example.com');
+  assert.equal((await verifySyncGoogle(signed, allowed, keys)).email, 'second@example.com');
+  const outsider = await token({ email: 'outsider@example.com' });
+  await assert.rejects(verifyGoogle(outsider, allowed, 'nonce', keys));
+  await assert.rejects(verifySyncGoogle(outsider, allowed, keys));
+});

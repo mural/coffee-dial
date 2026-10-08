@@ -50,6 +50,15 @@ test('admin: verified subject pin, authorization, index recovery, aggregates and
     assert.equal(detail.shots[0].notes, 'Private note'); assert.equal(detail.shots[0].extraWater, 120);
     assert.equal(detail.checkpoint, undefined); assert.equal(detail.syncToken, undefined);
     assert.equal((await request('/api/admin/account?subject=other-id', other)).status, 403);
+    const directoryNSForAlias = await mf.getDurableObjectNamespace('ADMIN_DIRECTORY');
+    const aliasDirectory = directoryNSForAlias.get(directoryNSForAlias.idFromName('directory-v1'));
+    await aliasDirectory.record({ id: 'apple-other', email: ' OTHER@example.com ', provider: 'apple' }, { revision: 1, backup });
+    const deduped = await (await request('/api/admin/overview')).json();
+    assert.equal(deduped.accounts, 1);
+    assert.equal(deduped.shots, 1);
+    assert.equal(deduped.daily[0].count, 1);
+    const canonicalDetail = await (await request('/api/admin/account?subject=' + encodeURIComponent(deduped.accountsPage[0].subject))).json();
+    assert.equal(canonicalDetail.shots.length, 1);
     const edited = structuredClone(backup); edited.shots[0].rating = 2;
     assert.equal((await request('/api/sync', other, 'POST', { protocol: 2, baseRevision: 1, backup: edited })).status, 200);
     const directoryNS = await mf.getDurableObjectNamespace('ADMIN_DIRECTORY');
@@ -61,7 +70,7 @@ test('admin: verified subject pin, authorization, index recovery, aggregates and
     overview = await (await request('/api/admin/overview')).json();
     assert.equal(overview.shots, 0); assert.equal(overview.styles.length, 0);
     for (let i = 0; i < 51; i++) {
-      await directory.record({ id: `page-${String(i).padStart(3, '0')}`, email: 'test@example.com' }, { revision: 0, backup: emptyBackup() });
+      await directory.record({ id: `page-${String(i).padStart(3, '0')}`, email: `test-${i}@example.com` }, { revision: 0, backup: emptyBackup() });
     }
     const page1 = await (await request('/api/admin/overview')).json();
     const page2 = await (await request(`/api/admin/overview?after=${page1.next}`)).json();
