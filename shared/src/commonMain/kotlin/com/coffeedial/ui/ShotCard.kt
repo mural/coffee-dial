@@ -145,7 +145,7 @@ internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
 
             Text(
                 buildAnnotatedString {
-                    append("Ratio 1:")
+                    append("Ratio output 1:")
                     withStyle(
                         SpanStyle(
                             fontSize = if (shot.ratio < 3) 20.sp else 24.sp,
@@ -155,6 +155,18 @@ internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
                         append(shot.ratio.pretty())
                     }
                     append(" -> $ratioCategory")
+                },
+                style = MaterialTheme.typography.bodyLarge
+            )
+            val waterRatio = (shot.extraWater ?: 0.0) / shot.output
+            val milkRatio = (shot.milk ?: 0.0) / shot.output
+            Text(
+                buildAnnotatedString {
+                    append("Ratio total ≈ 1:")
+                    withStyle(SpanStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)) {
+                        append("${waterRatio.pretty()}:${milkRatio.pretty()}")
+                    }
+                    append(" -> ${similarDrink(waterRatio, milkRatio)}")
                 },
                 style = MaterialTheme.typography.bodyLarge
             )

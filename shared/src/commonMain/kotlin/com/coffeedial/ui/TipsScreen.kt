@@ -240,6 +240,73 @@ private fun StylesTabContent() {
                 }
             }
         }
+        item {
+            Text("Agua y leche", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Output : agua : leche. Recetas orientativas, no reglas universales. " +
+                    "Ejemplos para 36 g de espresso, pesando también los agregados en gramos. " +
+                    "La ShotCard aproxima estas proporciones porque agua y leche se registran en ml.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        items(drinkRatioTips) { recipe ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        recipe.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "1 : ${recipe.water.pretty()} : ${recipe.milk.pretty()}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Output : agua : leche",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Para 36 g de espresso",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Agua", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "${(36 * recipe.water).pretty()} g",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Leche", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "${(36 * recipe.milk).pretty()} g",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Text(
+                "Macchiato: también podés probar 1:0:0,25–0,5 (9–18 g de leche). " +
+                    "Latte macchiato es otra bebida. La espuma y la preparación distinguen " +
+                    "estilos con proporciones parecidas; registrá la leche que llega a la taza. " +
+                    "Agregar agua después de extraer no convierte el espresso en un lungo.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
     }
 }
 

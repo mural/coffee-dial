@@ -6,10 +6,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -18,16 +19,13 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Bean
@@ -47,6 +45,43 @@ fun ShotForm(
     onChange: (ShotDraft) -> Unit,
     saving: Boolean,
     saveError: String?,
+    modifier: Modifier = Modifier,
+    isEditing: Boolean = false,
+    onNavigateToMachines: () -> Unit,
+    onNavigateToBeans: () -> Unit,
+    onNavigateToCups: () -> Unit,
+    onSave: () -> Unit
+) {
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState())
+    ) {
+        ShotFormContent(
+            draft = draft,
+            machines = machines,
+            beans = beans,
+            cups = cups,
+            onChange = onChange,
+            saving = saving,
+            saveError = saveError,
+            isEditing = isEditing,
+            onNavigateToMachines = onNavigateToMachines,
+            onNavigateToBeans = onNavigateToBeans,
+            onNavigateToCups = onNavigateToCups,
+            onSave = onSave
+        )
+    }
+}
+
+@Composable
+fun ShotFormContent(
+    draft: ShotDraft,
+    machines: List<Machine>,
+    beans: List<Bean>,
+    cups: List<Cup>,
+    onChange: (ShotDraft) -> Unit,
+    saving: Boolean,
+    saveError: String?,
+    modifier: Modifier = Modifier,
     isEditing: Boolean = false,
     onNavigateToMachines: () -> Unit,
     onNavigateToBeans: () -> Unit,
@@ -55,97 +90,91 @@ fun ShotForm(
 ) {
     var submitted by rememberSaveable { mutableStateOf(false) }
     val errors = if (submitted) draft.errors() else emptyMap()
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Text(
-                if (isEditing) "Editar shot" else "Nuevo shot",
-                style = MaterialTheme.typography.headlineSmall
-            )
-        }
-        item {
-            if (beans.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Café guardado", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = onNavigateToBeans, enabled = !saving) {
-                            Text("Gestionar cafés")
-                        }
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        beans.forEach { b ->
-                            FilterChip(
-                                selected = draft.beanName == b.name,
-                                onClick = {
-                                    onChange(
-                                        draft.copy(
-                                            beanName = b.name,
-                                            roaster = b.roaster
-                                        )
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        if (b.roaster.isNotBlank()) {
-                                            "${b.name} (${b.roaster})"
-                                        } else {
-                                            b.name
-                                        }
-                                    )
-                                },
-                                enabled = !saving
-                            )
-                        }
-                    }
-                    Field("Nombre del café", draft.beanName, errors["beanName"], saving) {
-                        onChange(draft.copy(beanName = it))
-                    }
-                }
-            } else {
-                Column {
-                    Field("Café", draft.beanName, errors["beanName"], saving) {
-                        onChange(draft.copy(beanName = it))
-                    }
-                    Field("Tostador (opcional)", draft.roaster, null, saving) {
-                        onChange(draft.copy(roaster = it))
-                    }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            if (isEditing) "Editar shot" else "Nuevo shot",
+            style = MaterialTheme.typography.headlineSmall
+        )
+
+        if (beans.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Café guardado", style = MaterialTheme.typography.bodyMedium)
                     TextButton(onClick = onNavigateToBeans, enabled = !saving) {
-                        Text("+ Agregar café guardado")
+                        Text("Gestionar cafés")
                     }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    beans.forEach { b ->
+                        FilterChip(
+                            selected = draft.beanName == b.name,
+                            onClick = {
+                                onChange(
+                                    draft.copy(
+                                        beanName = b.name,
+                                        roaster = b.roaster
+                                    )
+                                )
+                            },
+                            label = {
+                                Text(
+                                    if (b.roaster.isNotBlank()) {
+                                        "${b.name} (${b.roaster})"
+                                    } else {
+                                        b.name
+                                    }
+                                )
+                            },
+                            enabled = !saving
+                        )
+                    }
+                }
+                Field("Nombre del café", draft.beanName, errors["beanName"], saving) {
+                    onChange(draft.copy(beanName = it))
+                }
+            }
+        } else {
+            Column {
+                Field("Café", draft.beanName, errors["beanName"], saving) {
+                    onChange(draft.copy(beanName = it))
+                }
+                Field("Tostador (opcional)", draft.roaster, null, saving) {
+                    onChange(draft.copy(roaster = it))
+                }
+                TextButton(onClick = onNavigateToBeans, enabled = !saving) {
+                    Text("+ Agregar café guardado")
                 }
             }
         }
-        item {
-            DoseSliderField(draft.dose, errors["dose"], saving) {
-                onChange(draft.copy(dose = it))
-            }
+
+        DoseSliderField(draft.dose, errors["dose"], saving) {
+            onChange(draft.copy(dose = it))
         }
-        item {
-            OutputSliderField(draft.output, errors["output"], saving) {
-                onChange(draft.copy(output = it))
-            }
+
+        OutputSliderField(draft.output, errors["output"], saving) {
+            onChange(draft.copy(output = it))
         }
-        item {
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Field("Estilo (opcional)", draft.style, errors["style"], saving) {
                 onChange(draft.copy(style = it))
             }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Espresso", "Lungo", "Americano", "Latte", "Cappuccino").forEach { style ->
                     FilterChip(
                         selected = draft.style == style,
                         onClick = {
                             onChange(
                                 draft.copy(
-                                    style = if (draft.style == style) {
-                                        ""
-                                    } else {
-                                        style
-                                    }
+                                    style = if (draft.style == style) "" else style
                                 )
                             )
                         },
@@ -155,7 +184,8 @@ fun ShotForm(
                 }
             }
         }
-        item {
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             MlSliderField("Agua extra", draft.extraWater, errors["extraWater"], saving) {
                 onChange(draft.copy(extraWater = it))
             }
@@ -164,316 +194,176 @@ fun ShotForm(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        item {
-            MlSliderField("Leche", draft.milk, errors["milk"], saving) {
-                onChange(draft.copy(milk = it))
-            }
+
+        MlSliderField("Leche", draft.milk, errors["milk"], saving) {
+            onChange(draft.copy(milk = it))
         }
-        item {
-            if (machines.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Máquina", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = onNavigateToMachines, enabled = !saving) {
-                            Text("Gestionar máquinas")
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        machines.forEach { m ->
-                            FilterChip(
-                                selected = draft.machine == m.name,
-                                onClick = {
-                                    onChange(
-                                        draft.copy(
-                                            machine = if (draft.machine == m.name) {
-                                                ""
-                                            } else {
-                                                m.name
-                                            }
-                                        )
-                                    )
-                                },
-                                label = { Text(m.name) },
-                                enabled = !saving
-                            )
-                        }
-                    }
-                    Field("O escribir máquina manualmente", draft.machine, null, saving) {
-                        onChange(draft.copy(machine = it))
-                    }
-                }
-            } else {
-                Column {
-                    Field("Máquina (opcional)", draft.machine, null, saving) {
-                        onChange(draft.copy(machine = it))
-                    }
+
+        if (machines.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Máquina", style = MaterialTheme.typography.bodyMedium)
                     TextButton(onClick = onNavigateToMachines, enabled = !saving) {
-                        Text("+ Agregar máquina guardada")
+                        Text("Gestionar máquinas")
                     }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    machines.forEach { m ->
+                        FilterChip(
+                            selected = draft.machine == m.name,
+                            onClick = {
+                                onChange(
+                                    draft.copy(
+                                        machine = if (draft.machine == m.name) "" else m.name
+                                    )
+                                )
+                            },
+                            label = { Text(m.name) },
+                            enabled = !saving
+                        )
+                    }
+                }
+                Field("O escribir máquina manualmente", draft.machine, null, saving) {
+                    onChange(draft.copy(machine = it))
+                }
+            }
+        } else {
+            Column {
+                Field("Máquina (opcional)", draft.machine, null, saving) {
+                    onChange(draft.copy(machine = it))
+                }
+                TextButton(onClick = onNavigateToMachines, enabled = !saving) {
+                    Text("+ Agregar máquina guardada")
                 }
             }
         }
-        item {
-            if (cups.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Taza", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = onNavigateToCups, enabled = !saving) {
-                            Text("Gestionar tazas")
-                        }
+
+        if (cups.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Taza", style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onNavigateToCups, enabled = !saving) {
+                        Text("Gestionar tazas")
                     }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        cups.forEach { c ->
-                            FilterChip(
-                                selected = draft.cup == c.name,
-                                onClick = {
-                                    onChange(
-                                        draft.copy(
-                                            cup = if (draft.cup == c.name) "" else c.name
-                                        )
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cups.forEach { c ->
+                        FilterChip(
+                            selected = draft.cup == c.name,
+                            onClick = {
+                                onChange(
+                                    draft.copy(
+                                        cup = if (draft.cup == c.name) "" else c.name
                                     )
-                                },
-                                label = {
-                                    Text(
-                                        if (c.weight != null) {
-                                            "${c.name} (${c.weight.pretty()} g)"
-                                        } else {
-                                            c.name
-                                        }
-                                    )
-                                },
-                                enabled = !saving
-                            )
-                        }
+                                )
+                            },
+                            label = {
+                                Text(
+                                    if (c.weight != null) {
+                                        "${c.name} (${c.weight.pretty()} g)"
+                                    } else {
+                                        c.name
+                                    }
+                                )
+                            },
+                            enabled = !saving
+                        )
                     }
-                    Field("O escribir taza manualmente", draft.cup, null, saving) {
-                        onChange(draft.copy(cup = it))
+                }
+                Field("O escribir taza manualmente", draft.cup, null, saving) {
+                    onChange(draft.copy(cup = it))
+                }
+            }
+        } else {
+            Column {
+                Field("Taza (opcional)", draft.cup, null, saving) {
+                    onChange(draft.copy(cup = it))
+                }
+                TextButton(onClick = onNavigateToCups, enabled = !saving) {
+                    Text("+ Agregar taza guardada")
+                }
+            }
+        }
+
+        TimeSliderField(draft.seconds, errors["seconds"], saving) {
+            onChange(draft.copy(seconds = it))
+        }
+
+        Field("Molienda · ajuste del molino", draft.grind, errors["grind"], saving) {
+            onChange(draft.copy(grind = it))
+        }
+
+        Field(
+            "Temperatura · °C (opcional)",
+            draft.temperature,
+            errors["temperature"],
+            saving,
+            true
+        ) {
+            onChange(draft.copy(temperature = it))
+        }
+
+        Field("Tostador (opcional)", draft.roaster, null, saving) {
+            onChange(draft.copy(roaster = it))
+        }
+
+        OutlinedTextField(
+            value = draft.notes,
+            onValueChange = { onChange(draft.copy(notes = it)) },
+            label = {
+                Text("Notas (opcional)")
+            },
+            enabled = !saving,
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            trailingIcon = if (draft.notes.isNotEmpty() && !saving) {
+                {
+                    IconButton(onClick = {
+                        onChange(draft.copy(notes = ""))
+                    }) {
+                        ClearIcon("notas")
                     }
                 }
             } else {
-                Column {
-                    Field("Taza (opcional)", draft.cup, null, saving) {
-                        onChange(draft.copy(cup = it))
-                    }
-                    TextButton(onClick = onNavigateToCups, enabled = !saving) {
-                        Text("+ Agregar taza guardada")
-                    }
-                }
+                null
             }
-        }
-        item {
-            TimeSliderField(draft.seconds, errors["seconds"], saving) {
-                onChange(draft.copy(seconds = it))
-            }
-        }
-        item {
-            GrindSliderField(draft.grind, errors["grind"], saving) {
-                onChange(draft.copy(grind = it))
-            }
-        }
-        item {
-            Field(
-                "Temperatura · °C (opcional)",
-                draft.temperature,
-                errors["temperature"],
-                saving,
-                true
-            ) {
-                onChange(draft.copy(temperature = it))
-            }
-        }
-        item {
-            Field("Tostador (opcional)", draft.roaster, null, saving) {
-                onChange(draft.copy(roaster = it))
-            }
-        }
-        item {
-            OutlinedTextField(
-                value = draft.notes,
-                onValueChange = { onChange(draft.copy(notes = it)) },
-                label = {
-                    Text("Notas (opcional)")
-                },
-                enabled = !saving,
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                trailingIcon = if (draft.notes.isNotEmpty() && !saving) {
-                    {
-                        IconButton(onClick = {
-                            onChange(draft.copy(notes = ""))
-                        }) {
-                            ClearIcon("notas")
-                        }
-                    }
-                } else {
-                    null
-                }
-            )
-        }
-        item {
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("¿Qué tal salió? · 1 a 5")
             CoffeeRating(draft.rating, onChange = {
                 onChange(draft.copy(rating = it))
             }, enabled = !saving)
         }
-        if (saveError != null) item { Text(saveError, color = MaterialTheme.colorScheme.error) }
-        item {
-            Button(
-                onClick = {
-                    submitted = true
-                    if (draft.errors().isEmpty()) onSave()
-                },
-                enabled = !saving,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-            ) {
-                Text(
-                    if (saving) {
-                        "Guardando…"
-                    } else if (isEditing) {
-                        "Guardar cambios"
-                    } else {
-                        "Guardar shot"
-                    }
-                )
-            }
+
+        if (saveError != null) {
+            Text(saveError, color = MaterialTheme.colorScheme.error)
         }
-    }
-}
 
-private val grindTypes = listOf(
-    "Muy fino",
-    "Fino",
-    "Medio fino",
-    "Medio",
-    "Medio grueso",
-    "Grueso",
-    "Muy grueso"
-)
-
-@Composable
-private fun GrindSliderField(
-    grind: String,
-    error: String?,
-    saving: Boolean,
-    onChange: (String) -> Unit
-) {
-    val selected = grindTypes.indexOfFirst { it.equals(grind.trim(), ignoreCase = true) }
-    val description = if (selected >= 0) grindTypes[selected] else "Ajuste personalizado"
-
-    val parts = grind.trim().split(".")
-    val hasProFormat = parts.size == 3 && parts.all { p -> p.all { c -> c.isDigit() } }
-    var showProFields by rememberSaveable { mutableStateOf(hasProFormat) }
-
-    var rotations by remember(grind) { mutableStateOf(if (hasProFormat) parts[0] else "") }
-    var dialNumber by remember(grind) { mutableStateOf(if (hasProFormat) parts[1] else "") }
-    var extraClicks by remember(grind) { mutableStateOf(if (hasProFormat) parts[2] else "") }
-
-    fun updateProNotation(r: String, d: String, c: String) {
-        rotations = r
-        dialNumber = d
-        extraClicks = c
-        val rVal = if (r.isBlank()) "0" else r
-        val dVal = if (d.isBlank()) "0" else d
-        val cVal = if (c.isBlank()) "0" else c
-        onChange("$rVal.$dVal.$cVal")
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Molienda", style = MaterialTheme.typography.bodyMedium)
-        Text(
-            description,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Slider(
-            value = (if (selected >= 0) selected else 3).toFloat(),
-            onValueChange = { onChange(grindTypes[it.roundToInt().coerceIn(grindTypes.indices)]) },
-            valueRange = 0f..grindTypes.lastIndex.toFloat(),
-            steps = grindTypes.size - 2,
+        Button(
+            onClick = {
+                submitted = true
+                if (draft.errors().isEmpty()) onSave()
+            },
             enabled = !saving,
-            modifier = Modifier.fillMaxWidth().semantics {
-                contentDescription = "Tipo de molienda"
-                stateDescription = description
-            }
-        )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Muy fino", style = MaterialTheme.typography.labelSmall)
-            Text("Medio", style = MaterialTheme.typography.labelSmall)
-            Text("Muy grueso", style = MaterialTheme.typography.labelSmall)
-        }
-
-        Field("Ajuste manual del molino (ej: 1.4.2 o 18 clics)", grind, error, saving, onChange = onChange)
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
         ) {
-            Checkbox(
-                checked = showProFields,
-                onCheckedChange = { showProFields = it },
-                enabled = !saving
-            )
             Text(
-                "Ajuste detallado pro (1Zpresso, Comandante, Niche, etc.)",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        if (showProFields) {
-            val rText = if (rotations.isBlank()) "0" else rotations
-            val dText = if (dialNumber.isBlank()) "0" else dialNumber
-            val cText = if (extraClicks.isBlank()) "0" else extraClicks
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = rotations,
-                        onValueChange = { newR -> updateProNotation(newR, dialNumber, extraClicks) },
-                        label = { Text("Vueltas") },
-                        placeholder = { Text("0") },
-                        enabled = !saving,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = dialNumber,
-                        onValueChange = { newD -> updateProNotation(rotations, newD, extraClicks) },
-                        label = { Text("Dial") },
-                        placeholder = { Text("4") },
-                        enabled = !saving,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = extraClicks,
-                        onValueChange = { newC -> updateProNotation(rotations, dialNumber, newC) },
-                        label = { Text("Clics") },
-                        placeholder = { Text("2") },
-                        enabled = !saving,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
+                if (saving) {
+                    "Guardando…"
+                } else if (isEditing) {
+                    "Guardar cambios"
+                } else {
+                    "Guardar shot"
                 }
-                Text(
-                    "Formato resultante: $rText.$dText.$cText (Vueltas.Dial.Clics)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            Text(
-                "Elegí un tipo general o escribí el ajuste manual de tu molino.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -518,11 +408,7 @@ private fun DoseSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "10 g",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("10 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
@@ -539,19 +425,11 @@ private fun DoseSliderField(
                 )
             }
 
-            Text(
-                "40 g",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("40 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (error != null) {
-            Text(
-                error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -595,24 +473,12 @@ private fun OutputSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "10 g",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "100 g",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("10 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("100 g", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (error != null) {
-            Text(
-                error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -635,21 +501,9 @@ private fun MlSliderField(
         ) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
             Text(
-                if (currentMlFloat.roundToInt() ==
-                    0
-                ) {
-                    "0 ml"
-                } else {
-                    "${currentMlFloat.roundToInt()} ml"
-                },
+                if (currentMlFloat.roundToInt() == 0) "0 ml" else "${currentMlFloat.roundToInt()} ml",
                 style = MaterialTheme.typography.titleMedium,
-                color = if (currentMlFloat.roundToInt() >
-                    0
-                ) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                color = if (currentMlFloat.roundToInt() > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -670,24 +524,12 @@ private fun MlSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "0 ml",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "250 ml",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("0 ml", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("250 ml", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (error != null) {
-            Text(
-                error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -731,11 +573,7 @@ private fun TimeSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "5 s",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("5 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             FilterChip(
                 selected = currentSecondsFloat.roundToInt() == 20,
@@ -744,19 +582,11 @@ private fun TimeSliderField(
                 label = { Text("20 s") }
             )
 
-            Text(
-                "40 s",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("40 s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         if (error != null) {
-            Text(
-                error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -789,11 +619,20 @@ fun Field(
     )
 }
 
-@Preview(name = "Formulario - Vacío", showBackground = true, widthDp = 400, heightDp = 1800)
+private const val contentHeightDp = 2000
+
+@Preview(
+    name = "Formulario - Vacío",
+    group = "Formulario completo",
+    showBackground = true,
+    widthDp = 400,
+    heightDp = contentHeightDp
+)
 @Composable
 private fun ShotFormEmptyPreview() {
     MaterialTheme {
-        ShotForm(
+        ShotFormContent(
+            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(16.dp),
             draft = ShotDraft(),
             machines = mockMachines,
             beans = listOf(mockBean),
@@ -809,11 +648,18 @@ private fun ShotFormEmptyPreview() {
     }
 }
 
-@Preview(name = "Formulario - Con Datos", showBackground = true, widthDp = 400, heightDp = 1800)
+@Preview(
+    name = "Formulario - Con Datos",
+    group = "Formulario completo",
+    showBackground = true,
+    widthDp = 400,
+    heightDp = contentHeightDp
+)
 @Composable
 private fun ShotFormFilledPreview() {
     MaterialTheme {
-        ShotForm(
+        ShotFormContent(
+            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(16.dp),
             draft = mockDraft,
             machines = mockMachines,
             beans = listOf(mockBean),
@@ -831,14 +677,16 @@ private fun ShotFormFilledPreview() {
 
 @Preview(
     name = "Formulario - Guardando (Loading)",
+    group = "Formulario completo",
     showBackground = true,
     widthDp = 400,
-    heightDp = 1800
+    heightDp = contentHeightDp
 )
 @Composable
 private fun ShotFormSavingPreview() {
     MaterialTheme {
-        ShotForm(
+        ShotFormContent(
+            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(16.dp),
             draft = mockDraft,
             machines = mockMachines,
             beans = listOf(mockBean),
@@ -856,14 +704,16 @@ private fun ShotFormSavingPreview() {
 
 @Preview(
     name = "Formulario - Con Error de Guardado",
+    group = "Formulario completo",
     showBackground = true,
     widthDp = 400,
-    heightDp = 1800
+    heightDp = contentHeightDp
 )
 @Composable
 private fun ShotFormErrorPreview() {
     MaterialTheme {
-        ShotForm(
+        ShotFormContent(
+            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(16.dp),
             draft = mockDraft,
             machines = mockMachines,
             beans = listOf(mockBean),
@@ -879,7 +729,30 @@ private fun ShotFormErrorPreview() {
     }
 }
 
-@Preview(name = "Campo de Texto Individual", showBackground = true, widthDp = 400)
+// Use Interactive mode to exercise scrolling within a real viewport.
+@Preview(name = "Formulario - Pantalla con scroll", showBackground = true, widthDp = 400, heightDp = 800)
+@Composable
+private fun ShotFormScrollablePreview() {
+    var draft by remember { mutableStateOf(mockDraft) }
+    MaterialTheme {
+        ShotForm(
+            draft = draft,
+            machines = mockMachines,
+            beans = listOf(mockBean),
+            cups = emptyList(),
+            onChange = { draft = it },
+            saving = false,
+            saveError = null,
+            modifier = Modifier.padding(16.dp),
+            onNavigateToMachines = {},
+            onNavigateToBeans = {},
+            onNavigateToCups = {},
+            onSave = {}
+        )
+    }
+}
+
+@Preview(name = "Campo de Texto Individual", showBackground = true)
 @Composable
 private fun FieldPreview() {
     MaterialTheme {
