@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         val app = application as CoffeeDialApplication
         setContent {
             BackupPickers(app.backupFiles)
+            PhotoPickerHost(app.backupFiles.photos)
             App(app.repository, app.backupFiles, authRepository)
         }
     }

@@ -86,7 +86,7 @@ class SnapshotRepository private constructor(
         beans.value =
             data.beans.filterNot {
                 it.archived
-            }.sortedBy { it.name }.map { Bean(it.id, it.name, it.roaster) }
+            }.sortedBy { it.name }.map { Bean(it.id, it.name, it.roaster, it.photo) }
         history.value =
             data.shots.sortedWith(
                 compareByDescending<BackupShotV1> {
@@ -240,7 +240,8 @@ class SnapshotRepository private constructor(
                 beans = it.beans + BackupBeanV1(
                     Uuid.random().toString(),
                     name,
-                    roaster
+                    roaster,
+                    photo = draft.photo
                 )
             )
         }
@@ -253,7 +254,7 @@ class SnapshotRepository private constructor(
         val roaster = draft.roaster.trim()
         it.copy(
             beans = it.beans.map { bean ->
-                if (bean.id == id) BackupBeanV1(id, name, roaster) else bean
+                if (bean.id == id) BackupBeanV1(id, name, roaster, photo = draft.photo) else bean
             }
         )
     }
@@ -261,7 +262,7 @@ class SnapshotRepository private constructor(
     override suspend fun deleteBean(id: String) = change {
         it.copy(
             beans = it.beans.map { bean ->
-                if (bean.id == id) bean.copy(archived = true) else bean
+                if (bean.id == id) bean.copy(archived = true, photo = null) else bean
             }
         )
     }

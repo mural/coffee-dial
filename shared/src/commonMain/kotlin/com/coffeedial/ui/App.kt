@@ -233,6 +233,8 @@ fun App(
                     )
 
                     "beans" -> BeansScreen(
+                        photos = backupFiles.photos,
+                        canAddPhoto = authState is AuthState.LoggedIn,
                         beans = beansList,
                         saving = saving,
                         saveError = saveError,

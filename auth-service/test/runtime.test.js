@@ -6,12 +6,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { random, hash } from '../src/core.js';
+import { readFile } from 'node:fs/promises';
 import { emptyBackup } from '../src/sync.js';
 
 test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation and restart', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'coffee-sync-runtime-'));
   const bundle = await build({ entryPoints: [new URL('../src/index.js', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'browser', external: ['cloudflare:workers'], write: false });
-  const options = { modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-10-03', durableObjects: { SESSIONS: { className: 'LoginAttempt', useSQLite: true } }, durableObjectsPersist: dir, bindings: { PUBLIC_ORIGIN: 'https://auth.test', GOOGLE_CLIENT_ID: 'test', ALLOWED_EMAILS: 'test@example.com,user1@example.com,user2@example.com' } };
+  const options = { modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-10-03', durableObjects: { SESSIONS: { className: 'LoginAttempt', useSQLite: true } }, durableObjectsPersist: dir, r2Buckets: ['PHOTOS'], ratelimits: { RATE_LIMITER: { namespace_id: 'test', simple: { limit: 100, period: 60 } } }, bindings: { PUBLIC_ORIGIN: 'https://auth.test', GOOGLE_CLIENT_ID: 'test', ALLOWED_EMAILS: 'test@example.com,user1@example.com,user2@example.com' } };
   let mf = new Miniflare({ ...convertV4MiniflareOptions(options), resourcePersistencePath: dir });
   try {
     const namespace = await mf.getDurableObjectNamespace('SESSIONS');
@@ -50,7 +51,25 @@ test('real Worker/SQLite: authenticated isolation, CAS, tombstones, revocation a
     assert.equal(upgraded.backup.shots[0].style, 'Americano');
     assert.equal((await request('POST', token, { protocol: 2, baseRevision: 3, backup: emptyBackup() })).status, 426);
     assert.equal((await (await request('GET')).json()).revision, 3);
+    const fixtureSource = await readFile(new URL('./photos.test.js', import.meta.url), 'utf8');
+    const jpeg = fixtureSource.match(/const jpeg = "([^"]+)"/)[1];
+    const photoId = '11111111-1111-4111-8111-111111111111';
+    const photoUrl = `https://auth.test/api/photos/${photoId}`;
+    assert.equal((await mf.dispatchFetch(photoUrl)).status, 401);
+    for (const headers of [{}, { Authorization: 'Bearer invalid' }]) {
+      assert.equal((await mf.dispatchFetch(photoUrl, { method: 'POST', headers, body: JSON.stringify({ id: photoId, jpeg }) })).status, 401);
+    }
+    assert.equal((await mf.dispatchFetch(photoUrl, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: photoId, jpeg }) })).status, 200);
+    assert.equal((await mf.dispatchFetch(photoUrl, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: photoId, jpeg }) })).status, 200);
+    assert.equal((await mf.dispatchFetch(photoUrl, { headers: { Authorization: `Bearer ${other}` } })).status, 404);
+    assert.equal((await (await mf.dispatchFetch(photoUrl, { headers: { Authorization: `Bearer ${token}` } })).json()).jpeg, jpeg);
+    const v5 = { ...v2, schemaVersion: 5, beans: [{ ...v2.beans[0], photo: { id: photoId } }] };
+    assert.equal((await request('POST', token, { baseRevision: 3, backup: v5 })).status, 200);
+    assert.equal((await request('POST', token, { baseRevision: 4, backup: v2 })).status, 426);
+    const missing = { ...v5, beans: [{ ...v5.beans[0], photo: { id: '22222222-2222-4222-8222-222222222222' } }] };
+    assert.equal((await request('POST', token, { baseRevision: 4, backup: missing })).status, 400);
     assert.equal((await mf.dispatchFetch('https://auth.test/api/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).status, 200);
     assert.equal((await request('GET')).status, 401);
+    assert.equal((await mf.dispatchFetch(photoUrl, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ id: photoId, jpeg }) })).status, 401);
   } finally { await mf.dispose(); await rm(dir, { recursive: true, force: true }); }
 });

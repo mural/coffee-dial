@@ -20,6 +20,25 @@ class BackupRepositoryTest {
     }
 
     @Test
+    fun photoSurvivesSqlBackupImportAndRemoval() = runBlocking {
+        database().use { driver ->
+            val repo = ShotRepository(driver)
+            val photo = com.coffeedial.photos.referencePhoto
+            repo.saveBean(com.coffeedial.domain.BeanDraft("Brasil", "", photo))
+            val bean = repo.beans.first().single()
+            assertEquals(photo, bean.photo)
+            val text = repo.exportBackup()
+            repo.updateBean(bean.id, com.coffeedial.domain.BeanDraft("Brasil", "", null))
+            assertEquals(null, repo.beans.first().single().photo)
+            database().use { targetDriver ->
+                val target = ShotRepository(targetDriver)
+                target.importBackup(target.prepareImport(text))
+                assertEquals(photo, target.beans.first().single().photo)
+            }
+        }
+    }
+
+    @Test
     fun previewDoesNotWriteAndRepeatedImportIsIdempotent() = runBlocking {
         database().use { driver ->
             val repo = ShotRepository(driver)

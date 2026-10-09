@@ -20,6 +20,7 @@ private external object CoffeeBrowser {
     fun write(expected: String, next: String): Promise<JsString>
     fun download(text: String)
     fun pick(done: (String, String) -> Unit)
+    fun pickPhoto(done: (String, String) -> Unit)
     fun ready()
     fun failed()
 }
@@ -54,6 +55,12 @@ fun main() {
                     }
                 }
             }
+            files.photos.action =
+                {
+                    CoffeeBrowser.pickPhoto { jpeg, error ->
+                        files.photos.finish(jpeg, error.ifEmpty { null })
+                    }
+                }
             val authRepository = WasmAuthRepository()
             ComposeViewport("app") {
                 App(repository, files, authRepository, localWeb = false)

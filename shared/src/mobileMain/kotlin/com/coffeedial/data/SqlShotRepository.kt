@@ -23,6 +23,7 @@ import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
 import com.coffeedial.domain.decimal
+import com.coffeedial.photos.BeanPhoto
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 
 class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     private val queries = CoffeeDatabase(driver).coffeeQueries
@@ -67,7 +69,18 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     override val beans: Flow<List<Bean>> = queries.activeBeans().asFlow().mapToList(
         Dispatchers.IO
     ).map { rows ->
-        rows.map { Bean(it.id, it.name, it.roaster) }
+        rows.map {
+            Bean(
+                it.id,
+                it.name,
+                it.roaster,
+                it.photo?.let { value ->
+                    Json.decodeFromString<BeanPhoto>(
+                        value
+                    )
+                }
+            )
+        }
     }
 
     override val cups: Flow<List<Cup>> = queries.allCups().asFlow().mapToList(
@@ -105,6 +118,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.clearCups()
             next.beans.forEach {
                 queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                queries.setBeanPhoto(
+                    it.photo?.let { photo ->
+                        Json.encodeToString(photo)
+                    },
+                    it.id
+                )
             }
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
             next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
@@ -228,12 +247,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
 
     override suspend fun saveBean(draft: BeanDraft): Unit = withContext(Dispatchers.IO) {
         require(draft.errors().isEmpty()) { "El café contiene valores inválidos" }
-        queries.insertBean(
-            Uuid.random().toString(),
-            draft.name.trim(),
-            draft.roaster.trim(),
-            0L
-        )
+        val id = Uuid.random().toString()
+        queries.transaction {
+            queries.insertBean(id, draft.name.trim(), draft.roaster.trim(), 0L)
+            queries.setBeanPhoto(
+                draft.photo?.let {
+                    Json.encodeToString(it)
+                },
+                id
+            )
+        }
     }
 
     override suspend fun updateBean(id: String, draft: BeanDraft): Unit =
@@ -246,6 +269,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     }
                 ) { "El café ya no existe." }
                 queries.updateBean(draft.name.trim(), draft.roaster.trim(), id)
+                queries.setBeanPhoto(
+                    draft.photo?.let {
+                        Json.encodeToString(it)
+                    },
+                    id
+                )
             }
         }
 
@@ -281,7 +310,17 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
 
     private fun snapshot(): BackupV1 = BackupFormat.create(
         beans = queries.allBeans().executeAsList().map {
-            BackupBeanV1(it.id, it.name, it.roaster, it.archived != 0L)
+            BackupBeanV1(
+                it.id,
+                it.name,
+                it.roaster,
+                it.archived != 0L,
+                it.photo?.let { value ->
+                    Json.decodeFromString<BeanPhoto>(
+                        value
+                    )
+                }
+            )
         },
         shots = queries.allShots().executeAsList().map {
             BackupShotV1(
@@ -339,6 +378,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 }
                 prepared.plan.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                    queries.setBeanPhoto(
+                        it.photo?.let { photo ->
+                            Json.encodeToString(photo)
+                        },
+                        it.id
+                    )
                 }
                 prepared.plan.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
@@ -373,6 +418,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.transaction {
                 incoming.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                    queries.setBeanPhoto(
+                        it.photo?.let { photo ->
+                            Json.encodeToString(photo)
+                        },
+                        it.id
+                    )
                 }
                 incoming.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
@@ -420,6 +471,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.clearCups()
                 incoming.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
+                    queries.setBeanPhoto(
+                        it.photo?.let { photo ->
+                            Json.encodeToString(photo)
+                        },
+                        it.id
+                    )
                 }
                 incoming.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)

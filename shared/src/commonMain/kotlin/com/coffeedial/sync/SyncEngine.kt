@@ -66,14 +66,14 @@ class SyncEngine(
                 throw SyncHttpException(401, "unauthorized")
             }
             var renewed = false
-            suspend fun request(body: String? = null): String {
+            suspend fun request(body: String? = null, path: String = "/api/sync"): String {
                 suspend fun send(): String {
                     checkUser(user)
                     val headers = mapOf("Authorization" to "Bearer $token")
                     return if (body == null) {
-                        get("$baseUrl/api/sync", headers)
+                        get("$baseUrl$path", headers)
                     } else {
-                        post("$baseUrl/api/sync", body, headers)
+                        post("$baseUrl$path", body, headers)
                     }
                 }
                 try {
@@ -116,7 +116,32 @@ class SyncEngine(
                         "sincronizar, o exportá un backup antes de cambiar de cuenta."
                 }
             }
-            val remote = document(request())
+            val photoCache = (local.backup.beans + (saved?.document?.backup?.beans ?: emptyList()))
+                .mapNotNull {
+                    it.photo
+                }.filter { it.jpeg != null }.associateBy { it.id }.toMutableMap()
+            suspend fun hydrate(doc: SyncDocument): SyncDocument {
+                val beans = doc.backup.beans.map { bean ->
+                    val photo = bean.photo
+                    if (photo == null) {
+                        bean
+                    } else {
+                        val full =
+                            photoCache[photo.id]
+                                ?: json.decodeFromString<com.coffeedial.photos.BeanPhoto>(
+                                    request(path = "/api/photos/${photo.id}")
+                                ).also {
+                                    require(it.id == photo.id && it.jpeg != null)
+                                    it.validate()
+                                    photoCache[it.id] =
+                                        it
+                                }
+                        bean.copy(photo = full)
+                    }
+                }
+                return doc.copy(backup = doc.backup.copy(beans = beans))
+            }
+            val remote = hydrate(document(request()))
             val next = when (mode) {
                 Mode.MERGE -> mergeSync(
                     saved?.document?.backup ?: BackupFormat.create(emptyList(), emptyList()),
@@ -129,16 +154,34 @@ class SyncEngine(
                 Mode.DOWNLOAD -> remote.backup
             }
             BackupFormat.validate(next)
+            // Photos are uploaded before their references. Failed uploads never acknowledge sync.
+            if (mode != Mode.DOWNLOAD) {
+                val known = remote.backup.beans.mapNotNull { it.photo?.id }.toSet()
+                for (photo in next.beans.mapNotNull { it.photo }.distinctBy { it.id }) {
+                    if (photo.id !in known) {
+                        check(photo.jpeg != null) {
+                            "Falta una foto local. Volvé a sincronizar antes de exportar."
+                        }
+                        request(json.encodeToString(photo), "/api/photos/${photo.id}")
+                    }
+                }
+            }
             val acknowledged = if (mode == Mode.DOWNLOAD || sameData(next, remote.backup)) {
                 remote
             } else {
-                document(
-                    request(
-                        json.encodeToString(
-                            SyncUpload(
-                                baseRevision = remote.revision,
-                                backup = next,
-                                force = mode == Mode.UPLOAD
+                hydrate(
+                    document(
+                        request(
+                            json.encodeToString(
+                                SyncUpload(
+                                    baseRevision = remote.revision,
+                                    backup = next.copy(
+                                        beans = next.beans.map {
+                                            it.copy(photo = it.photo?.copy(jpeg = null))
+                                        }
+                                    ),
+                                    force = mode == Mode.UPLOAD
+                                )
                             )
                         )
                     )

@@ -25,7 +25,8 @@ data class BackupBeanV1(
     val id: String,
     val name: String,
     val roaster: String,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    val photo: com.coffeedial.photos.BeanPhoto? = null
 )
 
 @Serializable
@@ -58,7 +59,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 4
+    const val CURRENT_VERSION = 5
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -82,6 +83,7 @@ object BackupFormat {
 
     fun encode(backup: BackupV1): String {
         validate(backup)
+        requirePhotos(backup)
         return json.encodeToString(backup).also { checkSize(it) }
     }
 
@@ -115,10 +117,11 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
+                1, 2, 3, 4, 5 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
                 else -> throw BackupException("Esta versión de backup no es compatible ($version).")
             }
             validate(rawBackup)
+            requirePhotos(rawBackup)
             return rawBackup.copy(schemaVersion = CURRENT_VERSION)
         } catch (error: BackupException) {
             throw error
@@ -126,6 +129,14 @@ object BackupFormat {
             throw BackupException("El backup está dañado o contiene campos no compatibles.")
         } catch (e: IllegalArgumentException) {
             throw BackupException("El backup contiene datos inválidos: ${e.message ?: ""}")
+        }
+    }
+
+    private fun requirePhotos(backup: BackupV1) {
+        if (backup.beans.any { it.photo != null && it.photo.jpeg == null }) {
+            throw BackupException(
+                "El backup no incluye todas las fotos. Sincronizá antes de exportar."
+            )
         }
     }
 
@@ -153,6 +164,8 @@ object BackupFormat {
         valid(backup.machines.map { it.id }.toSet().size == backup.machines.size)
         valid(backup.cups.map { it.id }.toSet().size == backup.cups.size)
         backup.beans.forEach {
+            it.photo?.validate()
+            valid(backup.schemaVersion >= 5 || it.photo == null)
             valid(it.id.isNotBlank() && it.id.length <= 200)
             valid(it.name.isNotBlank() && it.name.length <= 10_000 && it.roaster.length <= 10_000)
         }

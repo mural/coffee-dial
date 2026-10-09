@@ -110,7 +110,7 @@ class SnapshotRepositoryTest {
     fun futureOrCorruptStorageIsNotReset() = runTest {
         val store = Store()
         val future = BackupFormat.encode(BackupFormat.create(emptyList(), emptyList()))
-            .replace("\"schemaVersion\": 4", "\"schemaVersion\": 999")
+            .replace("\"schemaVersion\": ${BackupFormat.CURRENT_VERSION}", "\"schemaVersion\": 999")
         store.text = future
         assertFailsWith<BackupException> { SnapshotRepository.open(store) }
         assertEquals(future, store.text)

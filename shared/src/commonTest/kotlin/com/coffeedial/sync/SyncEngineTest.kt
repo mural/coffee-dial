@@ -48,6 +48,48 @@ class SyncEngineTest {
         }
     }
 
+    @Test fun photosTravelSeparatelyAndFailedPhotoUploadRemainsPending() = runTest {
+        val repo = SnapshotRepository.open(Store())
+        val photo = com.coffeedial.photos.referencePhoto
+        repo.saveBean(com.coffeedial.domain.BeanDraft("Brasil", "", photo))
+        var remote = SyncDocument(backup = BackupFormat.create(emptyList(), emptyList()))
+        var uploaded = false
+        var fail = true
+        val get: suspend (String, Map<String, String>) -> String = { url, _ ->
+            if (url.contains(
+                    "/api/photos/"
+                )
+            ) {
+                Json.encodeToString(photo)
+            } else {
+                Json.encodeToString(remote)
+            }
+        }
+        val post: suspend (String, String, Map<String, String>) -> String = { url, body, _ ->
+            if (url.contains("/api/photos/")) {
+                check(!fail)
+                assertEquals(photo, Json.decodeFromString<com.coffeedial.photos.BeanPhoto>(body))
+                uploaded = true
+                "{}"
+            } else {
+                assertTrue(uploaded)
+                val input = Json.decodeFromString<SyncUpload>(body)
+                assertNull(input.backup.beans.single().photo?.jpeg)
+                remote = SyncDocument(revision = remote.revision + 1, backup = input.backup)
+                Json.encodeToString(remote)
+            }
+        }
+        val engine = SyncEngine(repo, Auth(), get = get, post = post)
+        assertTrue(engine.performSync().isFailure)
+        assertNull(repo.readSyncLocal().checkpoint)
+        assertEquals(photo, repo.beans.value.single().photo)
+        fail = false
+        assertTrue(engine.performSync().isSuccess)
+        val second = SnapshotRepository.open(Store())
+        assertTrue(SyncEngine(second, Auth(), get = get, post = post).performSync().isSuccess)
+        assertEquals(photo, second.beans.value.single().photo)
+    }
+
     @Test fun failedUploadDoesNotAcknowledgeOrChangeLocalData() = runTest {
         val repo = SnapshotRepository.open(Store())
         repo.save(ShotDraft(grind = "12"))

@@ -2,7 +2,8 @@ CREATE TABLE bean (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     roaster TEXT NOT NULL,
-    archived INTEGER NOT NULL DEFAULT 0
+    archived INTEGER NOT NULL DEFAULT 0,
+    photo TEXT
 );
 
 CREATE TABLE machine (
@@ -63,7 +64,7 @@ beanForShot:
 SELECT bean.* FROM bean JOIN shot ON shot.bean_id = bean.id WHERE shot.id = ?;
 
 deleteBean:
-UPDATE bean SET archived = 1 WHERE id = ?;
+UPDATE bean SET archived = 1, photo = NULL WHERE id = ?;
 
 updateBean:
 UPDATE bean SET name = ?, roaster = ? WHERE id = ?;
@@ -117,3 +118,6 @@ DELETE FROM machine;
 
 clearCups:
 DELETE FROM cup;
+
+setBeanPhoto:
+UPDATE bean SET photo = ? WHERE id = ?;

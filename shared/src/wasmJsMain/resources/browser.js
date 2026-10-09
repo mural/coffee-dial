@@ -61,6 +61,35 @@
       };
       input.click();
     },
+    pickPhoto(done) {
+      const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+      input.hidden = true; document.body.append(input);
+      let finished = false;
+      const finish = (data = '', error = '') => { if (!finished) { finished = true; input.remove(); done(data, error); } };
+      input.oncancel = () => finish();
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return finish();
+        if (file.size > 20 * 1024 * 1024) return finish('', 'Elegí una imagen de hasta 20 MB.');
+        let image;
+        try {
+          image = await createImageBitmap(file);
+          const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.width * scale)); canvas.height = Math.max(1, Math.round(image.height * scale));
+          const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          let data;
+          for (const quality of [0.75, 0.6, 0.45, 0.3]) {
+            data = canvas.toDataURL('image/jpeg', quality).split(',')[1];
+            if (data.length <= 136532) return finish(data);
+          }
+          finish('', 'No se pudo reducir la foto. Elegí otra imagen.');
+        } catch { finish('', 'No se pudo leer la foto. Probá con JPEG o PNG.'); }
+        finally { image?.close(); }
+      };
+      input.click();
+    },
     ready() { document.getElementById('loading').hidden = true; },
     failed() {
       document.getElementById('loading').textContent = 'No pudimos abrir tus datos. Probá un navegador actualizado con almacenamiento habilitado. No se borró ningún dato. Recargá para reintentar.';

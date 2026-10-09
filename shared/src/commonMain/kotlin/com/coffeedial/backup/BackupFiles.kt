@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 
 /** Main-thread bridge to the system document picker. It holds no Activity or controller itself. */
 class BackupFiles {
+    val photos = com.coffeedial.photos.PhotoPicker()
     var exportAction: (() -> Unit)? = null
     var importAction: (() -> Unit)? = null
     var pendingExport: String? = null

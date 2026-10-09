@@ -2,7 +2,7 @@
 export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [] });
 export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [] } });
 export function validateBackup(b) {
-  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
+  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
@@ -12,6 +12,8 @@ export function validateBackup(b) {
     if (!Array.isArray(b[kind]) || b[kind].length > 50000 || b[kind].some(x => !x || !id(x.id)) || new Set(b[kind].map(x => x.id)).size !== b[kind].length) throw new Error('invalid_ids');
   }
   if (b.beans.some(x => x.archived !== undefined && typeof x.archived !== 'boolean')) throw new Error('invalid_bean');
+  if (b.beans.some(x => x.photo != null && (b.schemaVersion < 5 ||
+    typeof x.photo !== 'object' || !/^[a-f0-9-]{36}$/.test(x.photo.id) || x.photo.jpeg != null))) throw new Error('invalid_photo');
   const beans = new Set(b.beans.map(x => x.id));
   if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster))) throw new Error('invalid_bean');
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');

@@ -1,10 +1,20 @@
 package com.coffeedial.domain
 
-data class Bean(val id: String, val name: String, val roaster: String)
+data class Bean(
+    val id: String,
+    val name: String,
+    val roaster: String,
+    val photo: com.coffeedial.photos.BeanPhoto? = null
+)
 
-data class BeanDraft(val name: String = "", val roaster: String = "") {
+data class BeanDraft(
+    val name: String = "",
+    val roaster: String = "",
+    val photo: com.coffeedial.photos.BeanPhoto? = null
+) {
     fun errors(): Map<String, String> = buildMap {
         if (name.isBlank()) put("name", "Ingresá el nombre del café")
+        if (runCatching { photo?.validate() }.isFailure) put("photo", "La foto no es válida.")
     }
 }
 

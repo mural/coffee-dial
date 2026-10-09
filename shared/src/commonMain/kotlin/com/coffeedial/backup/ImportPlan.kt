@@ -34,7 +34,7 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
 
             sameId != null -> mapping[bean.id] = sameId.id
 
-            sameName != null -> mapping[bean.id] = sameName.id
+            sameName != null && sameName.photo == bean.photo -> mapping[bean.id] = sameName.id
 
             else -> {
                 newBeans += bean

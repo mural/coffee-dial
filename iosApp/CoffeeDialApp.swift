@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import ImageIO
 import UniformTypeIdentifiers
 import CoffeeDialShared
 import AuthenticationServices
@@ -13,6 +15,10 @@ struct CoffeeDialApp: App {
     var body: some Scene {
         WindowGroup {
             CoffeeDialView(files: backup.files, account: account.repository).ignoresSafeArea()
+                .sheet(isPresented: $backup.pickingPhoto) {
+                    BeanPhotoPicker(files: backup.files, dismiss: { backup.pickingPhoto = false })
+                        .interactiveDismissDisabled()
+                }
                 .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
                 .task { account.restore() }
                 .onChange(of: scenePhase) { phase in
@@ -50,6 +56,7 @@ struct CoffeeDialApp: App {
 
 private final class BackupCoordinator: ObservableObject {
     let files = BackupFiles()
+    @Published var pickingPhoto = false
     @Published var exporting = false
     @Published var importing = false
     @Published var document: BackupDocument?
@@ -57,6 +64,7 @@ private final class BackupCoordinator: ObservableObject {
     var filename = "coffee-dial.json"
 
     init() {
+        files.photos.action = { [weak self] in self?.pickingPhoto = true; return }
         files.exportAction = { [weak self] in
             guard let self, let text = self.files.pendingExport else { return }
             self.document = BackupDocument(text: text)
@@ -349,5 +357,58 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         self.controller = nil
         if (error as NSError).code == ASAuthorizationError.canceled.rawValue { repository.cancelled() }
         else { repository.failed(message: "No se pudo iniciar sesión con Apple. Revisá la cuenta del dispositivo y volvé a intentar.") }
+    }
+}
+
+private struct BeanPhotoPicker: UIViewControllerRepresentable {
+    let files: BackupFiles
+    let dismiss: () -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(files: files, dismiss: dismiss) }
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration(); config.filter = .images; config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config); picker.delegate = context.coordinator
+        return picker
+    }
+    func updateUIViewController(_ controller: PHPickerViewController, context: Context) {}
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let files: BackupFiles
+        let dismiss: () -> Void
+        init(files: BackupFiles, dismiss: @escaping () -> Void) { self.files = files; self.dismiss = dismiss }
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            dismiss()
+            guard let provider = results.first?.itemProvider,
+                  let type = provider.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .image) == true }) else {
+                files.photos.finish(jpeg: "", message: nil); return
+            }
+            let files = self.files
+            provider.loadFileRepresentation(forTypeIdentifier: type) { url, error in
+                do {
+                    guard let url,
+                          let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                          size <= 20 * 1024 * 1024,
+                          let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                          let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                            kCGImageSourceCreateThumbnailFromImageAlways: true,
+                            kCGImageSourceCreateThumbnailWithTransform: true,
+                            kCGImageSourceThumbnailMaxPixelSize: 640
+                          ] as CFDictionary) else { throw CocoaError(.fileReadCorruptFile) }
+                    let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+                    let normalized = UIGraphicsImageRenderer(size: CGSize(width: image.width, height: image.height), format: format).image { ctx in
+                        UIColor.white.setFill(); ctx.fill(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                        UIImage(cgImage: image).draw(in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                    }
+                    for quality in [0.75, 0.6, 0.45, 0.3] {
+                        if let jpeg = normalized.jpegData(compressionQuality: quality), jpeg.count <= 102400 {
+                            let encoded = jpeg.base64EncodedString()
+                            DispatchQueue.main.async { files.photos.finish(jpeg: encoded, message: nil) }
+                            return
+                        }
+                    }
+                    throw CocoaError(.fileReadTooLarge)
+                } catch {
+                    DispatchQueue.main.async { files.photos.finish(jpeg: "", message: "No se pudo preparar la foto. Elegí otra imagen.") }
+                }
+            }
+        }
     }
 }

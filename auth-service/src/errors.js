@@ -1,6 +1,6 @@
 const statuses = {
   invalid_backup: 422, invalid_ids: 422, invalid_bean: 422, invalid_machine: 422,
-  invalid_cup: 422, invalid_shot: 422, invalid_protocol: 422,
+  invalid_photo: 422, invalid_cup: 422, invalid_shot: 422, invalid_protocol: 422,
   backup_upgrade_required: 426, sync_capacity: 413, payload_too_large: 413,
   unauthorized: 401, provider_unavailable: 503, service_unavailable: 503
 };

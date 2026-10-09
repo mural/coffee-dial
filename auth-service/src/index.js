@@ -1,3 +1,4 @@
+import { photoRequest } from './photos.js';
 export { AdminDirectory } from './admin.js';
 import { ServiceError, serviceError } from './errors.js';
 import { createAccess, readAccess } from './access.js';
@@ -105,7 +106,7 @@ export default {
     if (url.origin !== env.PUBLIC_ORIGIN) return json({ error: 'wrong_origin' }, 400);
     if (url.pathname === '/health' && request.method === 'GET') return json({ status: env.GOOGLE_CLIENT_SECRET ? 'ready' : 'not_configured' });
     if (url.pathname === '/' && request.method === 'GET') return html('<p>Servicio de acceso de Coffee Dial. Iniciá sesión desde la app.</p>');
-    if (url.pathname === '/api/session' || url.pathname === '/api/sync' || url.pathname === '/api/logout' || url.pathname.startsWith('/api/admin/')) {
+    if (url.pathname === '/api/session' || url.pathname === '/api/sync' || url.pathname === '/api/logout' || url.pathname.startsWith('/api/admin/') || url.pathname.startsWith('/api/photos/')) {
       const bearer = request.headers.get('Authorization') || '';
       if (!bearer.startsWith('Bearer ') || bearer.length > 16384) return json({ error: 'unauthorized' }, 401);
       const token = bearer.slice(7);
@@ -119,6 +120,9 @@ export default {
         const unavailable = error instanceof ServiceError && error.status >= 500 ||
           error?.code === 'ERR_JWKS_TIMEOUT' || error instanceof TypeError;
         return json({ error: unavailable ? 'provider_unavailable' : 'unauthorized' }, unavailable ? 503 : 401);
+      }
+      if (url.pathname.startsWith('/api/photos/')) {
+        return photoRequest(request, env, user, url.pathname.slice('/api/photos/'.length), json, boundedJson);
       }
       if (url.pathname === '/api/session') {
         if (request.method === 'GET') return json(user);
@@ -208,6 +212,12 @@ export default {
         }
         if (request.method === 'POST') {
           const input = await boundedJson(request, 1500000);
+          for (const bean of input.backup?.beans || []) {
+            if (bean.photo != null) {
+              if (!/^[a-f0-9-]{36}$/.test(bean.photo.id) || !env.PHOTOS ||
+                  !(await env.PHOTOS.head(`${emailHash}/${bean.photo.id}`))) return json({ error: 'photo_missing' }, 400);
+            }
+          }
           const result = await call(env, account, 'sync_write', input);
           if (!result.conflict) await recordAdmin(env, user, result);
           return json(result, result.conflict ? 409 : 200);
