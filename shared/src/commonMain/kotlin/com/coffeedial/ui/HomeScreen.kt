@@ -3,11 +3,15 @@ package com.coffeedial.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -43,12 +47,15 @@ fun HomeScreen(
     onNavigateToTips: () -> Unit,
     onNavigateToBackup: () -> Unit,
     onNavigateToAnalysis: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    refreshError: String? = null,
+    modifier: Modifier = Modifier
 ) {
     when {
         loadError -> {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(top = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -59,7 +66,8 @@ fun HomeScreen(
 
         shots == null -> {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(top = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator()
@@ -67,7 +75,11 @@ fun HomeScreen(
         }
 
         else -> {
-            LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavigationSpace.current), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = LocalNavigationSpace.current),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 item {
                     if (screen == "home" && !userName.isNullOrBlank()) {
                         Row(
@@ -98,6 +110,14 @@ fun HomeScreen(
                         "${shots.size} shots · guardados en este dispositivo",
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
+                    if (screen == "home" && !refreshError.isNullOrBlank()) {
+                        Text(
+                            refreshError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
                     Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
                         Text("Registrar un shot")
                     }

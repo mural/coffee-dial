@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -12,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -53,23 +55,40 @@ fun ShotForm(
     onNavigateToCups: () -> Unit,
     onSave: () -> Unit
 ) {
-    Column(
-        modifier = modifier.verticalScroll(rememberScrollState())
-    ) {
-        ShotFormContent(
-            draft = draft,
-            machines = machines,
-            beans = beans,
-            cups = cups,
-            onChange = onChange,
+    var submitted by rememberSaveable { mutableStateOf(false) }
+    Column(modifier = modifier.fillMaxHeight()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 12.dp)
+        ) {
+            ShotFormContent(
+                draft = draft,
+                machines = machines,
+                beans = beans,
+                cups = cups,
+                onChange = onChange,
+                saving = saving,
+                saveError = null,
+                isEditing = isEditing,
+                showSaveButton = false,
+                submitted = submitted,
+                onOpenTimer = onOpenTimer,
+                onNavigateToMachines = onNavigateToMachines,
+                onNavigateToBeans = onNavigateToBeans,
+                onNavigateToCups = onNavigateToCups,
+                onSave = onSave
+            )
+        }
+        HorizontalDivider()
+        SaveShotButton(
             saving = saving,
-            saveError = saveError,
             isEditing = isEditing,
-            onOpenTimer = onOpenTimer,
-            onNavigateToMachines = onNavigateToMachines,
-            onNavigateToBeans = onNavigateToBeans,
-            onNavigateToCups = onNavigateToCups,
-            onSave = onSave
+            saveError = saveError,
+            showFieldError = submitted && draft.errors().isNotEmpty(),
+            onClick = {
+                submitted = true
+                if (draft.errors().isEmpty()) onSave()
+            },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)
         )
     }
 }
@@ -89,10 +108,13 @@ fun ShotFormContent(
     onNavigateToMachines: () -> Unit,
     onNavigateToBeans: () -> Unit,
     onNavigateToCups: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    showSaveButton: Boolean = true,
+    submitted: Boolean = false
 ) {
-    var submitted by rememberSaveable { mutableStateOf(false) }
-    val errors = if (submitted) draft.errors() else emptyMap()
+    var localSubmitted by rememberSaveable { mutableStateOf(false) }
+    val activeSubmitted = if (showSaveButton) localSubmitted else submitted
+    val errors = if (activeSubmitted) draft.errors() else emptyMap()
 
     Column(
         modifier = modifier,
@@ -365,25 +387,47 @@ fun ShotFormContent(
             onChange(draft.copy(taste = it))
         }
 
+        if (showSaveButton) {
+            SaveShotButton(
+                saving = saving,
+                isEditing = isEditing,
+                saveError = saveError,
+                showFieldError = errors.isNotEmpty(),
+                onClick = {
+                    localSubmitted = true
+                    if (draft.errors().isEmpty()) onSave()
+                },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SaveShotButton(
+    saving: Boolean,
+    isEditing: Boolean,
+    saveError: String?,
+    showFieldError: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (saveError != null) {
             Text(saveError, color = MaterialTheme.colorScheme.error)
         }
-
-        Button(
-            onClick = {
-                submitted = true
-                if (draft.errors().isEmpty()) onSave()
-            },
-            enabled = !saving,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-        ) {
+        if (showFieldError) {
             Text(
-                if (saving) {
-                    "Guardando…"
-                } else if (isEditing) {
-                    "Guardar cambios"
-                } else {
-                    "Guardar shot"
+                "Revisá los campos marcados.",
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        Button(onClick = onClick, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                when {
+                    saving -> "Guardando…"
+                    isEditing -> "Guardar cambios"
+                    else -> "Guardar shot"
                 }
             )
         }
