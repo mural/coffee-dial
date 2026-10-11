@@ -3,6 +3,7 @@ package com.coffeedial.backup
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 // Frozen first released wire format. Keep this fixture unchanged when v2 arrives.
@@ -28,6 +29,34 @@ class BackupFormatTest {
         assertEquals("Café ☕", backup.beans.single().name)
         assertEquals("Dulce\nChocolate", backup.shots.single().notes)
         assertEquals(backup, BackupFormat.decode(BackupFormat.encode(backup)))
+        val machine = BackupMachineV1("m1", "Robot", "Manual", "")
+        val legacy = backup.copy(
+            schemaVersion = 8,
+            machines = listOf(machine),
+            shots = listOf(backup.shots.single().copy(machine = "robot"))
+        )
+        val linked = BackupFormat.decode(BackupFormat.encode(legacy))
+        assertEquals(9, linked.schemaVersion)
+        assertEquals("m1", linked.shots.single().machineId)
+        assertEquals("robot", linked.shots.single().machine)
+        assertEquals(linked, BackupFormat.decode(BackupFormat.encode(linked)))
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(
+                linked.copy(shots = listOf(linked.shots.single().copy(machineId = "missing")))
+            )
+        }
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(linked.copy(schemaVersion = 8))
+        }
+        assertNull(
+            BackupFormat.decode(
+                BackupFormat.encode(
+                    legacy.copy(
+                        machines = listOf(machine, machine.copy(id = "m2", name = "robot"))
+                    )
+                )
+            ).shots.single().machineId
+        )
     }
 
     @Test

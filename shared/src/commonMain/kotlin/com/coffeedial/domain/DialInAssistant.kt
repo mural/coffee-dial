@@ -17,7 +17,8 @@ fun Shot.toDraft(): ShotDraft = ShotDraft(
     temperature = temperature?.toString().orEmpty(), milk = milk?.toString().orEmpty(),
     machine = machine.orEmpty(), notes = notes, rating = rating,
     extraWater = extraWater?.toString().orEmpty(), style = style.orEmpty(),
-    cup = cup.orEmpty(), firstDrop = firstDrop?.toString().orEmpty(), taste = taste, dialIn = dialIn
+    cup = cup.orEmpty(), firstDrop = firstDrop?.toString().orEmpty(), taste = taste,
+    dialIn = dialIn, machineId = machineId, cupId = cupId
 )
 
 fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialInAdvice {
@@ -89,10 +90,19 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
         dialIn = nextContext
     )
     fun normalized(value: String?) = value.orEmpty().trim().lowercase()
+    fun sameMachine(candidate: Shot): Boolean {
+        val left = shot.machineId?.takeIf { it.isNotBlank() }
+        val right = candidate.machineId?.takeIf { it.isNotBlank() }
+        if (left != null && right != null) return left == right
+        val name = normalized(shot.machine)
+        return name.isNotEmpty() && name == normalized(candidate.machine)
+    }
     val references = history.filter { candidate ->
         val c = candidate.dialIn
         candidate.id != shot.id && candidate.bean.id == shot.bean.id && c != null &&
-            !shot.machine.isNullOrBlank() && context.grinder.isNotBlank() &&
+            (
+                !shot.machineId.isNullOrBlank() || !shot.machine.isNullOrBlank()
+                ) && context.grinder.isNotBlank() &&
             context.roast != RoastLevel.UNKNOWN &&
             candidate.temperature == shot.temperature &&
             normalized(candidate.style) == normalized(shot.style) &&
@@ -105,7 +115,7 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
                 ) &&
             c.method == BrewMethod.ESPRESSO && c.roast == context.roast && c.goal == context.goal &&
             (c.tasteBasis ?: TasteBasis.ESPRESSO) == basis &&
-            normalized(candidate.machine) == normalized(shot.machine) &&
+            sameMachine(candidate) &&
             normalized(c.grinder) == normalized(context.grinder) &&
             normalized(candidate.grind) == normalized(shot.grind) &&
             abs(candidate.dose - shot.dose) <= shot.dose * 0.1 &&

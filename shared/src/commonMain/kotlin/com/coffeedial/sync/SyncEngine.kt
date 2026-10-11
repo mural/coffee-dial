@@ -37,6 +37,56 @@ class SyncEngine(
     suspend fun replaceWithCloud(): Result<SyncResponse> = run(Mode.DOWNLOAD)
     suspend fun restoreFromCloud(): Result<SyncResponse> = performSync()
 
+    suspend fun resolveConflict(
+        remote: SyncDocument,
+        conflict: RecordConflict,
+        keepLocal: Boolean
+    ): Result<SyncResponse> {
+        try {
+            mutex.withLock {
+                val user = (authRepository.state.value as? AuthState.LoggedIn)?.user
+                    ?: error("Entrá a Cuenta para resolver el conflicto.")
+                val account = accountKey(user)
+                val local = shotRepository.readSyncLocal()
+                val saved = checkpoint(local.checkpoint)
+                if (saved != null) {
+                    check(acceptsAccount(saved.account, user, account)) {
+                        "Los datos locales pertenecen a otra cuenta."
+                    }
+                }
+                val planned = planResolution(
+                    local.backup,
+                    saved,
+                    remote,
+                    conflict,
+                    keepLocal,
+                    account
+                )
+                BackupFormat.validate(planned.backup)
+                shotRepository.commitSync(
+                    local,
+                    planned.backup,
+                    json.encodeToString(planned.checkpoint)
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            val message = error.message ?: "No se pudo resolver el conflicto."
+            mutableState.value = SyncState.Error(message)
+            return Result.failure(IllegalStateException(message, error))
+        }
+        return performSync()
+    }
+
+    private fun accountKey(user: User): String =
+        user.email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+            ?.let { "email:$it" } ?: "${user.provider}:${user.id}"
+
+    private fun acceptsAccount(saved: String, user: User, account: String): Boolean =
+        saved == account || saved == "${user.provider}:${user.id}" ||
+            saved == "${user.provider.name.lowercase()}:${user.id}"
+
     private fun checkUser(user: User) {
         val current = (authRepository.state.value as? AuthState.LoggedIn)?.user
         check(current?.id == user.id && current.provider == user.provider) {
@@ -101,17 +151,11 @@ class SyncEngine(
                     }
                 }
             }
-            val account = user.email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
-                ?.let { "email:$it" } ?: "${user.provider}:${user.id}"
+            val account = accountKey(user)
             val local = shotRepository.readSyncLocal()
             val saved = checkpoint(local.checkpoint)
             if (mode != Mode.DOWNLOAD) {
-                val providerAccount = "${user.provider}:${user.id}"
-                check(
-                    saved == null || saved.account == account ||
-                        saved.account == providerAccount ||
-                        saved.account == "${user.provider.name.lowercase()}:${user.id}"
-                ) {
+                check(saved == null || acceptsAccount(saved.account, user, account)) {
                     "Los datos locales pertenecen a otra cuenta. Volvé a esa cuenta para " +
                         "sincronizar, o exportá un backup antes de cambiar de cuenta."
                 }
@@ -142,15 +186,28 @@ class SyncEngine(
                 return doc.copy(backup = doc.backup.copy(beans = beans))
             }
             val remote = hydrate(document(request()))
-            val next = when (mode) {
-                Mode.MERGE -> mergeSync(
+            val merged = if (mode == Mode.MERGE) {
+                mergeSync(
                     saved?.document?.backup ?: BackupFormat.create(emptyList(), emptyList()),
                     local.backup,
-                    remote
+                    remote,
+                    saved?.revived.orEmpty().toSet()
                 )
-
+            } else {
+                null
+            }
+            if (merged != null && merged.conflicts.isNotEmpty()) {
+                mutableState.value = SyncState.Conflict(merged.conflicts, remote)
+                return Result.failure(
+                    IllegalStateException(
+                        "Hay cambios distintos en ${merged.conflicts.size} registros. " +
+                            "Elegí qué copia conservar."
+                    )
+                )
+            }
+            val next = when (mode) {
+                Mode.MERGE -> merged!!.backup
                 Mode.UPLOAD -> local.backup.copy(schemaVersion = BackupFormat.CURRENT_VERSION)
-
                 Mode.DOWNLOAD -> remote.backup
             }
             BackupFormat.validate(next)
@@ -180,7 +237,8 @@ class SyncEngine(
                                             it.copy(photo = it.photo?.copy(jpeg = null))
                                         }
                                     ),
-                                    force = mode == Mode.UPLOAD
+                                    force = mode == Mode.UPLOAD ||
+                                        saved?.revived.orEmpty().isNotEmpty()
                                 )
                             )
                         )

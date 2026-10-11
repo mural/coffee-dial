@@ -1,0 +1,24 @@
+ALTER TABLE shot ADD COLUMN machine_id TEXT;
+ALTER TABLE shot ADD COLUMN cup_id TEXT;
+
+UPDATE shot SET machine_id = (
+    SELECT machine.id FROM machine
+    WHERE lower(trim(machine.name)) = lower(trim(shot.machine))
+)
+WHERE shot.machine IS NOT NULL
+  AND trim(shot.machine) != ''
+  AND (
+      SELECT COUNT(*) FROM machine
+      WHERE lower(trim(machine.name)) = lower(trim(shot.machine))
+  ) = 1;
+
+UPDATE shot SET cup_id = (
+    SELECT cup.id FROM cup
+    WHERE lower(trim(cup.name)) = lower(trim(shot.cup))
+)
+WHERE shot.cup IS NOT NULL
+  AND trim(shot.cup) != ''
+  AND (
+      SELECT COUNT(*) FROM cup
+      WHERE lower(trim(cup.name)) = lower(trim(shot.cup))
+  ) = 1;

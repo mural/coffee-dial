@@ -54,7 +54,9 @@ data class BackupShotV1(
     val cup: String? = null,
     val firstDrop: Double? = null,
     val taste: com.coffeedial.domain.TasteProfile? = null,
-    val dialIn: com.coffeedial.domain.DialInContext? = null
+    val dialIn: com.coffeedial.domain.DialInContext? = null,
+    val machineId: String? = null,
+    val cupId: String? = null
 )
 
 class BackupException(message: String, cause: Throwable? = null) :
@@ -62,7 +64,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 8
+    const val CURRENT_VERSION = 9
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -120,12 +122,12 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4, 5, 6, 7, 8 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
+                1, 2, 3, 4, 5, 6, 7, 8, 9 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
                 else -> throw BackupException("Esta versión de backup no es compatible ($version).")
             }
             validate(rawBackup)
             requirePhotos(rawBackup)
-            return rawBackup.copy(schemaVersion = CURRENT_VERSION)
+            return migrate(rawBackup)
         } catch (error: BackupException) {
             throw error
         } catch (_: SerializationException) {
@@ -149,6 +151,13 @@ object BackupFormat {
         }
     }
 
+    fun migrate(backup: BackupV1): BackupV1 {
+        validate(backup)
+        val linked = linkLegacyEquipment(backup).copy(schemaVersion = CURRENT_VERSION)
+        validate(linked)
+        return linked
+    }
+
     fun validate(backup: BackupV1) {
         fun valid(condition: Boolean) {
             if (!condition) throw BackupException("El backup contiene datos inválidos.")
@@ -162,6 +171,8 @@ object BackupFormat {
                 backup.machines.size <= 50_000 && backup.cups.size <= 50_000
         )
         val ids = backup.beans.map { it.id }.toSet()
+        val machineIds = backup.machines.map { it.id }.toSet()
+        val cupIds = backup.cups.map { it.id }.toSet()
         valid(ids.size == backup.beans.size)
         valid(backup.shots.map { it.id }.toSet().size == backup.shots.size)
         valid(backup.machines.map { it.id }.toSet().size == backup.machines.size)
@@ -203,8 +214,25 @@ object BackupFormat {
             valid(backup.schemaVersion >= 2 || (it.extraWater == null && it.style == null))
             valid(it.cup == null || it.cup.length <= 10_000)
             valid(it.machine == null || it.machine.length <= 10_000)
+            valid(
+                it.machineId == null ||
+                    (
+                        backup.schemaVersion >= 9 && it.machineId.length <= 200 &&
+                            it.machineId in machineIds
+                        )
+            )
+            valid(
+                it.cupId == null ||
+                    (backup.schemaVersion >= 9 && it.cupId.length <= 200 && it.cupId in cupIds)
+            )
             valid(it.grind.isNotBlank() && it.grind.length <= 10_000)
-            valid(it.dialIn == null || (backup.schemaVersion >= 8 && it.dialIn.isValid() && it.dialIn.previousShotId != it.id))
+            valid(
+                it.dialIn == null ||
+                    (
+                        backup.schemaVersion >= 8 && it.dialIn.isValid() &&
+                            it.dialIn.previousShotId != it.id
+                        )
+            )
             valid(it.taste == null || (backup.schemaVersion >= 7 && it.taste.isValid()))
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)
         }

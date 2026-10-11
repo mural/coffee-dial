@@ -64,7 +64,9 @@ data class Shot(
     val cup: String? = null,
     val firstDrop: Double? = null,
     val taste: TasteProfile? = null,
-    val dialIn: DialInContext? = null
+    val dialIn: DialInContext? = null,
+    val machineId: String? = null,
+    val cupId: String? = null
 ) {
     val ratio: Double get() = output / dose
 }
@@ -86,7 +88,9 @@ data class ShotDraft(
     val cup: String = "",
     val firstDrop: String = "",
     val taste: TasteProfile? = null,
-    val dialIn: DialInContext? = null
+    val dialIn: DialInContext? = null,
+    val machineId: String? = null,
+    val cupId: String? = null
 ) {
     fun errors(): Map<String, String> = buildMap {
         if (beanName.isBlank()) put("beanName", "Ingresá el nombre del café")

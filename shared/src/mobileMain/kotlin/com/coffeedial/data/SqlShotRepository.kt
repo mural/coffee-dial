@@ -13,12 +13,13 @@ import com.coffeedial.backup.BackupV1
 import com.coffeedial.backup.ImportPlan
 import com.coffeedial.backup.ImportSummary
 import com.coffeedial.backup.planImport
+import com.coffeedial.backup.resolveEquipment
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.Bean
-import com.coffeedial.domain.DialInContext
 import com.coffeedial.domain.BeanDraft
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
+import com.coffeedial.domain.DialInContext
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
@@ -60,7 +61,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 cup = it.cup,
                 firstDrop = it.first_drop,
                 taste = it.taste?.let { value -> Json.decodeFromString<TasteProfile>(value) },
-                dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) }
+                dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) },
+                machineId = it.machine_id,
+                cupId = it.cup_id
             )
         }
     }
@@ -132,28 +135,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             }
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
             next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
-            next.shots.forEach {
-                queries.insertShot(
-                    id = it.id,
-                    bean_id = it.beanId,
-                    created_at = it.createdAt,
-                    dose = it.dose,
-                    output = it.output,
-                    seconds = it.seconds,
-                    grind = it.grind,
-                    temperature = it.temperature,
-                    notes = it.notes,
-                    rating = it.rating.toLong(),
-                    milk = it.milk,
-                    machine = it.machine,
-                    extra_water = it.extraWater,
-                    style = it.style,
-                    cup = it.cup,
-                    first_drop = it.firstDrop,
-                    taste = it.taste?.let { value -> Json.encodeToString(value) },
-                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
-                )
-            }
+            next.shots.forEach { writeShot(it) }
             queries.writeSyncCheckpoint(checkpoint)
         }
     }
@@ -167,6 +149,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.insertBean(Uuid.random().toString(), name, roaster, 0L)
             }
             val bean = queries.findBean(name, roaster).executeAsOne()
+            val linked = linkedEquipment(draft)
             queries.insertShot(
                 id = Uuid.random().toString(),
                 bean_id = bean.id,
@@ -179,13 +162,15 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 notes = draft.notes.trim(),
                 rating = draft.rating.toLong(),
                 milk = draft.milk.decimal(),
-                machine = draft.machine.trim().ifBlank { null },
+                machine = linked.machine,
                 extra_water = draft.extraWater.decimal(),
                 style = draft.style.trim().ifBlank { null },
-                cup = draft.cup.trim().ifBlank { null },
+                cup = linked.cup,
                 first_drop = draft.firstDrop.decimal(),
                 taste = draft.taste?.let { Json.encodeToString(it) },
-                dial_in = draft.dialIn?.let { Json.encodeToString(it) }
+                dial_in = draft.dialIn?.let { Json.encodeToString(it) },
+                machine_id = linked.machineId,
+                cup_id = linked.cupId
             )
         }
     }
@@ -210,6 +195,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             } else {
                 queries.findBean(name, roaster).executeAsOne()
             }
+            val linked = linkedEquipment(draft)
             queries.updateShot(
                 bean.id,
                 requireNotNull(draft.dose.decimal()),
@@ -220,13 +206,15 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 draft.notes.trim(),
                 draft.rating.toLong(),
                 draft.milk.decimal(),
-                draft.machine.trim().ifBlank { null },
+                linked.machine,
                 draft.extraWater.decimal(),
                 draft.style.trim().ifBlank { null },
-                draft.cup.trim().ifBlank { null },
+                linked.cup,
                 draft.firstDrop.decimal(),
                 draft.taste?.let { Json.encodeToString(it) },
                 draft.dialIn?.let { Json.encodeToString(it) },
+                linked.machineId,
+                linked.cupId,
                 id
             )
         }
@@ -252,11 +240,15 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     }
                 ) { "La máquina ya no existe." }
                 queries.insertMachine(id, draft.name.trim(), draft.type.trim(), draft.year.trim())
+                queries.renameShotMachine(draft.name.trim(), id)
             }
         }
 
     override suspend fun deleteMachine(id: String): Unit = withContext(Dispatchers.IO) {
-        queries.deleteMachine(id)
+        queries.transaction {
+            queries.clearShotMachine(id)
+            queries.deleteMachine(id)
+        }
     }
 
     override suspend fun saveBean(draft: BeanDraft): Unit = withContext(Dispatchers.IO) {
@@ -315,11 +307,15 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     }
                 ) { "La taza ya no existe." }
                 queries.updateCup(draft.name.trim(), draft.weight.decimal(), id)
+                queries.renameShotCup(draft.name.trim(), id)
             }
         }
 
     override suspend fun deleteCup(id: String): Unit = withContext(Dispatchers.IO) {
-        queries.deleteCup(id)
+        queries.transaction {
+            queries.clearShotCup(id)
+            queries.deleteCup(id)
+        }
     }
 
     private fun snapshot(): BackupV1 = BackupFormat.create(
@@ -355,7 +351,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 cup = it.cup,
                 firstDrop = it.first_drop,
                 taste = it.taste?.let { value -> Json.decodeFromString<TasteProfile>(value) },
-                dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) }
+                dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) },
+                machineId = it.machine_id,
+                cupId = it.cup_id
             )
         },
         machines = queries.allMachines().executeAsList().map {
@@ -406,28 +404,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
                 }
                 prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
-                prepared.plan.shots.forEach {
-                    queries.insertShot(
-                        id = it.id,
-                        bean_id = it.beanId,
-                        created_at = it.createdAt,
-                        dose = it.dose,
-                        output = it.output,
-                        seconds = it.seconds,
-                        grind = it.grind,
-                        temperature = it.temperature,
-                        notes = it.notes,
-                        rating = it.rating.toLong(),
-                        milk = it.milk,
-                        machine = it.machine,
-                        extra_water = it.extraWater,
-                        style = it.style,
-                        cup = it.cup,
-                        first_drop = it.firstDrop,
-                        taste = it.taste?.let { value -> Json.encodeToString(value) },
-                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
-                    )
-                }
+                prepared.plan.shots.forEach { writeShot(it) }
                 prepared.summary
             }
         }
@@ -451,28 +428,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.cups.forEach {
                     queries.insertCup(it.id, it.name, it.weight)
                 }
-                incoming.shots.forEach {
-                    queries.insertShot(
-                        id = it.id,
-                        bean_id = it.beanId,
-                        created_at = it.createdAt,
-                        dose = it.dose,
-                        output = it.output,
-                        seconds = it.seconds,
-                        grind = it.grind,
-                        temperature = it.temperature,
-                        notes = it.notes,
-                        rating = it.rating.toLong(),
-                        milk = it.milk,
-                        machine = it.machine,
-                        extra_water = it.extraWater,
-                        style = it.style,
-                        cup = it.cup,
-                        first_drop = it.firstDrop,
-                        taste = it.taste?.let { value -> Json.encodeToString(value) },
-                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
-                    )
-                }
+                incoming.shots.forEach { writeShot(it) }
             }
             ImportSummary(
                 incoming.beans.size,
@@ -507,28 +463,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.cups.forEach {
                     queries.insertCup(it.id, it.name, it.weight)
                 }
-                incoming.shots.forEach {
-                    queries.insertShot(
-                        id = it.id,
-                        bean_id = it.beanId,
-                        created_at = it.createdAt,
-                        dose = it.dose,
-                        output = it.output,
-                        seconds = it.seconds,
-                        grind = it.grind,
-                        temperature = it.temperature,
-                        notes = it.notes,
-                        rating = it.rating.toLong(),
-                        milk = it.milk,
-                        machine = it.machine,
-                        extra_water = it.extraWater,
-                        style = it.style,
-                        cup = it.cup,
-                        first_drop = it.firstDrop,
-                        taste = it.taste?.let { value -> Json.encodeToString(value) },
-                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
-                    )
-                }
+                incoming.shots.forEach { writeShot(it) }
             }
             ImportSummary(
                 incoming.beans.size,
@@ -539,6 +474,42 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 newCups = incoming.cups.size
             )
         }
+
+    private fun linkedEquipment(draft: ShotDraft) = resolveEquipment(
+        draft.machineId,
+        draft.machine,
+        draft.cupId,
+        draft.cup,
+        queries.allMachines().executeAsList().map {
+            BackupMachineV1(it.id, it.name, it.type, it.year)
+        },
+        queries.allCups().executeAsList().map { BackupCupV1(it.id, it.name, it.weight) }
+    )
+
+    private fun writeShot(shot: BackupShotV1) {
+        queries.insertShot(
+            id = shot.id,
+            bean_id = shot.beanId,
+            created_at = shot.createdAt,
+            dose = shot.dose,
+            output = shot.output,
+            seconds = shot.seconds,
+            grind = shot.grind,
+            temperature = shot.temperature,
+            notes = shot.notes,
+            rating = shot.rating.toLong(),
+            milk = shot.milk,
+            machine = shot.machine,
+            extra_water = shot.extraWater,
+            style = shot.style,
+            cup = shot.cup,
+            first_drop = shot.firstDrop,
+            taste = shot.taste?.let { Json.encodeToString(it) },
+            dial_in = shot.dialIn?.let { Json.encodeToString(it) },
+            machine_id = shot.machineId,
+            cup_id = shot.cupId
+        )
+    }
 }
 
 @Suppress("FunctionName")

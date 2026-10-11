@@ -2,6 +2,7 @@ package com.coffeedial.sync
 
 import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.data.SnapshotRepository
 import com.coffeedial.data.SnapshotStore
@@ -22,24 +23,110 @@ class SyncProtocolTest {
     @Test fun remoteEditAndLocalEditAreDistinguished() {
         val base = backup()
         val edited = base.copy(shots = base.shots.map { it.copy(notes = "edited") })
-        assertEquals(edited.shots, mergeSync(base, base, SyncDocument(backup = edited)).shots)
-        assertEquals(edited.shots, mergeSync(base, edited, SyncDocument(backup = base)).shots)
-        assertEquals(edited.shots, mergeSync(base, edited, SyncDocument(backup = edited)).shots)
+        assertEquals(
+            edited.shots,
+            mergeSync(base, base, SyncDocument(backup = edited)).backup.shots
+        )
+        assertEquals(
+            edited.shots,
+            mergeSync(base, edited, SyncDocument(backup = base)).backup.shots
+        )
+        assertEquals(
+            edited.shots,
+            mergeSync(base, edited, SyncDocument(backup = edited)).backup.shots
+        )
         val conflict = base.copy(shots = base.shots.map { it.copy(notes = "other") })
-        assertFailsWith<IllegalStateException> {
-            mergeSync(base, edited, SyncDocument(backup = conflict))
-        }
+        val clash = mergeSync(base, edited, SyncDocument(revision = 4, backup = conflict))
+        assertEquals(1, clash.conflicts.size)
+        assertEquals("s", clash.conflicts.single().id)
+        assertEquals(edited.shots, clash.backup.shots)
+    }
+
+    @Test fun resolutionKeepsTheChosenCopyAndAcknowledgesTheRemoteBase() {
+        val base = backup()
+        val local = base.copy(shots = base.shots.map { it.copy(notes = "local") })
+        val remoteBackup = base.copy(shots = base.shots.map { it.copy(notes = "remote") })
+        val remote = SyncDocument(revision = 4, backup = remoteBackup)
+        val conflict = mergeSync(base, local, remote).conflicts.single()
+        val saved = SyncCheckpoint("email:a@b.c", SyncDocument(backup = base))
+        val keepMine = planResolution(local, saved, remote, conflict, true, "email:a@b.c")
+        assertEquals("local", keepMine.backup.shots.single().notes)
+        assertEquals("remote", keepMine.checkpoint.document.backup.shots.single().notes)
+        val merged = mergeSync(
+            keepMine.checkpoint.document.backup,
+            keepMine.backup,
+            remote,
+            keepMine.checkpoint.revived.toSet()
+        )
+        assertTrue(merged.conflicts.isEmpty())
+        assertEquals("local", merged.backup.shots.single().notes)
+        val keepTheirs = planResolution(local, saved, remote, conflict, false, "email:a@b.c")
+        assertEquals("remote", keepTheirs.backup.shots.single().notes)
+        assertTrue(
+            mergeSync(
+                keepTheirs.checkpoint.document.backup,
+                keepTheirs.backup,
+                remote
+            ).conflicts.isEmpty()
+        )
+    }
+
+    @Test fun keepingALocalEditAgainstARemoteDeleteRevivesThatRecord() {
+        val base = backup()
+        val local = base.copy(shots = base.shots.map { it.copy(notes = "local") })
+        val remote = SyncDocument(
+            revision = 2,
+            backup = base.copy(shots = emptyList()),
+            deleted = mapOf("shots" to listOf("s"))
+        )
+        val conflict = mergeSync(base, local, remote).conflicts.single()
+        val planned = planResolution(
+            local,
+            SyncCheckpoint("a", SyncDocument(backup = base)),
+            remote,
+            conflict,
+            true,
+            "a"
+        )
+        assertEquals(listOf("shots:s"), planned.checkpoint.revived)
+        val again = mergeSync(
+            planned.checkpoint.document.backup,
+            planned.backup,
+            remote,
+            planned.checkpoint.revived.toSet()
+        )
+        assertTrue(again.conflicts.isEmpty())
+        assertEquals("local", again.backup.shots.single().notes)
+    }
+
+    @Test fun fillingEquipmentIdsIsNotAConflictButDifferentIdsAre() {
+        val machine = BackupMachineV1("m1", "Bianca", "Espresso", "")
+        val other = BackupMachineV1("m2", "Bianca", "Espresso", "")
+        val base = backup().copy(machines = listOf(machine, other))
+        val named = base.shots.single().copy(machine = "Bianca")
+        val linked = named.copy(machineId = "m1")
+        val local = base.copy(shots = listOf(linked))
+        val remote = base.copy(shots = listOf(named))
+        val filled = mergeSync(base, local, SyncDocument(backup = remote))
+        assertTrue(filled.conflicts.isEmpty())
+        assertEquals("m1", filled.backup.shots.single().machineId)
+        val diverged = mergeSync(
+            base,
+            local,
+            SyncDocument(backup = base.copy(shots = listOf(named.copy(machineId = "m2"))))
+        )
+        assertEquals(1, diverged.conflicts.size)
     }
 
     @Test fun deletionPropagatesButEditVersusDeleteConflicts() {
         val base = backup()
         val removed = base.copy(shots = emptyList())
         val remote = SyncDocument(backup = removed, deleted = mapOf("shots" to listOf("s")))
-        assertTrue(mergeSync(base, base, remote).shots.isEmpty())
-        assertTrue(mergeSync(base, removed, SyncDocument(backup = base)).shots.isEmpty())
+        assertTrue(mergeSync(base, base, remote).backup.shots.isEmpty())
+        assertTrue(mergeSync(base, removed, SyncDocument(backup = base)).backup.shots.isEmpty())
         val edited = base.copy(shots = base.shots.map { it.copy(notes = "edited") })
-        assertFailsWith<IllegalStateException> { mergeSync(base, edited, remote) }
-        assertFailsWith<IllegalStateException> { mergeSync(removed, base, remote) }
+        assertEquals(1, mergeSync(base, edited, remote).conflicts.size)
+        assertEquals(1, mergeSync(removed, base, remote).conflicts.size)
     }
 
     @Test fun differentRecordsMergeAndEmptyCloudDoesNotDeleteUnsyncedData() {
@@ -47,10 +134,10 @@ class SyncProtocolTest {
         val local = base.copy(shots = base.shots + base.shots.single().copy(id = "new"))
         val remote = base.copy(shots = base.shots.map { it.copy(notes = "remote") })
         val merged = mergeSync(base, local, SyncDocument(backup = remote))
-        assertEquals(2, merged.shots.size)
-        assertEquals("remote", merged.shots.single { it.id == "s" }.notes)
+        assertEquals(2, merged.backup.shots.size)
+        assertEquals("remote", merged.backup.shots.single { it.id == "s" }.notes)
         val empty = BackupFormat.create(emptyList(), emptyList())
-        assertEquals(base.shots, mergeSync(empty, base, SyncDocument(backup = empty)).shots)
+        assertEquals(base.shots, mergeSync(empty, base, SyncDocument(backup = empty)).backup.shots)
     }
     private class Store : SnapshotStore {
         var value: String? = null

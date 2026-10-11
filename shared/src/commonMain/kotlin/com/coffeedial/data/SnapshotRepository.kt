@@ -9,6 +9,7 @@ import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.backup.BackupV1
 import com.coffeedial.backup.ImportSummary
 import com.coffeedial.backup.planImport
+import com.coffeedial.backup.resolveEquipment
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.BeanDraft
 import com.coffeedial.domain.Cup
@@ -60,10 +61,9 @@ class SnapshotRepository private constructor(
             text
         ) as kotlinx.serialization.json.JsonObject
         if ("storageVersion" !in root) return StoredSnapshot(backup = BackupFormat.decode(text))
-        return kotlinx.serialization.json.Json.decodeFromString<StoredSnapshot>(text).also {
-            require(it.storageVersion == 2)
-            BackupFormat.validate(it.backup)
-        }
+        val decoded = kotlinx.serialization.json.Json.decodeFromString<StoredSnapshot>(text)
+        require(decoded.storageVersion == 2)
+        return decoded.copy(backup = BackupFormat.migrate(decoded.backup))
     }
     private var stored = decodeStorage(raw)
     private var data = stored.backup
@@ -97,7 +97,8 @@ class SnapshotRepository private constructor(
                 Shot(
                     it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
                     it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating,
-                    it.extraWater, it.style, it.cup, it.firstDrop, it.taste, it.dialIn
+                    it.extraWater, it.style, it.cup, it.firstDrop, it.taste, it.dialIn,
+                    machineId = it.machineId, cupId = it.cupId
                 )
             }
         machines.value =
@@ -203,8 +204,24 @@ class SnapshotRepository private constructor(
             draft.style.trim().ifBlank {
                 null
             },
-            draft.cup.trim().ifBlank { null }, draft.firstDrop.decimal(), draft.taste, draft.dialIn
-        )
+            draft.cup.trim().ifBlank { null }, draft.firstDrop.decimal(), draft.taste, draft.dialIn,
+            machineId = draft.machineId, cupId = draft.cupId
+        ).let { shot ->
+            val linked = resolveEquipment(
+                shot.machineId,
+                shot.machine,
+                shot.cupId,
+                shot.cup,
+                local.machines,
+                local.cups
+            )
+            shot.copy(
+                machineId = linked.machineId,
+                machine = linked.machine,
+                cupId = linked.cupId,
+                cup = linked.cup
+            )
+        }
         return local.copy(
             beans = if (bean in local.beans) local.beans else local.beans + bean,
             shots = local.shots.filterNot { it.id == shot.id } + shot
@@ -295,13 +312,19 @@ class SnapshotRepository private constructor(
         it.copy(
             cups = it.cups.map { cup ->
                 if (cup.id == id) BackupCupV1(id, name, weight) else cup
+            },
+            shots = it.shots.map { shot ->
+                if (shot.cupId == id) shot.copy(cup = name) else shot
             }
         )
     }
 
     override suspend fun deleteCup(id: String) = change {
         it.copy(
-            cups = it.cups.filterNot { cup -> cup.id == id }
+            cups = it.cups.filterNot { cup -> cup.id == id },
+            shots = it.shots.map { shot ->
+                if (shot.cupId == id) shot.copy(cupId = null) else shot
+            }
         )
     }
 
@@ -331,14 +354,17 @@ class SnapshotRepository private constructor(
         it.copy(
             machines = it.machines.map { machine ->
                 if (machine.id == id) BackupMachineV1(id, name, type, year) else machine
+            },
+            shots = it.shots.map { shot ->
+                if (shot.machineId == id) shot.copy(machine = name) else shot
             }
         )
     }
     override suspend fun deleteMachine(id: String) = change {
         it.copy(
-            machines = it.machines.filterNot { machine ->
-                machine.id ==
-                    id
+            machines = it.machines.filterNot { machine -> machine.id == id },
+            shots = it.shots.map { shot ->
+                if (shot.machineId == id) shot.copy(machineId = null) else shot
             }
         )
     }

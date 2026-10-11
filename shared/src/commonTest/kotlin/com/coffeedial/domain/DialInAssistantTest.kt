@@ -99,4 +99,26 @@ class DialInAssistantTest {
         val cyclic = source.copy(dialIn = context.copy(previousShotId = "child"))
         assertEquals(2, dialInLineage(child, listOf(cyclic, child)).size)
     }
+
+    @Test fun machineIdSurvivesARenameAndRejectsAnotherMachineWithTheSameName() {
+        val source = shot().copy(machine = "Bianca", machineId = "m1")
+        val renamed = shot("two", TasteImpression.BALANCED).copy(
+            output = 32.0,
+            machine = "Lelit Bianca",
+            machineId = "m1",
+            dialIn = context.copy(favorite = true)
+        )
+        val alsoPreferred = renamed.copy(id = "three", output = 40.0)
+        val sameName = renamed.copy(
+            id = "other",
+            machineId = "m2",
+            machine = "Bianca",
+            output = 24.0
+        )
+        val advice = dialInAdvice(source, context, listOf(renamed, alsoPreferred, sameName))
+        assertEquals(setOf("two", "three"), advice.references.map { it.id }.toSet())
+        assertEquals("m1", advice.next?.machineId)
+        // Two matching ratios put the median at 40 g. Including the other machine would make it 32 g.
+        assertEquals(40.0, advice.next?.output?.toDouble())
+    }
 }

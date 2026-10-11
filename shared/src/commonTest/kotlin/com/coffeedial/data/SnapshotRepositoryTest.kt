@@ -1,12 +1,18 @@
 package com.coffeedial.data
 
+import com.coffeedial.backup.BackupBeanV1
+import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.backup.BackupMachineV1
+import com.coffeedial.backup.BackupShotV1
+import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.ShotDraft
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -33,7 +39,11 @@ class SnapshotRepositoryTest {
                 beanName = "Brasil",
                 firstDrop = "6.2",
                 taste = com.coffeedial.domain.TasteProfile(body = 7, acidity = 2),
-                dialIn = com.coffeedial.domain.DialInContext(grinder = "J-Ultra", previousShotId = "previous", favorite = true),
+                dialIn = com.coffeedial.domain.DialInContext(
+                    grinder = "J-Ultra",
+                    previousShotId = "previous",
+                    favorite = true
+                ),
                 grind = "12",
                 milk = "80",
                 notes = "Chocolate",
@@ -81,6 +91,65 @@ class SnapshotRepositoryTest {
         assertFailsWith<IllegalStateException> {
             repo.updateMachine(id, MachineDraft("No revivir"))
         }
+    }
+
+    @Test fun shotKeepsMachineAndCupIdentityWhenTheCatalogIsRenamedOrRemoved() = runTest {
+        val store = Store()
+        val repo = SnapshotRepository.open(store)
+        repo.saveMachine(MachineDraft("Bianca"))
+        repo.saveCup(CupDraft("Cerámica", "180"))
+        val machine = repo.machines.value.single()
+        val cup = repo.cups.value.single()
+        repo.save(
+            ShotDraft(
+                machine = machine.name,
+                machineId = machine.id,
+                cup = cup.name,
+                cupId = cup.id
+            )
+        )
+        val shot = repo.history.value.single()
+        assertEquals(machine.id, shot.machineId)
+        assertEquals(cup.id, shot.cupId)
+        repo.updateMachine(machine.id, MachineDraft("Lelit Bianca"))
+        repo.updateCup(cup.id, CupDraft("Gres", "180"))
+        val renamed = repo.history.value.single()
+        assertEquals(machine.id, renamed.machineId)
+        assertEquals("Lelit Bianca", renamed.machine)
+        assertEquals(cup.id, renamed.cupId)
+        assertEquals("Gres", renamed.cup)
+        repo.deleteMachine(machine.id)
+        repo.deleteCup(cup.id)
+        val detached = repo.history.value.single()
+        assertNull(detached.machineId)
+        assertNull(detached.cupId)
+        assertEquals("Lelit Bianca", detached.machine)
+        assertEquals("Gres", detached.cup)
+    }
+
+    @Test fun legacyBackupLinksUniqueEquipmentAndLeavesAmbiguousNamesAlone() = runTest {
+        val bean = BackupBeanV1("bean", "Brasil", "")
+        val robot = BackupMachineV1("m-robot", "Robot", "Manual", "")
+        val first = BackupMachineV1("m1", "Bianca", "Espresso", "")
+        val second = BackupMachineV1("m2", "Bianca", "Espresso", "")
+        val cup = BackupCupV1("c1", "Cerámica", 180.0)
+        fun shot(id: String, machine: String?, cupName: String?) = BackupShotV1(
+            id, bean.id, 1, 18.0, 36.0, 28.0, "12", null, notes = "", rating = 4,
+            machine = machine, cup = cupName
+        )
+        val old = BackupFormat.create(
+            listOf(bean),
+            listOf(shot("linked", "robot", "Cerámica"), shot("ambiguous", "Bianca", null)),
+            listOf(robot, first, second),
+            listOf(cup)
+        ).copy(schemaVersion = 8)
+        val store = Store()
+        store.text = BackupFormat.encode(old)
+        val shots = SnapshotRepository.open(store).history.value.associateBy { it.id }
+        assertEquals("m-robot", shots.getValue("linked").machineId)
+        assertEquals("c1", shots.getValue("linked").cupId)
+        assertEquals("robot", shots.getValue("linked").machine)
+        assertNull(shots.getValue("ambiguous").machineId)
     }
 
     @Test
@@ -164,7 +233,7 @@ class SnapshotRepositoryTest {
             after,
             com.coffeedial.sync.SyncDocument(backup = before)
         )
-        assertEquals(after.cups, merged.cups)
+        assertEquals(after.cups, merged.backup.cups)
         assertFailsWith<IllegalArgumentException> {
             repo.saveCup(com.coffeedial.domain.CupDraft("Inválida", "NaN"))
         }
@@ -194,8 +263,8 @@ class SnapshotRepositoryTest {
             base,
             com.coffeedial.sync.SyncDocument(backup = repo.readSyncLocal().backup)
         )
-        assertTrue(merged.beans.single().archived)
-        assertEquals(1, merged.shots.size)
+        assertTrue(merged.backup.beans.single().archived)
+        assertEquals(1, merged.backup.shots.size)
         repo.save(draft)
         assertEquals(1, repo.beans.value.size)
         assertEquals(2, repo.history.value.size)

@@ -2,6 +2,7 @@ package com.coffeedial.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.coffeedial.database.CoffeeDatabase
+import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.ShotDraft
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -81,6 +82,79 @@ class SyncPersistenceTest {
                 0
             )
             assertEquals(2, repo.readSyncLocal().backup.beans.size)
+        }
+    }
+
+    @Test fun migration12LinksAUniqueMachineAndCupAndSkipsAmbiguousNames() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+            driver.execute(
+                null,
+                "CREATE TABLE bean (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, roaster TEXT NOT NULL, UNIQUE(name, roaster))",
+                0
+            )
+            driver.execute(
+                null,
+                "CREATE TABLE machine (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, year TEXT NOT NULL)",
+                0
+            )
+            driver.execute(
+                null,
+                "CREATE TABLE shot (id TEXT NOT NULL PRIMARY KEY, bean_id TEXT NOT NULL REFERENCES bean(id), created_at INTEGER NOT NULL, dose REAL NOT NULL, output REAL NOT NULL, seconds REAL NOT NULL, grind TEXT NOT NULL, temperature REAL, notes TEXT NOT NULL, rating INTEGER NOT NULL, milk REAL, machine TEXT)",
+                0
+            )
+            driver.execute(null, "CREATE INDEX shot_created_at ON shot(created_at DESC)", 0)
+            driver.execute(null, "CREATE INDEX shot_bean_id ON shot(bean_id)", 0)
+            driver.execute(null, "INSERT INTO bean VALUES ('b', 'Brasil', '')", 0)
+            driver.execute(
+                null,
+                "INSERT INTO shot VALUES ('s', 'b', 100, 18, 36, 28, '12', NULL, 'original', 4, NULL, NULL)",
+                0
+            )
+            CoffeeDatabase.Schema.migrate(driver, 4, 12)
+            driver.execute(null, "INSERT INTO machine VALUES ('m-robot', 'Robot', 'Manual', '')", 0)
+            driver.execute(null, "INSERT INTO machine VALUES ('m1', 'Bianca', 'Espresso', '')", 0)
+            driver.execute(null, "INSERT INTO machine VALUES ('m2', 'Bianca', 'Espresso', '')", 0)
+            driver.execute(
+                null,
+                "INSERT INTO cup (id, name, weight) VALUES ('c1', 'Cerámica', 180)",
+                0
+            )
+            driver.execute(
+                null,
+                "INSERT INTO shot (id, bean_id, created_at, dose, output, seconds, grind, notes, rating, machine, cup) VALUES ('linked', 'b', 1, 18, 36, 28, '12', '', 4, 'robot', 'Cerámica')",
+                0
+            )
+            driver.execute(
+                null,
+                "INSERT INTO shot (id, bean_id, created_at, dose, output, seconds, grind, notes, rating, machine) VALUES ('ambiguous', 'b', 2, 18, 36, 28, '12', '', 4, 'Bianca')",
+                0
+            )
+            CoffeeDatabase.Schema.migrate(driver, 12, CoffeeDatabase.Schema.version)
+            val shots = ShotRepository(driver).readSyncLocal().backup.shots.associateBy { it.id }
+            assertEquals("m-robot", shots.getValue("linked").machineId)
+            assertEquals("c1", shots.getValue("linked").cupId)
+            assertEquals("robot", shots.getValue("linked").machine)
+            assertNull(shots.getValue("ambiguous").machineId)
+            assertNull(shots.getValue("s").machineId)
+        }
+    }
+
+    @Test fun renamingOrDeletingAMachineKeepsTheShotLinkUntilTheMachineIsGone() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repo = ShotRepository(driver)
+            repo.saveMachine(MachineDraft("Bianca"))
+            val id = repo.machines.first().single().id
+            repo.save(ShotDraft(machine = "Bianca", machineId = id))
+            repo.updateMachine(id, MachineDraft("Lelit Bianca"))
+            val renamed = repo.readSyncLocal().backup.shots.single()
+            assertEquals(id, renamed.machineId)
+            assertEquals("Lelit Bianca", renamed.machine)
+            repo.deleteMachine(id)
+            val kept = repo.readSyncLocal().backup.shots.single()
+            assertNull(kept.machineId)
+            assertEquals("Lelit Bianca", kept.machine)
         }
     }
 

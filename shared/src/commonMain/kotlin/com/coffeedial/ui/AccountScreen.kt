@@ -37,7 +37,8 @@ fun AccountScreen(
     authRepository: AuthRepository,
     syncEngine: SyncEngine? = null,
     onAdmin: () -> Unit = {},
-    onBackup: (() -> Unit)? = null
+    onBackup: (() -> Unit)? = null,
+    onConflicts: () -> Unit = {}
 ) {
     val state by authRepository.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -54,9 +55,18 @@ fun AccountScreen(
         }
     }
 
-    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavigationSpace.current), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (onBackup != null) item {
-            androidx.compose.material3.TextButton(onClick = onBackup) { Text("Backup: exportar / importar") }
+    LazyColumn(
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            bottom = LocalNavigationSpace.current
+        ),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (onBackup != null) {
+            item {
+                androidx.compose.material3.TextButton(onClick = onBackup) {
+                    Text("Backup: exportar / importar")
+                }
+            }
         }
         item {
             Text("Mi Cuenta", style = MaterialTheme.typography.headlineSmall)
@@ -249,6 +259,22 @@ fun AccountScreen(
                                         color = MaterialTheme.colorScheme.error,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
+                                }
+
+                                is SyncState.Conflict -> {
+                                    Text(
+                                        "Hay ${sync.conflicts.size} registros con cambios " +
+                                            "distintos. Elegí qué copia conservar. " +
+                                            "No se reemplazó ninguna.",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    OutlinedButton(
+                                        onClick = onConflicts,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Revisar conflictos")
+                                    }
                                 }
                             }
 
