@@ -164,3 +164,17 @@ DELETE FROM grinder;
 
 setBeanPhoto:
 UPDATE bean SET photo = ? WHERE id = ?;
+
+CREATE TABLE recipe (id TEXT NOT NULL PRIMARY KEY, payload TEXT NOT NULL);
+
+allRecipes:
+SELECT * FROM recipe;
+
+insertRecipe:
+INSERT OR REPLACE INTO recipe VALUES (?, ?);
+
+deleteRecipe:
+DELETE FROM recipe WHERE id = ?;
+
+clearRecipes:
+DELETE FROM recipe;

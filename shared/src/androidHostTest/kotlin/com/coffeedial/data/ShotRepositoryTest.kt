@@ -2,7 +2,9 @@ package com.coffeedial.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.coffeedial.database.CoffeeDatabase
+import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.ShotDraft
+import com.coffeedial.domain.asRecipe
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -113,6 +115,26 @@ class ShotRepositoryTest {
             assertFailsWith<IllegalStateException> {
                 repo.updateGrinder(id, com.coffeedial.domain.GrinderDraft("No revivir"))
             }
+        }
+    }
+
+    @Test fun recipeSurvivesDeletingTheShotThatInspiredIt() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repo = ShotRepository(driver)
+            repo.save(ShotDraft(beanName = "Brasil", milk = "40", extraWater = "30"))
+            val shot = repo.history.first().single()
+            val recipe = shot.asRecipe("r1", "Diario")
+            repo.saveRecipe(recipe)
+            repo.delete(shot.id)
+            assertEquals(emptyList(), repo.history.first())
+            assertEquals(listOf(recipe), repo.recipes.first())
+            val again = Recipe(
+                recipe.id, "Diario fino", recipe.beanName, recipe.roaster, 20.0, 40.0,
+                recipe.grind, milk = recipe.milk, extraWater = recipe.extraWater
+            )
+            repo.saveRecipe(again)
+            assertEquals(again, repo.readSyncLocal().backup.recipes.single())
         }
     }
 

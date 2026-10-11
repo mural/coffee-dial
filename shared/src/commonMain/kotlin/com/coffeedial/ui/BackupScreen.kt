@@ -104,7 +104,7 @@ internal fun BackupScreen(
             Text(
                 "${summary.newBeans} cafés · ${summary.newShots} shots · " +
                     "${summary.newMachines} máquinas · ${summary.newGrinders} molinillos · " +
-                    "${summary.newCups} tazas nuevas"
+                    "${summary.newCups} tazas · ${summary.newRecipes} recetas nuevas"
             )
             if (summary.duplicates > 0) {
                 Text("${summary.duplicates} shots ya existentes.")
@@ -122,7 +122,7 @@ internal fun BackupScreen(
                         lastImportText = null
                         message = "Importación completa: ${result.newBeans} cafés, " +
                             "${result.newShots} shots, ${result.newGrinders} molinillos y " +
-                            "${result.newCups} tazas procesados."
+                            "${result.newCups} tazas y ${result.newRecipes} recetas procesados."
                     }
                 }
             }) { Text("Combinar datos del backup") }
@@ -136,7 +136,7 @@ internal fun BackupScreen(
                             lastImportText = null
                             message = "Reemplazo completo: ${result.newBeans} cafés, " +
                                 "${result.newShots} shots, ${result.newMachines} máquinas, " +
-                                "${result.newGrinders} molinillos y ${result.newCups} tazas " +
+                                "${result.newGrinders} molinillos, ${result.newCups} tazas y ${result.newRecipes} recetas " +
                                 "cargados desde el backup."
                         }
                     }

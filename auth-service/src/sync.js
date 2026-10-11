@@ -1,15 +1,16 @@
 // Versioned snapshot CAS. Tombstones are permanent: UUIDs must never be reused.
-export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [], grinders: [] });
-export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [], grinders: [] } });
+export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [] });
+export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [] } });
 export function validateBackup(b) {
-  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
+  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
   b.machines ??= [];
   b.cups ??= [];
   b.grinders ??= [];
-  for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders']) {
+  b.recipes ??= [];
+  for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders', 'recipes']) {
     if (!Array.isArray(b[kind]) || b[kind].length > 50000 || b[kind].some(x => !x || !id(x.id)) || new Set(b[kind].map(x => x.id)).size !== b[kind].length) throw new Error('invalid_ids');
   }
   if (b.beans.some(x => x.archived !== undefined && typeof x.archived !== 'boolean')) throw new Error('invalid_bean');
@@ -28,6 +29,14 @@ export function validateBackup(b) {
     (x.dialIn.grinder !== undefined && !text(x.dialIn.grinder, 200)) ||
     (x.dialIn.favorite !== undefined && typeof x.dialIn.favorite !== 'boolean') ||
     (x.dialIn.previousShotId != null && (!id(x.dialIn.previousShotId) || x.dialIn.previousShotId === x.id))))) throw new Error('invalid_shot');
+  if (b.recipes.some(x => b.schemaVersion < 11 || !text(x.name, 100) || !x.name.trim() ||
+    !text(x.beanName) || !x.beanName.trim() || !text(x.roaster) || !text(x.grind) || !x.grind.trim() ||
+    !positive(x.dose) || x.dose < 0.1 || x.dose > 100 || !positive(x.output) || x.output < 0.1 || x.output > 1000 ||
+    (x.temperature != null && (!positive(x.temperature) || x.temperature < 1 || x.temperature > 100)) ||
+    (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 200)) ||
+    (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) ||
+    ['machine', 'grinder', 'cup'].some(k => x[k] != null && !text(x[k])) ||
+    (x.style != null && !text(x.style, 100)))) throw new Error('invalid_recipe');
   const beans = new Set(b.beans.map(x => x.id));
   if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster))) throw new Error('invalid_bean');
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');
@@ -55,7 +64,7 @@ export async function updateSync(storage, input) {
     if (input.backup.schemaVersion < previous.backup.schemaVersion) throw new Error("backup_upgrade_required");
     if (previous.revision !== input.baseRevision) return { conflict: true };
     const deleted = {};
-    for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders']) {
+    for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders', 'recipes']) {
       const tombstones = new Set(previous.deleted[kind] || []);
       const ids = new Set(input.backup[kind].map(x => x.id));
       if (!input.force && [...ids].some(id => tombstones.has(id))) return { conflict: true };
@@ -74,6 +83,7 @@ export async function seedLegacy(storage, backup) {
   backup.machines ??= [];
   backup.cups ??= [];
   backup.grinders ??= [];
+  backup.recipes ??= [];
   validateBackup(backup);
   return storage.transaction(async tx => {
     const existing = await tx.get('sync_v2');

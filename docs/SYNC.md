@@ -10,15 +10,15 @@ SQLite, el backup JSON y el protocolo se versionan por separado. El protocolo si
 
 | Capa | Versión | Dónde |
 |---|---|---|
-| SQLite / SQLDelight | 14 | `CoffeeDatabase.Schema.version`. La próxima migración es `14.sqm` |
-| Backup JSON | 10 | `BackupFormat.CURRENT_VERSION`. Cliente y servidor aceptan 1–10 |
+| SQLite / SQLDelight | 15 | `CoffeeDatabase.Schema.version`. La próxima migración es `15.sqm` |
+| Backup JSON | 11 | `BackupFormat.CURRENT_VERSION`. Cliente y servidor aceptan 1–11 |
 | Sync | protocolo 2 | Compare-and-swap de la revisión del snapshot |
 
-Backup: 1 base; 2 agua extra y estilo; 3 tazas; 4 archivado; 5 referencia de foto; 6 primera gota; 7 perfil de sabor; 8 dial-in; 9 `machineId` y `cupId`; 10 molinillos (`grinder`, `grinderId`). Un backup anterior a 10 copia el molinillo del dial-in al shot y vincula el id solo si hay un único molinillo con ese nombre. No crea filas de catálogo a partir del texto. Un campo nuevo que viaje en el backup sube esta versión en el cliente y en `auth-service/src/sync.js` a la vez. Los archivos viejos se leen sin inventar valores. El servidor rechaza escribir una versión anterior a la que ya tiene. Las reglas para hacerlo están en [AGENTS.md](../AGENTS.md).
+Backup: 1 base; 2 agua extra y estilo; 3 tazas; 4 archivado; 5 referencia de foto; 6 primera gota; 7 perfil de sabor; 8 dial-in; 9 `machineId` y `cupId`; 10 molinillos (`grinder`, `grinderId`); 11 recetas. Un backup anterior a 10 copia el molinillo del dial-in al shot y vincula el id solo si hay un único molinillo con ese nombre. No crea filas de catálogo a partir del texto. Una receta no se borra ni se edita cuando cambia el shot del que salió. Un campo nuevo que viaje en el backup sube esta versión en el cliente y en `auth-service/src/sync.js` a la vez. Los archivos viejos se leen sin inventar valores. El servidor rechaza escribir una versión anterior a la que ya tiene. Las reglas para hacerlo están en [AGENTS.md](../AGENTS.md).
 
 ## Cambios y borrados
 
-- UUIDs estables para shots, beans, máquinas, molinillos y tazas. No se deduce identidad a partir del nombre, email o fecha.
+- UUIDs estables para shots, beans, máquinas, molinillos, tazas y recetas. No se deduce identidad a partir del nombre, email o fecha.
 - Cada dispositivo guarda el último snapshot confirmado, la cuenta y la revisión. Los cambios locales aún no confirmados se calculan comparando ese snapshot con la base local persistente, incluso después de reiniciar.
 - Se comparan tres versiones de cada UUID: base confirmada, local y remota. Ediciones de registros diferentes se combinan. Dos cambios distintos en el mismo registro, o editar frente a borrar, producen conflicto sin modificar ninguno de los dos lados.
 - El servidor aplica un compare-and-swap de la revisión del snapshot completo en una sola transacción. Si otro dispositivo escribió primero devuelve 409: reintentar vuelve a leer y combinar, sin sobrescribir la nueva revisión.

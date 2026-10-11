@@ -7,6 +7,7 @@ import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.domain.Recipe
 import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
@@ -102,6 +103,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         rows.map { Cup(it.id, it.name, it.weight) }
     }
 
+    override val recipes: Flow<List<Recipe>> = queries.allRecipes().asFlow().mapToList(Dispatchers.IO).map { rows ->
+        rows.map { Json.decodeFromString<Recipe>(it.payload) }.sortedBy { it.name }
+    }
+
     override val grinders: Flow<List<Grinder>> = queries.allGrinders().asFlow().mapToList(
         Dispatchers.IO
     ).map { rows ->
@@ -136,6 +141,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.clearMachines()
             queries.clearCups()
             queries.clearGrinders()
+            queries.clearRecipes()
             next.beans.forEach {
                 queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                 queries.setBeanPhoto(
@@ -148,6 +154,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
             next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
             next.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
+            next.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
             next.shots.forEach { writeShot(it) }
             queries.writeSyncCheckpoint(checkpoint)
         }
@@ -359,7 +366,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         }
     }
 
+    override suspend fun saveRecipe(recipe: Recipe): Unit = withContext(Dispatchers.IO) {
+        require(recipe.isValid())
+        queries.insertRecipe(recipe.id, Json.encodeToString(recipe))
+    }
+    override suspend fun deleteRecipe(id: String): Unit = withContext(Dispatchers.IO) {
+        queries.deleteRecipe(id)
+    }
+
     private fun snapshot(): BackupV1 = BackupFormat.create(
+        recipes = queries.allRecipes().executeAsList().map { Json.decodeFromString<Recipe>(it.payload) },
         beans = queries.allBeans().executeAsList().map {
             BackupBeanV1(
                 it.id,
@@ -431,7 +447,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     current.shots != prepared.local.shots ||
                     current.machines != prepared.local.machines ||
                     current.cups != prepared.local.cups ||
-                    current.grinders != prepared.local.grinders
+                    current.grinders != prepared.local.grinders ||
+                    current.recipes != prepared.local.recipes
                 ) {
                     throw BackupException(
                         "El historial cambió. " +
@@ -452,6 +469,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 }
                 prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
                 prepared.plan.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
+                prepared.plan.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
                 prepared.plan.shots.forEach { writeShot(it) }
                 prepared.summary
             }
@@ -479,6 +497,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.grinders.forEach {
                     queries.insertGrinder(it.id, it.name, it.type)
                 }
+                incoming.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
                 incoming.shots.forEach { writeShot(it) }
             }
             ImportSummary(
@@ -488,7 +507,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 0,
                 0,
                 newCups = incoming.cups.size,
-                newGrinders = incoming.grinders.size
+                newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
             )
         }
 
@@ -501,6 +520,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.clearMachines()
                 queries.clearCups()
                 queries.clearGrinders()
+            queries.clearRecipes()
                 incoming.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                     queries.setBeanPhoto(
@@ -519,6 +539,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.grinders.forEach {
                     queries.insertGrinder(it.id, it.name, it.type)
                 }
+                incoming.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
                 incoming.shots.forEach { writeShot(it) }
             }
             ImportSummary(
@@ -528,7 +549,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 0,
                 0,
                 newCups = incoming.cups.size,
-                newGrinders = incoming.grinders.size
+                newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
             )
         }
 

@@ -39,6 +39,7 @@ fun HomeScreen(
     onNewShot: () -> Unit,
     onOpenTimer: () -> Unit = {},
     onOpenDialIn: () -> Unit = {},
+    onRecipes: () -> Unit = {},
     onSelectShot: (Shot) -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToBeans: () -> Unit,
@@ -123,6 +124,7 @@ fun HomeScreen(
                     }
                     if (screen == "home") {
                         Text("Timer y recetas para tu próxima extracción.")
+                        Button(onClick = onRecipes, modifier = Modifier.fillMaxWidth()) { Text("Mis recetas · repetir café") }
                         Button(onClick = onOpenTimer, modifier = Modifier.fillMaxWidth()) {
                             Text("Iniciar Shot Timer")
                         }

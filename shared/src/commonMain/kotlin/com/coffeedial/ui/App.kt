@@ -45,6 +45,8 @@ import com.coffeedial.auth.AuthState
 import com.coffeedial.auth.User
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
+import com.coffeedial.domain.Recipe
+import com.coffeedial.domain.asRecipe
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.DialInContext
@@ -117,6 +119,8 @@ fun App(
     var timerOrigin by rememberSaveable { mutableStateOf("home") }
     var pillar by rememberSaveable { mutableStateOf("home") }
     var screen by rememberSaveable { mutableStateOf("home") }
+    var recipeInitial by rememberSaveable { mutableStateOf<String?>(null) }
+    var recipes by remember { mutableStateOf<List<Recipe>>(emptyList()) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
     var shots by remember { mutableStateOf<List<Shot>?>(null) }
@@ -211,6 +215,7 @@ fun App(
             launch { repository.machines.collect { machines = it } }
             launch { repository.beans.collect { beansList = it } }
             launch { repository.cups.collect { cupsList = it } }
+            launch { repository.recipes.collect { recipes = it } }
             launch { repository.grinders.collect { grinders = it } }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -344,6 +349,41 @@ fun App(
                                 }
                             }
                             when (screen) {
+                                "recipes" -> RecipesScreen(
+                                    recipes, recipeInitial, saving, saveError,
+                                    onHistory = { screen = "history" },
+                                    onSave = { recipe, done ->
+                                        saving = true; saveError = null
+                                        scope.launch {
+                                            try {
+                                                repository.saveRecipe(recipe)
+                                                recipeInitial = null
+                                                done()
+                                                scope.launch { syncEngine.performSync() }
+                                            } catch (cancelled: CancellationException) { throw cancelled }
+                                            catch (_: Exception) { saveError = "No pudimos guardar la receta. Reintentá." }
+                                            finally { saving = false }
+                                        }
+                                    },
+                                    onDelete = { id ->
+                                        saving = true; saveError = null
+                                        scope.launch {
+                                            try {
+                                                repository.deleteRecipe(id)
+                                                scope.launch { syncEngine.performSync() }
+                                            } catch (cancelled: CancellationException) { throw cancelled }
+                                            catch (_: Exception) { saveError = "No pudimos eliminar la receta. Reintentá." }
+                                            finally { saving = false }
+                                        }
+                                    },
+                                    onPrepare = { recipe, withTimer ->
+                                        draft = recipe.toDraft()
+                                        timer.reset()
+                                        timerOrigin = "new"
+                                        saveError = null
+                                        screen = if (withTimer) "timer" else "new"
+                                    }
+                                )
                                 "backup" -> BackupScreen(repository, backupFiles, saving, {
                                     saving = it
                                 })
@@ -723,6 +763,11 @@ fun App(
                                     } else {
                                         ShotDetail(
                                             shot = shot,
+                                            onSaveRecipe = {
+                                                recipeInitial = Json.encodeToString(shot.asRecipe(kotlin.uuid.Uuid.random().toString(), "${shot.bean.name} · ${shot.style ?: "Espresso"}".take(100)))
+                                                saveError = null
+                                                screen = "recipes"
+                                            },
                                             onDialIn = {
                                                 assistantOrigin = "detail"
                                                 saveError = null
@@ -784,6 +829,7 @@ fun App(
 
                                     HomeScreen(
                                         screen = screen,
+                                    onRecipes = { recipeInitial = null; saveError = null; screen = "recipes" },
                                         shots = shots,
                                         filteredShots = filteredShots,
                                         selectedStyle = selectedStyle,

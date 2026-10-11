@@ -8,7 +8,8 @@ data class ImportSummary(
     val duplicates: Int,
     val conflicts: Int,
     val newCups: Int = 0,
-    val newGrinders: Int = 0
+    val newGrinders: Int = 0,
+    val newRecipes: Int = 0
 )
 
 internal data class ImportPlan(
@@ -17,7 +18,8 @@ internal data class ImportPlan(
     val machines: List<BackupMachineV1>,
     val summary: ImportSummary,
     val cups: List<BackupCupV1> = emptyList(),
-    val grinders: List<BackupGrinderV1> = emptyList()
+    val grinders: List<BackupGrinderV1> = emptyList(),
+    val recipes: List<com.coffeedial.domain.Recipe> = emptyList()
 )
 
 internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
@@ -112,6 +114,12 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             }
         }
     }
+    val newRecipes = incoming.recipes.filter { recipe ->
+        val existing = local.recipes.find { it.id == recipe.id }
+        if (existing != null && existing != recipe) conflicts++
+        if (existing == recipe) duplicates++
+        existing == null
+    }
     return ImportPlan(
         newBeans,
         newShots,
@@ -123,9 +131,9 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             duplicates,
             conflicts,
             newCups.size,
-            newGrinders.size
+            newGrinders.size, newRecipes.size
         ),
         newCups,
-        newGrinders
+        newGrinders, newRecipes
     )
 }

@@ -25,12 +25,14 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Composable
 fun ShotDetail(
     shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, saving: Boolean,
+    onSaveRecipe: (() -> Unit)? = null,
     onDialIn: (() -> Unit)? = null, onFavorite: (() -> Unit)? = null, error: String? = null
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
         item {
+            onSaveRecipe?.let { Button(onClick = it, enabled = !saving) { Text("Guardar como receta") } }
             onDialIn?.let { Button(onClick = it, enabled = !saving) { Text("Ajustar próxima extracción") } }
             onFavorite?.let { TextButton(onClick = it, enabled = !saving) {
                 Text(if (shot.dialIn?.favorite == true) "Quitar favorito" else "Marcar favorito")

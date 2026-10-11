@@ -6,6 +6,7 @@ import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.data.SnapshotRepository
 import com.coffeedial.data.SnapshotStore
+import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.ShotDraft
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -138,6 +139,27 @@ class SyncProtocolTest {
             )
         )
         assertEquals(1, divergedGrinder.conflicts.size)
+    }
+
+    @Test fun recipeEditsMergeWhenTheyDifferAndConflictOnTheSameRecord() {
+        val recipe = Recipe(
+            "r", "Diario", "Brasil", "", 18.0, 36.0, "Medio"
+        )
+        val base = backup()
+        val added = mergeSync(
+            base,
+            base.copy(recipes = listOf(recipe)),
+            SyncDocument(backup = base)
+        )
+        assertTrue(added.conflicts.isEmpty())
+        assertEquals(listOf(recipe), added.backup.recipes)
+        val diverged = mergeSync(
+            base.copy(recipes = listOf(recipe)),
+            base.copy(recipes = listOf(recipe.copy(name = "Local"))),
+            SyncDocument(backup = base.copy(recipes = listOf(recipe.copy(grind = "Fino"))))
+        )
+        assertEquals(listOf("recipes"), diverged.conflicts.map { it.kind })
+        assertEquals("Local", diverged.backup.recipes.single().name)
     }
 
     @Test fun deletionPropagatesButEditVersusDeleteConflicts() {

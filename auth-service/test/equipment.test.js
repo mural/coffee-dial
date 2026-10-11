@@ -41,3 +41,21 @@ test('v10 accepts a grinder link and rejects a downgrade or an unknown id', () =
     ...backup, grinders: [{ id: 'g1', name: ' ', type: 'Manual' }]
   }));
 });
+
+test('v11 accepts a recipe and rejects it on an older schema or with a blank name', () => {
+  const recipe = {
+    id: 'r1', name: 'Diario', beanName: 'Brasil', roaster: '', dose: 18, output: 36, grind: 'Medio',
+    milk: 40, extraWater: null
+  };
+  const backup = {
+    ...emptyBackup(), schemaVersion: 11,
+    beans: [{ id: 'b', name: 'Brasil', roaster: '' }],
+    shots: [shot({})],
+    recipes: [recipe]
+  };
+  validateBackup(backup);
+  assert.throws(() => validateBackup({ ...backup, schemaVersion: 10 }), /invalid_recipe/);
+  assert.throws(() => validateBackup({
+    ...backup, recipes: [{ ...recipe, name: ' ' }]
+  }), /invalid_recipe/);
+});

@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.MachineDraft
+import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.ShotDraft
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -217,6 +218,10 @@ class SyncPersistenceTest {
             assertNull(shot.grinderId)
             repo.saveGrinder(GrinderDraft("Comandante", "Manual"))
             assertEquals("Comandante", repo.grinders.first().single().name)
+            val recipe = Recipe("r", "Diario", "Brasil", "", 18.0, 36.0, "12")
+            repo.saveRecipe(recipe)
+            assertEquals(listOf(recipe), repo.recipes.first())
+            assertEquals("original", repo.readSyncLocal().backup.shots.single().notes)
         }
     }
 }

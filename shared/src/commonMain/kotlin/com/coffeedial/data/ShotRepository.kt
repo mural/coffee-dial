@@ -16,6 +16,9 @@ import com.coffeedial.domain.ShotDraft
 import kotlinx.coroutines.flow.Flow
 
 interface ShotRepository {
+    val recipes: Flow<List<com.coffeedial.domain.Recipe>>
+    suspend fun saveRecipe(recipe: com.coffeedial.domain.Recipe)
+    suspend fun deleteRecipe(id: String)
     suspend fun readSyncLocal(): com.coffeedial.sync.SyncLocal
     suspend fun commitSync(
         expected: com.coffeedial.sync.SyncLocal,

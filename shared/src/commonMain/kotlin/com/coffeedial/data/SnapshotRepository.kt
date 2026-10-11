@@ -4,6 +4,7 @@ import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.domain.Recipe
 import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
@@ -75,6 +76,7 @@ class SnapshotRepository private constructor(
     override val machines = MutableStateFlow<List<Machine>>(emptyList())
     override val beans = MutableStateFlow<List<Bean>>(emptyList())
     override val cups = MutableStateFlow<List<Cup>>(emptyList())
+    override val recipes = MutableStateFlow<List<Recipe>>(emptyList())
     override val grinders = MutableStateFlow<List<Grinder>>(emptyList())
 
     init {
@@ -110,6 +112,7 @@ class SnapshotRepository private constructor(
             data.machines.sortedBy { it.name }.map { Machine(it.id, it.name, it.type, it.year) }
         cups.value =
             data.cups.sortedBy { it.name }.map { Cup(it.id, it.name, it.weight) }
+        recipes.value = data.recipes.sortedBy { it.name }
         grinders.value =
             data.grinders.sortedBy { it.name }.map { Grinder(it.id, it.name, it.type) }
     }
@@ -341,6 +344,14 @@ class SnapshotRepository private constructor(
         )
     }
 
+    override suspend fun saveRecipe(recipe: Recipe) = change {
+        require(recipe.isValid())
+        it.copy(recipes = it.recipes.filterNot { item -> item.id == recipe.id } + recipe)
+    }
+    override suspend fun deleteRecipe(id: String) = change {
+        it.copy(recipes = it.recipes.filterNot { item -> item.id == id })
+    }
+
     override suspend fun saveGrinder(draft: GrinderDraft) = change {
         require(draft.errors().isEmpty())
         if (it.grinders.any { grinder -> grinder.name == draft.name.trim() }) {
@@ -438,7 +449,7 @@ class SnapshotRepository private constructor(
         change {
             if (it.beans != prepared.local.beans || it.shots != prepared.local.shots ||
                 it.machines != prepared.local.machines || it.cups != prepared.local.cups ||
-                it.grinders != prepared.local.grinders
+                it.grinders != prepared.local.grinders || it.recipes != prepared.local.recipes
             ) {
                 throw BackupException(
                     "El historial cambió. Volvé a seleccionar el backup para revisarlo."
@@ -449,6 +460,7 @@ class SnapshotRepository private constructor(
                 shots = it.shots + prepared.plan.shots,
                 machines = it.machines + prepared.plan.machines,
                 cups = it.cups + prepared.plan.cups,
+                recipes = it.recipes + prepared.plan.recipes,
                 grinders = it.grinders + prepared.plan.grinders
             )
         }
@@ -463,6 +475,7 @@ class SnapshotRepository private constructor(
                 shots = (it.shots + incoming.shots).distinctBy { shot -> shot.id },
                 machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id },
                 cups = (it.cups + incoming.cups).distinctBy { cup -> cup.id },
+                recipes = (it.recipes + incoming.recipes).distinctBy { recipe -> recipe.id },
                 grinders = (it.grinders + incoming.grinders).distinctBy { grinder -> grinder.id }
             )
         }
@@ -473,7 +486,7 @@ class SnapshotRepository private constructor(
             0,
             0,
             newCups = incoming.cups.size,
-            newGrinders = incoming.grinders.size
+            newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
         )
     }
 
@@ -485,6 +498,7 @@ class SnapshotRepository private constructor(
                 shots = incoming.shots,
                 machines = incoming.machines,
                 cups = incoming.cups,
+                recipes = incoming.recipes,
                 grinders = incoming.grinders
             )
         }
@@ -495,7 +509,7 @@ class SnapshotRepository private constructor(
             0,
             0,
             newCups = incoming.cups.size,
-            newGrinders = incoming.grinders.size
+            newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
         )
     }
 }

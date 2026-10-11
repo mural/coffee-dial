@@ -1,6 +1,7 @@
 package com.coffeedial.backup
 
 import com.coffeedial.domain.DialInContext
+import com.coffeedial.domain.Recipe
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -190,6 +191,23 @@ class BackupFormatTest {
                     shots = listOf(old.shots.single().copy(grinder = "Niche Zero"))
                 )
             )
+        }
+    }
+
+    @Test
+    fun recipeRoundTripsAtSchema11AndIsRejectedOnAnOlderBackup() {
+        val old = BackupFormat.decode(V1_FIXTURE)
+        val recipe = Recipe(
+            id = "r1", name = "Diario", beanName = "Café ☕", roaster = "Test",
+            dose = 18.0, output = 36.0, grind = "42", milk = 40.0
+        )
+        val saved = old.copy(recipes = listOf(recipe))
+        assertEquals(saved.recipes, BackupFormat.decode(BackupFormat.encode(saved)).recipes)
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(old.copy(schemaVersion = 10, recipes = listOf(recipe)))
+        }
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(saved.copy(recipes = listOf(recipe.copy(name = " "))))
         }
     }
 }
