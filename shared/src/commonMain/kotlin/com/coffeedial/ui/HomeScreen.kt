@@ -67,7 +67,7 @@ fun HomeScreen(
         }
 
         else -> {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavigationSpace.current), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     if (screen == "home" && !userName.isNullOrBlank()) {
                         Row(
@@ -88,7 +88,7 @@ fun HomeScreen(
                     }
                     Text(
                         if (screen == "home") {
-                            "Tu próximo buen café empieza acá."
+                            "Preparar"
                         } else {
                             "Historial (${shots.size})"
                         },
@@ -102,35 +102,11 @@ fun HomeScreen(
                         Text("Registrar un shot")
                     }
                     if (screen == "home") {
-                        Button(onClick = onOpenDialIn, modifier = Modifier.fillMaxWidth()) { Text("Ajustar espresso") }
+                        Text("Timer y recetas para tu próxima extracción.")
                         Button(onClick = onOpenTimer, modifier = Modifier.fillMaxWidth()) {
-                            Text("Shot Timer")
+                            Text("Iniciar Shot Timer")
                         }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            TextButton(onClick = onNavigateToHistory) {
-                                Text("Historial (${shots.size})")
-                            }
-                            TextButton(onClick = onNavigateToBeans) {
-                                Text("Cafés")
-                            }
-                            TextButton(onClick = onNavigateToMachines) {
-                                Text("Máquinas")
-                            }
-                            TextButton(onClick = onNavigateToCups) {
-                                Text("Tazas")
-                            }
-                            TextButton(onClick = onNavigateToTips) {
-                                Text("Tips")
-                            }
-                            TextButton(onClick = onNavigateToBackup) {
-                                Text("Backup")
-                            }
-                            TextButton(onClick = onNavigateToAnalysis) {
-                                Text("Análisis")
-                            }
-                        }
+                        TextButton(onClick = onNavigateToTips) { Text("Ratios y estilos de café") }
                         Text(
                             "Últimos shots",
                             style = MaterialTheme.typography.titleMedium

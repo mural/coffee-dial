@@ -209,7 +209,7 @@ private fun AdminShotHistory(data: AdminDetail) {
                     )
                     Text(timestamp(shot.createdAt))
                     Text(
-                        "${shot.dose.pretty()} g → ${shot.output.pretty()} g · ${shot.seconds.pretty()} s"
+                        "${shot.dose.pretty()} g -> ${shot.output.pretty()} g · ${shot.seconds.pretty()} s"
                     )
                     Text("Estilo: ${shot.style ?: "Sin registrar"} · Molienda: ${shot.grind}")
                     shot.extraWater?.let { Text("Agua extra: ${it.pretty()} ml") }

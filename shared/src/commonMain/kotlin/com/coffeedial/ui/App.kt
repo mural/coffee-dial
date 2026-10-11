@@ -1,6 +1,16 @@
 package com.coffeedial.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -93,6 +103,7 @@ fun App(
     ) { com.coffeedial.domain.ShotTimer() }
     var assistantOrigin by rememberSaveable { mutableStateOf("home") }
     var timerOrigin by rememberSaveable { mutableStateOf("home") }
+    var pillar by rememberSaveable { mutableStateOf("home") }
     var screen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
@@ -135,29 +146,20 @@ fun App(
             finally { saving = false }
         }
     }
-    PlatformBack(enabled = screen != "home") {
-        if (!saving && !backupFiles.busy) {
-            screen = when (screen) {
-                "timer" -> {
-                    timer.pause()
-                    timerOrigin
-                }
-
-                "admin" -> "account"
-
-                "assistant" -> assistantOrigin
-
-                "detail" -> "history"
-
-                "edit" -> "detail"
-
-                "machines", "beans", "cups",
-                "account", "backup", "analysis" -> "home"
-
-                else -> "home"
-            }
+    val roots = setOf("home", "track", "improve", "account")
+    fun goBack() {
+        if (saving || backupFiles.busy) return
+        screen = when (screen) {
+            "timer" -> { timer.pause(); timerOrigin }
+            "assistant" -> assistantOrigin
+            "admin", "backup" -> "account"
+            "edit" -> "detail"
+            "detail" -> "history"
+            else -> if (screen in roots) "home" else pillar
         }
+        if (screen in roots) pillar = screen
     }
+    PlatformBack(enabled = screen != "home") { goBack() }
     LaunchedEffect(repository, retry) {
         loadError = false
         try {
@@ -179,14 +181,44 @@ fun App(
             secondaryContainer = Color(0xFFEDE0CF)
         )
     ) {
+        var navigationHeight by remember { mutableIntStateOf(0) }
+        var headerHeight by remember(screen) { mutableIntStateOf(0) }
+        var headerOffset by remember(screen) { mutableStateOf(0f) }
+        val headerScroll = remember(screen) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y >= 0f) return Offset.Zero
+                    val before = headerOffset
+                    headerOffset = (headerOffset + available.y).coerceIn(-headerHeight.toFloat(), 0f)
+                    return Offset(0f, headerOffset - before)
+                }
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y <= 0f) return Offset.Zero
+                    val before = headerOffset
+                    headerOffset = (headerOffset + available.y).coerceIn(-headerHeight.toFloat(), 0f)
+                    return Offset(0f, headerOffset - before)
+                }
+            }
+        }
+        val bottomSpace = with(LocalDensity.current) { navigationHeight.toDp() } + 12.dp
         Scaffold { padding ->
+            Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+            CompositionLocalProvider(LocalNavigationSpace provides if (screen in roots) bottomSpace else 0.dp) {
             Column(
-                Modifier.widthIn(
-                    max = 960.dp
-                ).fillMaxSize().padding(padding).padding(horizontal = 20.dp).imePadding()
+                Modifier.widthIn(max = 960.dp).fillMaxSize()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = if (screen in roots) 0.dp else padding.calculateBottomPadding())
+                    .imePadding().then(if (screen in roots) Modifier.nestedScroll(headerScroll) else Modifier)
             ) {
                 Row(
-                    Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth().clipToBounds().layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        headerHeight = placeable.height
+                        val offset = if (screen in roots) headerOffset.toInt() else 0
+                        layout(placeable.width, (placeable.height + offset).coerceAtLeast(0)) {
+                            placeable.placeRelative(0, offset)
+                        }
+                    },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -196,32 +228,8 @@ fun App(
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (screen == "home") {
-                            TextButton(onClick = { screen = "account" }) {
-                                Text("Cuenta")
-                            }
-                        } else if (screen != "home") {
-                            TextButton(enabled = !saving && !backupFiles.busy, onClick = {
-                                screen = when (screen) {
-                                    "timer" -> {
-                                        timer.pause()
-                                        timerOrigin
-                                    }
-
-                                    "admin" -> "account"
-
-                                    "assistant" -> assistantOrigin
-
-                "detail" -> "history"
-
-                                    "edit" -> "detail"
-
-                                    "machines", "beans", "cups", "tips",
-                                    "account", "backup", "analysis" -> "home"
-
-                                    else -> "home"
-                                }
-                            }) {
+                        if (screen !in roots) {
+                            TextButton(enabled = !saving && !backupFiles.busy, onClick = { goBack() }) {
                                 Text("Volver")
                             }
                         }
@@ -230,10 +238,29 @@ fun App(
                 when (screen) {
                     "backup" -> BackupScreen(repository, backupFiles, saving, { saving = it })
 
+                    "track" -> PillarScreen("Registrar", "Tu café, tu equipo y cada extracción.", listOf(
+                        "Registrar un shot" to { screen = "new" },
+                        "Historial (${shots.orEmpty().size})" to { screen = "history" },
+                        "Cafés" to { screen = "beans" },
+                        "Máquinas" to { screen = "machines" },
+                        "Tazas" to { screen = "cups" }
+                    ))
+                    "improve" -> PillarScreen("Mejorar", "Compará resultados y encontrá tu próxima receta.", listOf(
+                        "Ajustar espresso" to {
+                            assistantOrigin = "improve"
+                            selectedId = shots.orEmpty().firstOrNull()?.id
+                            saveError = null
+                            screen = "assistant"
+                        },
+                        "Análisis de extracciones" to { screen = "analysis" },
+                        "Comparar intentos y favoritos" to { screen = "history" },
+                        "Tips y estilos" to { screen = "tips" }
+                    ))
                     "account" -> AccountScreen(
                         authRepository = authRepository,
                         syncEngine = syncEngine,
-                        onAdmin = { screen = "admin" }
+                        onAdmin = { screen = "admin" },
+                        onBackup = { screen = "backup" }
                     )
 
                     "admin" -> AdminScreen(authRepository)
@@ -534,6 +561,17 @@ fun App(
                         )
                     }
                 }
+            }
+            }
+            if (screen in roots) {
+                Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { navigationHeight = it.height }) {
+                    PillarNavigation(pillar, enabled = !saving && !backupFiles.busy) {
+                        pillar = it
+                        screen = it
+                        saveError = null
+                    }
+                }
+            }
             }
         }
     }

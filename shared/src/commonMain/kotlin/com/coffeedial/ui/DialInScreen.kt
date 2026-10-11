@@ -149,7 +149,7 @@ fun DialInScreen(
         Text("Ajustar espresso", style = MaterialTheme.typography.headlineLarge)
         Text(shot.bean.name, style = MaterialTheme.typography.titleLarge)
         Text(
-            "${shot.dose.pretty()} g → ${shot.output.pretty()} g · ${shot.seconds.pretty()} s · 1:${shot.ratio.pretty()}"
+            "${shot.dose.pretty()} g -> ${shot.output.pretty()} g · ${shot.seconds.pretty()} s · 1:${shot.ratio.pretty()}"
         )
         Text("Máquina: ${shot.machine ?: "Sin registrar"} · Molienda: ${shot.grind}")
         Text("Sabor: ${shot.taste?.impression?.label() ?: "Sin evaluar"}")
@@ -195,7 +195,7 @@ fun DialInScreen(
             advice.references.forEach { reference ->
                 TextButton(onClick = { onSelect(reference) }, enabled = !saving) {
                     Text(
-                        "${reference.dose.pretty()} → ${reference.output.pretty()} g · ${reference.rating}/5${if (reference.dialIn?.favorite == true) " · Favorito" else ""}"
+                        "${reference.dose.pretty()} -> ${reference.output.pretty()} g · ${reference.rating}/5${if (reference.dialIn?.favorite == true) " · Favorito" else ""}"
                     )
                 }
             }
@@ -218,7 +218,7 @@ fun DialInScreen(
                         "Intento ${index + 1}${if (item.dialIn?.favorite == true) " · Favorito" else ""}"
                     )
                     Text(
-                        "${item.dose.pretty()} g → ${item.output.pretty()} g → ${item.seconds.pretty()} s"
+                        "${item.dose.pretty()} g -> ${item.output.pretty()} g -> ${item.seconds.pretty()} s"
                     )
                     Text("${item.taste?.impression?.label() ?: "Sin evaluar"} · ${item.rating}/5")
                     if (item.id !=

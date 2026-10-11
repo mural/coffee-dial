@@ -36,7 +36,8 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 fun AccountScreen(
     authRepository: AuthRepository,
     syncEngine: SyncEngine? = null,
-    onAdmin: () -> Unit = {}
+    onAdmin: () -> Unit = {},
+    onBackup: (() -> Unit)? = null
 ) {
     val state by authRepository.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -53,7 +54,10 @@ fun AccountScreen(
         }
     }
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = LocalNavigationSpace.current), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (onBackup != null) item {
+            androidx.compose.material3.TextButton(onClick = onBackup) { Text("Backup: exportar / importar") }
+        }
         item {
             Text("Mi Cuenta", style = MaterialTheme.typography.headlineSmall)
         }
