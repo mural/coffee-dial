@@ -97,7 +97,7 @@ class SnapshotRepository private constructor(
                 Shot(
                     it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
                     it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating,
-                    it.extraWater, it.style, it.cup
+                    it.extraWater, it.style, it.cup, it.firstDrop, it.taste, it.dialIn
                 )
             }
         machines.value =
@@ -200,7 +200,10 @@ class SnapshotRepository private constructor(
                 null
             },
             draft.notes.trim(), draft.rating, draft.extraWater.decimal(),
-            draft.style.trim().ifBlank { null }, draft.cup.trim().ifBlank { null }
+            draft.style.trim().ifBlank {
+                null
+            },
+            draft.cup.trim().ifBlank { null }, draft.firstDrop.decimal(), draft.taste, draft.dialIn
         )
         return local.copy(
             beans = if (bean in local.beans) local.beans else local.beans + bean,

@@ -175,7 +175,11 @@ internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (shot.dialIn?.favorite == true) Text("Favorito", color = MaterialTheme.colorScheme.primary)
             CoffeeRating(shot.rating)
+            shot.taste?.impression?.let {
+                Text(it.label(), style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

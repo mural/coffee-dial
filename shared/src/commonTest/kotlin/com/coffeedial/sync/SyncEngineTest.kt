@@ -92,7 +92,7 @@ class SyncEngineTest {
 
     @Test fun failedUploadDoesNotAcknowledgeOrChangeLocalData() = runTest {
         val repo = SnapshotRepository.open(Store())
-        repo.save(ShotDraft(grind = "12"))
+        repo.save(ShotDraft(grind = "12", firstDrop = "6.5"))
         val before = repo.readSyncLocal()
         val empty = SyncDocument(backup = BackupFormat.create(emptyList(), emptyList()))
         val engine = SyncEngine(repo, Auth(), get = { _, headers ->
@@ -109,7 +109,14 @@ class SyncEngineTest {
     @Test fun successfulSyncSurvivesReopenAndPropagatesDeletion() = runTest {
         val store = Store()
         var repo = SnapshotRepository.open(store)
-        repo.save(ShotDraft(grind = "12"))
+        repo.save(
+            ShotDraft(
+                grind = "12",
+                firstDrop = "6.5",
+                taste = com.coffeedial.domain.TasteProfile(body = 8, acidity = 1),
+                dialIn = com.coffeedial.domain.DialInContext(grinder = "J-Ultra", previousShotId = "previous", favorite = true)
+            )
+        )
         var remote = SyncDocument(backup = BackupFormat.create(emptyList(), emptyList()))
         val get: suspend (String, Map<String, String>) -> String = { _, _ ->
             Json.encodeToString(remote)
@@ -125,6 +132,8 @@ class SyncEngineTest {
             Json.encodeToString(remote)
         }
         assertTrue(SyncEngine(repo, Auth(), get = get, post = post).performSync().isSuccess)
+        assertEquals(8, remote.backup.shots.single().taste?.body)
+        assertEquals(true, remote.backup.shots.single().dialIn?.favorite)
         repo = SnapshotRepository.open(store)
         repo.delete(repo.readSyncLocal().backup.shots.single().id)
         assertTrue(SyncEngine(repo, Auth(), get = get, post = post).performSync().isSuccess)
@@ -134,7 +143,7 @@ class SyncEngineTest {
 
     @Test fun editsDuringUploadRemainPendingAndAccountSwitchCannotUpload() = runTest {
         val repo = SnapshotRepository.open(Store())
-        repo.save(ShotDraft(grind = "12"))
+        repo.save(ShotDraft(grind = "12", firstDrop = "6.5"))
         val auth = Auth()
         val remote = SyncDocument(backup = BackupFormat.create(emptyList(), emptyList()))
         val engine = SyncEngine(
@@ -186,7 +195,7 @@ class SyncEngineTest {
 
     @Test fun unavailableServiceDoesNotInvalidateSessionOrOverwrite() = runTest {
         val repo = SnapshotRepository.open(Store())
-        repo.save(ShotDraft(grind = "12"))
+        repo.save(ShotDraft(grind = "12", firstDrop = "6.5"))
         val before = repo.readSyncLocal()
         val auth = Auth()
         var posts = 0

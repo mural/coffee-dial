@@ -1,0 +1,1 @@
+ALTER TABLE shot ADD COLUMN dial_in TEXT;

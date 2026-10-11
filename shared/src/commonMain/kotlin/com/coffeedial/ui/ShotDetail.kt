@@ -23,10 +23,22 @@ import com.coffeedial.domain.Shot
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, saving: Boolean) {
+fun ShotDetail(
+    shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, saving: Boolean,
+    onDialIn: (() -> Unit)? = null, onFavorite: (() -> Unit)? = null, error: String? = null
+) {
     var showConfirm by remember { mutableStateOf(false) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
+        item {
+            onDialIn?.let { Button(onClick = it, enabled = !saving) { Text("Ajustar próxima extracción") } }
+            onFavorite?.let { TextButton(onClick = it, enabled = !saving) {
+                Text(if (shot.dialIn?.favorite == true) "Quitar favorito" else "Marcar favorito")
+            } }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            shot.dialIn?.roast?.let { Text("Tueste: ${it.label()}") }
+            shot.dialIn?.goal?.let { Text("Objetivo: ${it.label()}") }
+        }
         if (shot.bean.roaster.isNotBlank()) item { Text(shot.bean.roaster) }
         if (!shot.machine.isNullOrBlank()) {
             item { Text("Máquina: ${shot.machine}") }
@@ -57,11 +69,13 @@ fun ShotDetail(shot: Shot, onEdit: () -> Unit, onDelete: () -> Unit, saving: Boo
                     "\nTiempo: ${shot.seconds.pretty()} s"
             )
         }
+        shot.firstDrop?.let { item { Text("Primera gota: ${it.pretty()} s") } }
         item { Text("Molienda: ${shot.grind}") }
         item {
             Text("Temperatura: ${shot.temperature?.let { "${it.pretty()} °C" } ?: "Sin registrar"}")
         }
         item { CoffeeRating(shot.rating) }
+        shot.taste?.let { item { TasteProfileSummary(it) } }
         item {
             Text(shot.notes.ifBlank { "Sin notas" })
         }

@@ -28,3 +28,23 @@ test('private immutable photos enforce account isolation, size, type and referen
   b.beans[0].photo.jpeg = jpeg;
   assert.throws(() => validateBackup(b));
 });
+
+test('v6 first drop is optional, bounded by total and preserved', () => {
+  const b = { ...emptyBackup(), schemaVersion: 6, beans: [{ id: 'b', name: 'Brasil', roaster: '' }],
+    shots: [{ id: 's', beanId: 'b', createdAt: 1, dose: 18, output: 36, seconds: 28.3, grind: 'Medio', notes: '', rating: 3, firstDrop: 7.5 }] };
+  validateBackup(b);
+  assert.throws(() => validateBackup({ ...b, schemaVersion: 5 }));
+  for (const value of [-1, 29, '7', NaN]) {
+    assert.throws(() => validateBackup({ ...b, shots: [{ ...b.shots[0], firstDrop: value }] }));
+  }
+});
+
+test('v7 taste validates optional impressions and intensity independently of rating', () => {
+  const b = { ...emptyBackup(), schemaVersion: 7, beans: [{ id: 'b', name: 'Brasil', roaster: '' }],
+    shots: [{ id: 's', beanId: 'b', createdAt: 1, dose: 18, output: 36, seconds: 28, grind: 'Medio', notes: '', rating: 3, taste: { impression: 'BALANCED', body: 0, acidity: 10 } }] };
+  validateBackup(b);
+  assert.throws(() => validateBackup({ ...b, schemaVersion: 6 }));
+  for (const taste of [{ impression: 'unknown' }, { body: -1 }, { acidity: 11 }, { bitterness: 2.5 }, { body: '3' }, []]) {
+    assert.throws(() => validateBackup({ ...b, shots: [{ ...b.shots[0], taste }] }));
+  }
+});

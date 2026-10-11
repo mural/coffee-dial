@@ -34,7 +34,10 @@ CREATE TABLE shot (
     machine TEXT,
     extra_water REAL,
     style TEXT,
-    cup TEXT
+    cup TEXT,
+    first_drop REAL,
+    taste TEXT,
+    dial_in TEXT
 );
 
 CREATE INDEX shot_created_at ON shot(created_at DESC);
@@ -47,7 +50,7 @@ findBean:
 SELECT * FROM bean WHERE name = ? AND roaster = ? AND archived = 0 ORDER BY id LIMIT 1;
 
 insertShot:
-INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 history:
 SELECT shot.*, bean.name, bean.roaster
@@ -76,7 +79,7 @@ deleteShot:
 DELETE FROM shot WHERE id = ?;
 
 updateShot:
-UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ?, extra_water = ?, style = ?, cup = ? WHERE id = ?;
+UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ?, extra_water = ?, style = ?, cup = ?, first_drop = ?, taste = ?, dial_in = ? WHERE id = ?;
 
 allMachines:
 SELECT * FROM machine ORDER BY name;

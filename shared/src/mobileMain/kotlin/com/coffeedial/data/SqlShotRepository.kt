@@ -15,6 +15,7 @@ import com.coffeedial.backup.ImportSummary
 import com.coffeedial.backup.planImport
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.Bean
+import com.coffeedial.domain.DialInContext
 import com.coffeedial.domain.BeanDraft
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
@@ -22,6 +23,7 @@ import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
+import com.coffeedial.domain.TasteProfile
 import com.coffeedial.domain.decimal
 import com.coffeedial.photos.BeanPhoto
 import kotlin.time.Clock
@@ -55,7 +57,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 rating = it.rating.toInt(),
                 extraWater = it.extra_water,
                 style = it.style,
-                cup = it.cup
+                cup = it.cup,
+                firstDrop = it.first_drop,
+                taste = it.taste?.let { value -> Json.decodeFromString<TasteProfile>(value) },
+                dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) }
             )
         }
     }
@@ -143,7 +148,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     machine = it.machine,
                     extra_water = it.extraWater,
                     style = it.style,
-                    cup = it.cup
+                    cup = it.cup,
+                    first_drop = it.firstDrop,
+                    taste = it.taste?.let { value -> Json.encodeToString(value) },
+                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
                 )
             }
             queries.writeSyncCheckpoint(checkpoint)
@@ -174,7 +182,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 machine = draft.machine.trim().ifBlank { null },
                 extra_water = draft.extraWater.decimal(),
                 style = draft.style.trim().ifBlank { null },
-                cup = draft.cup.trim().ifBlank { null }
+                cup = draft.cup.trim().ifBlank { null },
+                first_drop = draft.firstDrop.decimal(),
+                taste = draft.taste?.let { Json.encodeToString(it) },
+                dial_in = draft.dialIn?.let { Json.encodeToString(it) }
             )
         }
     }
@@ -213,6 +224,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 draft.extraWater.decimal(),
                 draft.style.trim().ifBlank { null },
                 draft.cup.trim().ifBlank { null },
+                draft.firstDrop.decimal(),
+                draft.taste?.let { Json.encodeToString(it) },
+                draft.dialIn?.let { Json.encodeToString(it) },
                 id
             )
         }
@@ -338,7 +352,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 rating = it.rating.toInt(),
                 extraWater = it.extra_water,
                 style = it.style,
-                cup = it.cup
+                cup = it.cup,
+                firstDrop = it.first_drop,
+                taste = it.taste?.let { value -> Json.decodeFromString<TasteProfile>(value) },
+                dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) }
             )
         },
         machines = queries.allMachines().executeAsList().map {
@@ -405,7 +422,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                         machine = it.machine,
                         extra_water = it.extraWater,
                         style = it.style,
-                        cup = it.cup
+                        cup = it.cup,
+                        first_drop = it.firstDrop,
+                        taste = it.taste?.let { value -> Json.encodeToString(value) },
+                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
                     )
                 }
                 prepared.summary
@@ -447,7 +467,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                         machine = it.machine,
                         extra_water = it.extraWater,
                         style = it.style,
-                        cup = it.cup
+                        cup = it.cup,
+                        first_drop = it.firstDrop,
+                        taste = it.taste?.let { value -> Json.encodeToString(value) },
+                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
                     )
                 }
             }
@@ -500,7 +523,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                         machine = it.machine,
                         extra_water = it.extraWater,
                         style = it.style,
-                        cup = it.cup
+                        cup = it.cup,
+                        first_drop = it.firstDrop,
+                        taste = it.taste?.let { value -> Json.encodeToString(value) },
+                    dial_in = it.dialIn?.let { value -> Json.encodeToString(value) }
                     )
                 }
             }

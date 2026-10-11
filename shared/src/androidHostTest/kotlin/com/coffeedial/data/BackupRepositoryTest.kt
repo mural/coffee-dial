@@ -27,6 +27,15 @@ class BackupRepositoryTest {
             repo.saveBean(com.coffeedial.domain.BeanDraft("Brasil", "", photo))
             val bean = repo.beans.first().single()
             assertEquals(photo, bean.photo)
+            repo.save(
+                ShotDraft(
+                    beanName = "Brasil",
+                    seconds = "28.3",
+                    firstDrop = "7.5",
+                    taste = com.coffeedial.domain.TasteProfile(body = 8, bitterness = 0),
+                dialIn = com.coffeedial.domain.DialInContext(grinder = "J-Ultra", previousShotId = "previous", favorite = true)
+                )
+            )
             val text = repo.exportBackup()
             repo.updateBean(bean.id, com.coffeedial.domain.BeanDraft("Brasil", "", null))
             assertEquals(null, repo.beans.first().single().photo)
@@ -34,6 +43,12 @@ class BackupRepositoryTest {
                 val target = ShotRepository(targetDriver)
                 target.importBackup(target.prepareImport(text))
                 assertEquals(photo, target.beans.first().single().photo)
+                assertEquals(7.5, target.history.first().single().firstDrop)
+                assertEquals(8, target.history.first().single().taste?.body)
+        assertEquals(true, target.history.first().single().dialIn?.favorite)
+                val shot = target.history.first().single()
+                target.update(shot.id, ShotDraft(beanName = "Brasil", taste = null))
+                assertEquals(null, target.history.first().single().taste)
             }
         }
     }

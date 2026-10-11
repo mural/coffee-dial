@@ -35,13 +35,17 @@ import com.coffeedial.auth.User
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Bean
+import com.coffeedial.domain.DialInContext
+import com.coffeedial.domain.toDraft
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
+import com.coffeedial.domain.TasteProfile
 import com.coffeedial.sync.SyncEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 private val DraftSaver = Saver<ShotDraft, List<String>>(
@@ -49,14 +53,25 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
         listOf(
             it.beanName, it.roaster, it.dose, it.output, it.seconds,
             it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating.toString(),
-            it.extraWater, it.style, it.cup
+            it.extraWater, it.style, it.cup, it.firstDrop,
+            it.taste?.let { value -> Json.encodeToString(value) }.orEmpty(),
+            it.dialIn?.let { value -> Json.encodeToString(value) }.orEmpty()
         )
     },
     restore = {
         ShotDraft(
             it[0], it[1], it[2], it[3], it[4], it[5],
             it[6], it[7], it[8], it[9], it[10].toInt(),
-            it.getOrElse(11) { "" }, it.getOrElse(12) { "" }, it.getOrElse(13) { "" }
+            it.getOrElse(11) {
+                ""
+            },
+            it.getOrElse(12) { "" }, it.getOrElse(13) { "" }, it.getOrElse(14) { "" },
+            it.getOrNull(15)?.takeIf { value -> value.isNotEmpty() }?.let { value ->
+                Json.decodeFromString<TasteProfile>(value)
+            },
+            it.getOrNull(16)?.takeIf { value -> value.isNotEmpty() }?.let { value ->
+                Json.decodeFromString<com.coffeedial.domain.DialInContext>(value)
+            }
         )
     }
 )
@@ -68,6 +83,16 @@ fun App(
     authRepository: AuthRepository,
     localWeb: Boolean = false
 ) {
+    val timer = rememberSaveable(
+        saver = Saver<com.coffeedial.domain.ShotTimer, List<Long>>(
+            save = { listOf(it.elapsedMillis, it.firstDropMillis ?: -1L) },
+            restore = {
+                com.coffeedial.domain.ShotTimer(it[0], it[1].takeIf { value -> value >= 0 })
+            }
+        )
+    ) { com.coffeedial.domain.ShotTimer() }
+    var assistantOrigin by rememberSaveable { mutableStateOf("home") }
+    var timerOrigin by rememberSaveable { mutableStateOf("home") }
     var screen by rememberSaveable { mutableStateOf("home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
@@ -98,10 +123,29 @@ fun App(
     LaunchedEffect(authState) {
         if (authState is AuthState.LoggedIn) syncEngine.performSync()
     }
+    fun favorite(shot: Shot, context: DialInContext = shot.dialIn ?: DialInContext()) {
+        saving = true
+        saveError = null
+        scope.launch {
+            try {
+                repository.update(shot.id, shot.toDraft().copy(dialIn = context.copy(favorite = !(shot.dialIn?.favorite ?: false))))
+                scope.launch { syncEngine.performSync() }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { saveError = "No pudimos guardar el favorito. Reintentá." }
+            finally { saving = false }
+        }
+    }
     PlatformBack(enabled = screen != "home") {
         if (!saving && !backupFiles.busy) {
             screen = when (screen) {
+                "timer" -> {
+                    timer.pause()
+                    timerOrigin
+                }
+
                 "admin" -> "account"
+
+                "assistant" -> assistantOrigin
 
                 "detail" -> "history"
 
@@ -159,9 +203,16 @@ fun App(
                         } else if (screen != "home") {
                             TextButton(enabled = !saving && !backupFiles.busy, onClick = {
                                 screen = when (screen) {
+                                    "timer" -> {
+                                        timer.pause()
+                                        timerOrigin
+                                    }
+
                                     "admin" -> "account"
 
-                                    "detail" -> "history"
+                                    "assistant" -> assistantOrigin
+
+                "detail" -> "history"
 
                                     "edit" -> "detail"
 
@@ -316,6 +367,41 @@ fun App(
                         }
                     )
 
+                    "assistant" -> {
+                        val source = shots.orEmpty().find { it.id == selectedId }
+                        if (source == null) {
+                            Column {
+                                Text("Registrá un shot y evaluá su sabor para empezar a ajustar.")
+                                TextButton(onClick = { screen = "new" }) { Text("Registrar shot") }
+                            }
+                        } else DialInScreen(
+                            source, shots.orEmpty(), saving, saveError,
+                            onEdit = { draft = source.toDraft(); saveError = null; screen = "edit" },
+                            onFavorite = { favorite(source, it) },
+                            onSelect = { selectedId = it.id; saveError = null },
+                            onNext = { next, context ->
+                                saving = true
+                                saveError = null
+                                scope.launch {
+                                    try {
+                                        repository.update(source.id, source.toDraft().copy(dialIn = context))
+                                        draft = next
+                                        screen = "new"
+                                        scope.launch { syncEngine.performSync() }
+                                    } catch (cancelled: CancellationException) { throw cancelled }
+                                    catch (_: Exception) { saveError = "No pudimos guardar el contexto. Reintentá." }
+                                    finally { saving = false }
+                                }
+                            }
+                        )
+                    }
+
+                    "timer" -> ShotTimerScreen(timer, timerOrigin != "home") { seconds, firstDrop ->
+                        draft = draft.copy(seconds = seconds, firstDrop = firstDrop)
+                        saveError = null
+                        screen = if (timerOrigin == "edit") "edit" else "new"
+                    }
+
                     "new", "edit" -> ShotForm(
                         draft = draft,
                         machines = machines,
@@ -328,6 +414,10 @@ fun App(
                         saving = saving,
                         saveError = saveError,
                         isEditing = screen == "edit",
+                        onOpenTimer = {
+                            timerOrigin = screen
+                            screen = "timer"
+                        },
                         onNavigateToMachines = { screen = "machines" },
                         onNavigateToBeans = { screen = "beans" },
                         onNavigateToCups = { screen = "cups" },
@@ -365,6 +455,9 @@ fun App(
                         } else {
                             ShotDetail(
                                 shot = shot,
+                                onDialIn = { assistantOrigin = "detail"; saveError = null; screen = "assistant" },
+                                onFavorite = { favorite(shot) },
+                                error = saveError,
                                 onEdit = {
                                     draft = ShotDraft(
                                         beanName = shot.bean.name,
@@ -380,7 +473,10 @@ fun App(
                                         machine = shot.machine ?: "",
                                         notes = shot.notes,
                                         rating = shot.rating,
-                                        cup = shot.cup ?: ""
+                                        cup = shot.cup ?: "",
+                                        firstDrop = shot.firstDrop?.pretty().orEmpty(),
+                                        taste = shot.taste,
+                                        dialIn = shot.dialIn
                                     )
                                     screen = "edit"
                                 },
@@ -417,6 +513,11 @@ fun App(
                             loadError = loadError,
                             userName = userName,
                             onSelectStyle = { selectedStyle = it },
+                            onOpenDialIn = { assistantOrigin = "home"; selectedId = shots.orEmpty().firstOrNull()?.id; saveError = null; screen = "assistant" },
+                            onOpenTimer = {
+                                timerOrigin = "home"
+                                screen = "timer"
+                            },
                             onNewShot = { screen = "new" },
                             onSelectShot = {
                                 selectedId = it.id

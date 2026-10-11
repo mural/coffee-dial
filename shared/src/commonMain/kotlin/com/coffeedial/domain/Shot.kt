@@ -61,7 +61,10 @@ data class Shot(
     val rating: Int,
     val extraWater: Double? = null,
     val style: String? = null,
-    val cup: String? = null
+    val cup: String? = null,
+    val firstDrop: Double? = null,
+    val taste: TasteProfile? = null,
+    val dialIn: DialInContext? = null
 ) {
     val ratio: Double get() = output / dose
 }
@@ -80,13 +83,27 @@ data class ShotDraft(
     val rating: Int = 3,
     val extraWater: String = "",
     val style: String = "",
-    val cup: String = ""
+    val cup: String = "",
+    val firstDrop: String = "",
+    val taste: TasteProfile? = null,
+    val dialIn: DialInContext? = null
 ) {
     fun errors(): Map<String, String> = buildMap {
         if (beanName.isBlank()) put("beanName", "Ingresá el nombre del café")
         if (!dose.isNumberIn(0.1..100.0)) put("dose", "Usá entre 0,1 y 100 g")
         if (!output.isNumberIn(0.1..1000.0)) put("output", "Usá entre 0,1 y 1000 g")
         if (!seconds.isNumberIn(0.1..600.0)) put("seconds", "Usá entre 0,1 y 600 s")
+        if (firstDrop.isNotBlank() &&
+            (
+                firstDrop.decimal()?.let {
+                    it.isFinite() && it >= 0 &&
+                        it <= (seconds.decimal() ?: -1.0)
+                } !=
+                    true
+                )
+        ) {
+            put("firstDrop", "La primera gota debe estar entre 0 y el tiempo total")
+        }
         if (grind.isBlank()) put("grind", "Ingresá el ajuste de molienda")
         if (temperature.isNotBlank() && !temperature.isNumberIn(1.0..100.0)) {
             put("temperature", "Usá entre 1 y 100 °C o dejalo vacío")
@@ -98,6 +115,8 @@ data class ShotDraft(
             put("extraWater", "Usá entre 1 y 1000 ml o dejalo vacío")
         }
         if (style.length > 100) put("style", "Usá hasta 100 caracteres")
+        if (dialIn?.isValid() == false) put("dialIn", "Revisá los datos del ajuste")
+        if (taste?.isValid() == false) put("taste", "Usá valores de 0 a 10")
         if (rating !in 1..5) put("rating", "Elegí entre 1 y 5")
     }
 }

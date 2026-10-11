@@ -2,7 +2,7 @@
 export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [] });
 export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [] } });
 export function validateBackup(b) {
-  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
+  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
@@ -14,6 +14,19 @@ export function validateBackup(b) {
   if (b.beans.some(x => x.archived !== undefined && typeof x.archived !== 'boolean')) throw new Error('invalid_bean');
   if (b.beans.some(x => x.photo != null && (b.schemaVersion < 5 ||
     typeof x.photo !== 'object' || !/^[a-f0-9-]{36}$/.test(x.photo.id) || x.photo.jpeg != null))) throw new Error('invalid_photo');
+  if (b.shots.some(x => x.firstDrop != null && (b.schemaVersion < 6 || typeof x.firstDrop !== 'number' || !Number.isFinite(x.firstDrop) || x.firstDrop < 0 || x.firstDrop > x.seconds))) throw new Error('invalid_shot');
+  if (b.shots.some(x => x.taste != null && (b.schemaVersion < 7 || typeof x.taste !== 'object' || Array.isArray(x.taste) ||
+    (x.taste.impression != null && !['TOO_SOUR', 'TOO_BITTER', 'WEAK', 'BALANCED', 'TOO_STRONG'].includes(x.taste.impression)) ||
+    ['body', 'acidity', 'bitterness'].some(k => x.taste[k] != null && (!Number.isInteger(x.taste[k]) || x.taste[k] < 0 || x.taste[k] > 10))))) throw new Error('invalid_shot');
+  const optionalChoice = (value, choices) => value == null || choices.includes(value);
+  if (b.shots.some(x => x.dialIn != null && (b.schemaVersion < 8 || typeof x.dialIn !== 'object' || Array.isArray(x.dialIn) ||
+    !optionalChoice(x.dialIn.roast, ['LIGHT','MEDIUM','DARK','UNKNOWN']) ||
+    !optionalChoice(x.dialIn.method, ['ESPRESSO','FILTER','MOKA','OTHER']) ||
+    !optionalChoice(x.dialIn.goal, ['STRONGER','BALANCED','MILDER']) ||
+    !optionalChoice(x.dialIn.tasteBasis, ['ESPRESSO','FINISHED_DRINK']) ||
+    (x.dialIn.grinder !== undefined && !text(x.dialIn.grinder, 200)) ||
+    (x.dialIn.favorite !== undefined && typeof x.dialIn.favorite !== 'boolean') ||
+    (x.dialIn.previousShotId != null && (!id(x.dialIn.previousShotId) || x.dialIn.previousShotId === x.id))))) throw new Error('invalid_shot');
   const beans = new Set(b.beans.map(x => x.id));
   if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster))) throw new Error('invalid_bean');
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');

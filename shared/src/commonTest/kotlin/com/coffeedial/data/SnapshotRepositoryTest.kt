@@ -31,6 +31,9 @@ class SnapshotRepositoryTest {
         first.save(
             ShotDraft(
                 beanName = "Brasil",
+                firstDrop = "6.2",
+                taste = com.coffeedial.domain.TasteProfile(body = 7, acidity = 2),
+                dialIn = com.coffeedial.domain.DialInContext(grinder = "J-Ultra", previousShotId = "previous", favorite = true),
                 grind = "12",
                 milk = "80",
                 notes = "Chocolate",
@@ -40,6 +43,9 @@ class SnapshotRepositoryTest {
         )
         first.saveMachine(MachineDraft("Bambino"))
         val reopened = SnapshotRepository.open(store)
+        assertEquals(7, reopened.history.value.single().taste?.body)
+        assertEquals(true, reopened.history.value.single().dialIn?.favorite)
+        assertEquals(6.2, reopened.history.value.single().firstDrop)
         assertEquals(100.5, reopened.history.value.single().extraWater)
         assertEquals("Americano", reopened.history.value.single().style)
         assertEquals(first.history.value, reopened.history.value)

@@ -51,7 +51,10 @@ data class BackupShotV1(
     val rating: Int,
     val extraWater: Double? = null,
     val style: String? = null,
-    val cup: String? = null
+    val cup: String? = null,
+    val firstDrop: Double? = null,
+    val taste: com.coffeedial.domain.TasteProfile? = null,
+    val dialIn: com.coffeedial.domain.DialInContext? = null
 )
 
 class BackupException(message: String, cause: Throwable? = null) :
@@ -59,7 +62,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 5
+    const val CURRENT_VERSION = 8
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -117,7 +120,7 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4, 5 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
+                1, 2, 3, 4, 5, 6, 7, 8 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
                 else -> throw BackupException("Esta versión de backup no es compatible ($version).")
             }
             validate(rawBackup)
@@ -183,6 +186,13 @@ object BackupFormat {
             valid(it.createdAt >= 0 && it.createdAt <= 253402300799999L)
             valid(it.dose.isFinite() && it.dose > 0)
             valid(it.output.isFinite() && it.output > 0)
+            valid(
+                it.firstDrop == null ||
+                    (
+                        backup.schemaVersion >= 6 && it.firstDrop.isFinite() && it.firstDrop >= 0 &&
+                            it.firstDrop <= it.seconds
+                        )
+            )
             valid(it.seconds.isFinite() && it.seconds > 0)
             valid(it.temperature == null || (it.temperature.isFinite() && it.temperature > 0))
             valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..200.0))
@@ -194,6 +204,8 @@ object BackupFormat {
             valid(it.cup == null || it.cup.length <= 10_000)
             valid(it.machine == null || it.machine.length <= 10_000)
             valid(it.grind.isNotBlank() && it.grind.length <= 10_000)
+            valid(it.dialIn == null || (backup.schemaVersion >= 8 && it.dialIn.isValid() && it.dialIn.previousShotId != it.id))
+            valid(it.taste == null || (backup.schemaVersion >= 7 && it.taste.isValid()))
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)
         }
     }

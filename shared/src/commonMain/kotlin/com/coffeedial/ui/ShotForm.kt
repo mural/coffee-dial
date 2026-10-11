@@ -47,6 +47,7 @@ fun ShotForm(
     saveError: String?,
     modifier: Modifier = Modifier,
     isEditing: Boolean = false,
+    onOpenTimer: (() -> Unit)? = null,
     onNavigateToMachines: () -> Unit,
     onNavigateToBeans: () -> Unit,
     onNavigateToCups: () -> Unit,
@@ -64,6 +65,7 @@ fun ShotForm(
             saving = saving,
             saveError = saveError,
             isEditing = isEditing,
+            onOpenTimer = onOpenTimer,
             onNavigateToMachines = onNavigateToMachines,
             onNavigateToBeans = onNavigateToBeans,
             onNavigateToCups = onNavigateToCups,
@@ -83,6 +85,7 @@ fun ShotFormContent(
     saveError: String?,
     modifier: Modifier = Modifier,
     isEditing: Boolean = false,
+    onOpenTimer: (() -> Unit)? = null,
     onNavigateToMachines: () -> Unit,
     onNavigateToBeans: () -> Unit,
     onNavigateToCups: () -> Unit,
@@ -293,6 +296,18 @@ fun ShotFormContent(
             }
         }
 
+        onOpenTimer?.let { open ->
+            TextButton(onClick = open, enabled = !saving) { Text("Medir con Shot Timer") }
+        }
+        OutlinedTextField(
+            value = draft.firstDrop,
+            onValueChange = { onChange(draft.copy(firstDrop = it)) },
+            label = { Text("Primera gota · s (opcional)") },
+            enabled = !saving,
+            singleLine = true,
+            isError = errors["firstDrop"] != null,
+            supportingText = errors["firstDrop"]?.let { { Text(it) } }
+        )
         TimeSliderField(draft.seconds, errors["seconds"], saving) {
             onChange(draft.copy(seconds = it))
         }
@@ -342,6 +357,12 @@ fun ShotFormContent(
             CoffeeRating(draft.rating, onChange = {
                 onChange(draft.copy(rating = it))
             }, enabled = !saving)
+        }
+
+        DialInFormContext(draft.dialIn, enabled = !saving) { onChange(draft.copy(dialIn = it)) }
+
+        TasteProfileEditor(draft.taste, enabled = !saving) {
+            onChange(draft.copy(taste = it))
         }
 
         if (saveError != null) {
@@ -551,7 +572,7 @@ private fun TimeSliderField(
         ) {
             Text("Tiempo", style = MaterialTheme.typography.bodyMedium)
             Text(
-                "${currentSecondsFloat.roundToInt()} s",
+                "${seconds.decimal()?.pretty() ?: seconds} s",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -619,7 +640,7 @@ fun Field(
     )
 }
 
-private const val contentHeightDp = 2000
+private const val contentHeightDp = 3000
 
 @Preview(
     name = "Formulario - Vacío",

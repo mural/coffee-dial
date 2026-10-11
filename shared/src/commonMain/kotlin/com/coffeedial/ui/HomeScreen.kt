@@ -33,6 +33,8 @@ fun HomeScreen(
     userName: String? = null,
     onSelectStyle: (String?) -> Unit,
     onNewShot: () -> Unit,
+    onOpenTimer: () -> Unit = {},
+    onOpenDialIn: () -> Unit = {},
     onSelectShot: (Shot) -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToBeans: () -> Unit,
@@ -100,6 +102,10 @@ fun HomeScreen(
                         Text("Registrar un shot")
                     }
                     if (screen == "home") {
+                        Button(onClick = onOpenDialIn, modifier = Modifier.fillMaxWidth()) { Text("Ajustar espresso") }
+                        Button(onClick = onOpenTimer, modifier = Modifier.fillMaxWidth()) {
+                            Text("Shot Timer")
+                        }
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
