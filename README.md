@@ -1,14 +1,16 @@
 # Coffee Dial
 
-Diario de espresso offline para Android e iOS. Primera app experimental: una base pequeña para aprender con un producto real y extraer piezas reutilizables cuando aparezca una segunda app.
+Diario de espresso local-first para Android, iOS y web. La UI, el dominio y los backups son compartidos. Google puede sincronizar una copia en Cloudflare. Apple todavía no autoriza sync remoto.
+
+Convenciones de arquitectura, builds, migraciones SQLDelight, sync y features: [AGENTS.md](AGENTS.md).
 
 ## Qué incluye
 
 - Home, registro de shot, historial y detalle con ratio de extracción.
 - Café/Bean (nombre y tostador) y Shot: dosis, output, tiempo, molienda, temperatura opcional, notas y rating 1–5.
-- SQLite local, guardado transaccional, historial más reciente primero y reutilización del mismo café por nombre/tostador.
+- SQLite en Android e iOS. Web guarda el mismo documento en IndexedDB.
 - Validación de valores, coma decimal, estados vacío/cargando/error y protección ante doble toque de guardar.
-- Sin cuenta, conexión de red, backend, analytics ni suscripciones. Los datos no se envían a ningún servicio.
+- Cuenta Google opcional, sync, backups JSON, fotos de cafés, timer, perfil de sabor y asistente de espresso. El detalle está en `docs/`.
 
 ## Stack fijado al 2 de octubre de 2026
 
@@ -65,31 +67,25 @@ No se usa CocoaPods, XcodeGen ni Swift Package Manager. El `.xcodeproj` está ve
 ## Estructura
 
 ```text
-androidApp/  Entrada Android, configuración y manifest
-shared/
-  commonMain/kotlin/com/coffeedial/
-    domain/  Bean, Shot, borrador y validación pura
-    data/    Repositorio SQLDelight; transacción y Flow
-    ui/      Compose: Home, formulario, historial y detalle
-  commonMain/sqldelight/  Esquema y consultas SQL
-  androidMain/           Creación del driver Android
-  iosMain/               Driver Native y UIViewController
-  commonTest/            Reglas de dominio
-  androidHostTest/       SQLite real en JVM, sin emulador
-iosApp/     Entrada SwiftUI y proyecto Xcode
+androidApp/     Entrada Android
+iosApp/         Entrada SwiftUI y proyecto Xcode
+auth-service/   Worker de login y sync
+web/            Configuración y checks del target Wasm
+shared/         Dominio, datos, sync y Compose para las tres plataformas
+docs/           Protocolo, auth y features
 ```
 
-Un solo módulo compartido: las carpetas dan separación sin módulos artificiales, framework de DI, capas vacías o una interfaz por clase. Las entradas de plataforma construyen el repositorio una vez. Para una segunda app, extraer convenciones de build, tema o componentes solamente cuando haya uso compartido real.
+Un solo módulo compartido. Las entradas de plataforma construyen el repositorio una vez. El mapa de paquetes y las reglas para cambiarlo están en [AGENTS.md](AGENTS.md).
 
 ## Persistencia: por qué SQLDelight
 
 Se compararon SQLDelight 2.4.0 y Room KMP (Room 3.0.3 estable; la guía actual también muestra ejemplos 3.1 alpha, que no adoptamos). Ambos son opciones válidas y usan SQLite.
 
-SQLDelight encaja con dos tablas y consultas pequeñas: deja el esquema explícito, verifica SQL al compilar, genera modelos y tiene drivers nativos y JDBC para tests. No requiere KSP. Room ofrece entidades/DAO por anotaciones, SQLite bundled y herramientas de migración; sería una buena elección para un equipo con mayor inversión en Room. No hay necesidad de migrar de uno a otro ahora. JSON/preferences se descartó para el historial relacional y sus transacciones.
+SQLDelight encaja con este esquema chico: deja el SQL explícito, lo verifica al compilar, genera modelos y tiene drivers nativos y JDBC para tests. No requiere KSP. Room ofrece entidades/DAO por anotaciones, SQLite bundled y herramientas de migración; sería una buena elección para un equipo con mayor inversión en Room. No hay necesidad de migrar de uno a otro ahora. JSON/preferences se descartó para el historial relacional y sus transacciones.
 
-La molienda es texto porque los ajustes varían por molino (`42`, `2.3`, `12 clicks`). Los IDs son UUID y las fechas son instantes UTC; esto no implementa sync. Los límites de entrada son guardrails de producto, no recomendaciones de preparación.
+La molienda es texto porque los ajustes varían por molino (`42`, `2.3`, `12 clicks`). Los IDs son UUID y las fechas son instantes UTC. Esos identificadores son los que usa el sync. Los límites de entrada son guardrails de producto, no recomendaciones de preparación.
 
-No hay migración destructiva. Antes de cambiar el esquema en una versión instalada, agregar una migración SQLDelight versionada y un fixture de la base anterior, y probar la actualización. Los tests actuales comprueban creación, lectura, reapertura y rechazo de entradas inválidas. No confundirlos con cobertura de una migración futura.
+El esquema instalado ya tiene migraciones hasta la versión 13 de SQLDelight. La próxima es `13.sqm`. No se edita una migración publicada. Reglas, backup v9 y orden de publicación: [AGENTS.md](AGENTS.md) y [docs/SYNC.md](docs/SYNC.md).
 
 ## Calidad
 
@@ -102,9 +98,9 @@ No hay migración destructiva. Antes de cambiar el esquema en una versión insta
 
 `ktlintFormat` modifica formato; los demás verifican/compilan. No se agregó detekt: duplicaría mantenimiento para esta base pequeña. El repositorio no activa CI remoto automáticamente ni consume minutos del usuario.
 
-## Alcance pendiente
+## Alcance
 
-Esta es una base de desarrollo, no una publicación en tiendas. Branding e identificadores son provisionales. No incluye edición/borrado, exportación, restauración de datos ni sync. Desinstalar la app elimina la base local; Android tiene el backup automático deshabilitado. Antes de uso como diario único, implementar export/import. Los datos de prueba deben ingresarse desde la UI; la app arranca vacía.
+Esta es una base de desarrollo, no una publicación en tiendas. Branding e identificadores son provisionales. Desinstalar la app elimina la base local; Android tiene el backup automático deshabilitado. Exportar un backup sigue siendo la copia que no depende de la cuenta. Apple no sincroniza, y la web no arranca offline. La app arranca vacía.
 
 ## Fuentes oficiales
 
@@ -121,13 +117,13 @@ Herramientas detectadas y resultado de builds: [docs/VERIFICATION.md](docs/VERIF
 
 ## Cuenta (Google / Apple)
 
-Integración opcional preparada; requiere registrar los proveedores antes del primer acceso. Ver [configuración y limitaciones](docs/AUTH.md). Iniciar sesión todavía no activa sincronización.
+El acceso es opcional. Google autoriza el sync. Apple identifica en el dispositivo y todavía no autoriza sync remoto. Ver [configuración y limitaciones](docs/AUTH.md).
 
 ## Web
 
-Coffee Dial también tiene un target Kotlin/Wasm local-first: `./gradlew :shared:wasmJsBrowserDevelopmentRun`.
-La versión publicada usa `https://coffee.muralooo.win`. Los datos se guardan en cada navegador y se pueden transferir mediante los mismos backups JSON de Android/iOS. Login web, sincronización y PWA quedan para una siguiente iteración. Ver [web/README.md](web/README.md) para builds, almacenamiento, límites y despliegue.
+El target Kotlin/Wasm comparte las pantallas y el sync: `./gradlew :shared:wasmJsBrowserDevelopmentRun`.
+La versión publicada usa `https://coffee.muralooo.win`. Cada navegador guarda sus datos. No hay service worker ni arranque offline. Ver [web/README.md](web/README.md).
 
 ## Sync autenticado
 
-Google autoriza el sync opcional entre dispositivos; Cloudflare guarda los datos. El protocolo 2 protege modificaciones concurrentes y borrados, y conserva compatibilidad con backups manuales v1. Ver [funcionamiento, migración y límites](docs/SYNC.md). Después de actualizar, volver a iniciar sesión con Google.
+Google autoriza el sync opcional entre dispositivos; Cloudflare guarda los datos. El protocolo 2 protege modificaciones concurrentes y borrados. El backup vigente es la versión 9 y sigue leyendo desde la 1. Ver [funcionamiento, migración y límites](docs/SYNC.md). Después de actualizar, volver a iniciar sesión con Google.

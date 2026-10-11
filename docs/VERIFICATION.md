@@ -6,7 +6,7 @@ Fecha: 2 de octubre de 2026. Inspección realizada antes de crear el scaffold. L
 
 Scaffold publicado en `main` mediante GitHub Desktop: commit `af194d6`. SHA remoto verificado y clon local sincronizado, sin builds ni archivos locales versionados.
 
-Ubicación de trabajo elegida por el usuario: `/Users/agustin/Documents/GitHub/coffee-dial`. Android, tests, lint, formato, esquema SQLite y build iOS se volvieron a verificar correctamente desde este clon. Se restauraron `.gitignore` y `.editorconfig`, que no se habían copiado con Finder. Los builds y archivos locales quedan excluidos de Git.
+Ubicación de trabajo en esta verificación: `/Users/agustin/Documents/GitHub/coffee-dial`. El 11 de octubre de 2026 el clon se movió a `/Users/agustin/Developer/coffee-dial`. Git y el remoto no cambiaron. Android, tests, lint, formato, esquema SQLite y build iOS se volvieron a verificar correctamente desde este clon. Se restauraron `.gitignore` y `.editorconfig`, que no se habían copiado con Finder. Los builds y archivos locales quedan excluidos de Git.
 
 Base mínima implementada para Android e iOS con lógica, persistencia y UI compartidas. Repositorio indicado por el usuario: `mural/coffee-dial`, público (creado y renombrado por el usuario). No se creó otro repositorio ni se cambió su visibilidad.
 

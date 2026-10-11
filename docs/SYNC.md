@@ -4,6 +4,18 @@ Google verifica la identidad; los backups remotos viven en Cloudflare Durable Ob
 
 Web y Android usan una credencial opaca de Coffee Dial con vencimiento después de 30 días de inactividad autenticada. El servidor renueva el plazo al usarla (como máximo una escritura por día), guarda solo su hash como identificador y la revoca al cerrar sesión. Las credenciales ya vencidas no se reactivan: requieren un nuevo login. Google nativo Android canjea un ID token verificado por esa sesión mediante `/api/session`; nunca se usa email/ID como credencial. Android cifra la sesión persistente con Android Keystore; web la conserva en localStorage del origen (accesible al JavaScript de la app) y valida la identidad con el servidor al reabrirse. PKCE sigue limitado a la pestaña y a cinco minutos. iOS Google renueva el ID token con `refreshTokensIfNeeded` antes de cada solicitud autenticada; la persistencia la gestiona el SDK. Cerrar sesión sin conexión borra la credencial local, pero su copia remota solo vence por plazo. Apple todavía no autoriza sync remoto.
 
+## Versiones vigentes
+
+SQLite, el backup JSON y el protocolo se versionan por separado. El protocolo sigue en 2.
+
+| Capa | Versión | Dónde |
+|---|---|---|
+| SQLite / SQLDelight | 13 | `CoffeeDatabase.Schema.version`. La próxima migración es `13.sqm` |
+| Backup JSON | 9 | `BackupFormat.CURRENT_VERSION`. Cliente y servidor aceptan 1–9 |
+| Sync | protocolo 2 | Compare-and-swap de la revisión del snapshot |
+
+Backup: 1 base; 2 agua extra y estilo; 3 tazas; 4 archivado; 5 referencia de foto; 6 primera gota; 7 perfil de sabor; 8 dial-in; 9 `machineId` y `cupId`. Un campo nuevo que viaje en el backup sube esta versión en el cliente y en `auth-service/src/sync.js` a la vez. Los archivos viejos se leen sin inventar valores. El servidor rechaza escribir una versión anterior a la que ya tiene. Las reglas para hacerlo están en [AGENTS.md](../AGENTS.md).
+
 ## Cambios y borrados
 
 - UUIDs estables para shots, beans, máquinas y tazas. No se deduce identidad a partir del nombre, email o fecha.
@@ -14,13 +26,13 @@ Web y Android usan una credencial opaca de Coffee Dial con vencimiento después 
 - Guardado local y checkpoint son atómicos. Si alguien edita mientras se envía, el resultado remoto no pisa esa edición. Un reintento reconcilia una respuesta perdida; no depende de relojes de dispositivos.
 - Recuperar y combinar usa la misma política segura: una nube vacía no vacía el dispositivo. No hay reemplazo destructivo automático.
 
-Los conflictos se notifican en Cuenta; no existe todavía una pantalla para elegir entre las dos versiones. Ante un conflicto, exportar la copia local y revisar ambos dispositivos antes de resolverlo. No se aplica una política automática de «último escritor gana».
+Los conflictos se muestran en Cuenta, en `ConflictScreen`. Cada registro conserva las dos copias hasta que la persona elige una. No se aplica una política automática de «último escritor gana».
 
 ## Migración y compatibilidad
 
 SQLite pasó a schema 5 mediante 4.sqm. Reconstruye bean/shot conservando IDs y campos para quitar UNIQUE(name, roaster): dos dispositivos pueden crear cafés homónimos con UUIDs diferentes. Las referencias siguen siendo válidas. La creación local reutiliza un café existente cuando coincide nombre/tostador. La migración y el rollback tienen tests sobre SQLite con foreign keys habilitadas.
 
-Web convierte el snapshot antiguo en un documento interno storageVersion=2 con checkpoint. El cambio es atómico en IndexedDB. La exportación/importación manual usa **backup v4**, independiente del protocolo de sync. El lector migra v1 con agua extra y estilo vacíos; los archivos existentes siguen funcionando. Importar no restaura ni suplanta la identidad de una cuenta ni su checkpoint.
+Web convierte el snapshot antiguo en un documento interno storageVersion=2 con checkpoint. El cambio es atómico en IndexedDB. En ese momento la exportación/importación manual pasó a **backup v4**, independiente del protocolo de sync. La versión vigente está en la tabla de arriba. El lector migra v1 con agua extra y estilo vacíos; los archivos existentes siguen funcionando. Importar no restaura ni suplanta la identidad de una cuenta ni su checkpoint.
 
 Schema 6 agrega columnas nullable `extra_water` y `style` mediante `5.sqm`, sin cambiar IDs ni valores anteriores. Schema 7 agrega tazas y la taza del shot mediante `6.sqm`. Backup v3 incluye ambos campos; el lector acepta v1, v2 y la versión intermedia v2 con tazas. El servidor acepta backups v1, v2 y v3, pero no permite bajar de versión: actualizar las apps móviles antes de sincronizar con datos nuevos. Una app antigua falla de forma segura en lugar de omitir campos. El lector conserva la validación estricta de versiones futuras y campos desconocidos.
 
