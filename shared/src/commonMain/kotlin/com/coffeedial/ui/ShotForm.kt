@@ -395,7 +395,7 @@ fun ShotFormContent(
             onChange(draft.copy(seconds = it))
         }
 
-        Field("Molienda · ajuste del molino", draft.grind, errors["grind"], saving) {
+        GrindSettingField(draft.grind, errors["grind"], saving) {
             onChange(draft.copy(grind = it))
         }
 

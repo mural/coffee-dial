@@ -148,6 +148,8 @@ fun App(
     val authState by authRepository.state.collectAsState()
     val syncState by syncEngine.state.collectAsState()
     LaunchedEffect(authState) {
+        // Keep the notice hidden while restoring or verifying the session.
+        updateWebNotice(authState is AuthState.LoggedIn || authState is AuthState.Authenticating)
         if (authState is AuthState.LoggedIn) syncEngine.performSync()
     }
     fun favorite(shot: Shot, context: DialInContext = shot.dialIn ?: DialInContext()) {
