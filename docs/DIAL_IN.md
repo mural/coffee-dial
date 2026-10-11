@@ -7,7 +7,7 @@ Propone ensayos explicados, cambiando una sola variable por vez. No diagnostica 
 
 Ejemplo: 16 g / 46 g, tueste medio, débil, objetivo fuerte → probar 36 g manteniendo dosis y molienda. Para bebidas terminadas ajusta primero una adición (agua o leche); sabor ácido/amargo pide evaluar el espresso solo.
 
-Cada nuevo intento conserva el ID del anterior. La cadena tolera ancestros eliminados y ciclos importados. Se pueden marcar favoritos. Dos o más referencias comparables permiten usar un ratio personal: mismo café, máquina, molinillo, molienda, tueste conocido, objetivo, base de evaluación, temperatura, estilo y adiciones, con dosis dentro del 10%. Referencias: favoritos o shots equilibrados con al menos 4 puntos. Funciona localmente, sin proveedor de IA.
+Cada nuevo intento conserva el ID del anterior. La cadena tolera ancestros eliminados y ciclos importados. Se pueden marcar favoritos. Dos o más referencias comparables permiten usar un ratio personal: mismo café, máquina, molinillo, molienda, tueste conocido, objetivo, base de evaluación, temperatura, estilo y adiciones, con dosis dentro del 10%. El molinillo del catálogo se compara por id: un cambio de nombre sigue contando como el mismo equipo, y dos molinillos con el mismo nombre no se mezclan. Si el shot no tiene id, se usa el nombre guardado en el shot y, si falta, el texto del dial-in. Referencias: favoritos o shots equilibrados con al menos 4 puntos. Funciona localmente, sin proveedor de IA.
 
 Persistencia: migración SQL 11, backup versión 8, campo opcional dialIn. Backups anteriores siguen admitidos; el servidor valida el nuevo campo. Publicar servidor antes del cliente. Clientes antiguos deben actualizarse para leer backups v8.
 

@@ -121,4 +121,25 @@ class DialInAssistantTest {
         // Two matching ratios put the median at 40 g. Including the other machine would make it 32 g.
         assertEquals(40.0, advice.next?.output?.toDouble())
     }
+
+    @Test fun grinderIdSurvivesARenameAndRejectsAnotherGrinderWithTheSameName() {
+        val source = shot().copy(grinder = "Niche", grinderId = "g1")
+        val renamed = shot("two", TasteImpression.BALANCED).copy(
+            output = 32.0,
+            grinder = "Niche Zero",
+            grinderId = "g1",
+            dialIn = context.copy(grinder = "otro texto", favorite = true)
+        )
+        val alsoPreferred = renamed.copy(id = "three", output = 40.0)
+        val sameName = renamed.copy(
+            id = "other",
+            grinderId = "g2",
+            grinder = "Niche",
+            output = 24.0
+        )
+        val advice = dialInAdvice(source, context, listOf(renamed, alsoPreferred, sameName))
+        assertEquals(setOf("two", "three"), advice.references.map { it.id }.toSet())
+        assertEquals("g1", advice.next?.grinderId)
+        assertEquals(40.0, advice.next?.output?.toDouble())
+    }
 }

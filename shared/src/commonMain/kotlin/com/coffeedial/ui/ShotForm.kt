@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.Cup
+import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.ShotDraft
 import com.coffeedial.domain.decimal
@@ -44,6 +45,7 @@ fun ShotForm(
     machines: List<Machine>,
     beans: List<Bean>,
     cups: List<Cup>,
+    grinders: List<Grinder>,
     onChange: (ShotDraft) -> Unit,
     saving: Boolean,
     saveError: String?,
@@ -53,6 +55,7 @@ fun ShotForm(
     onNavigateToMachines: () -> Unit,
     onNavigateToBeans: () -> Unit,
     onNavigateToCups: () -> Unit,
+    onNavigateToGrinders: () -> Unit,
     onSave: () -> Unit
 ) {
     var submitted by rememberSaveable { mutableStateOf(false) }
@@ -65,6 +68,7 @@ fun ShotForm(
                 machines = machines,
                 beans = beans,
                 cups = cups,
+                grinders = grinders,
                 onChange = onChange,
                 saving = saving,
                 saveError = null,
@@ -75,6 +79,7 @@ fun ShotForm(
                 onNavigateToMachines = onNavigateToMachines,
                 onNavigateToBeans = onNavigateToBeans,
                 onNavigateToCups = onNavigateToCups,
+                onNavigateToGrinders = onNavigateToGrinders,
                 onSave = onSave
             )
         }
@@ -99,6 +104,7 @@ fun ShotFormContent(
     machines: List<Machine>,
     beans: List<Bean>,
     cups: List<Cup>,
+    grinders: List<Grinder>,
     onChange: (ShotDraft) -> Unit,
     saving: Boolean,
     saveError: String?,
@@ -108,6 +114,7 @@ fun ShotFormContent(
     onNavigateToMachines: () -> Unit,
     onNavigateToBeans: () -> Unit,
     onNavigateToCups: () -> Unit,
+    onNavigateToGrinders: () -> Unit,
     onSave: () -> Unit,
     showSaveButton: Boolean = true,
     submitted: Boolean = false
@@ -263,6 +270,60 @@ fun ShotFormContent(
                 }
                 TextButton(onClick = onNavigateToMachines, enabled = !saving) {
                     Text("+ Agregar máquina guardada")
+                }
+            }
+        }
+
+        if (grinders.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Molinillo (opcional)", style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onNavigateToGrinders, enabled = !saving) {
+                        Text("Gestionar molinillos")
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    grinders.forEach { grinder ->
+                        val selected = draft.grinderId == grinder.id ||
+                            (draft.grinderId == null && draft.grinder == grinder.name)
+                        FilterChip(
+                            selected = selected,
+                            onClick = {
+                                onChange(
+                                    if (draft.grinderId == grinder.id) {
+                                        draft.copy(grinder = "", grinderId = null)
+                                    } else {
+                                        draft.copy(grinder = grinder.name, grinderId = grinder.id)
+                                    }
+                                )
+                            },
+                            label = { Text(grinder.name) },
+                            enabled = !saving
+                        )
+                    }
+                }
+                Field("O escribir molinillo manualmente", draft.grinder, null, saving) {
+                    onChange(
+                        draft.copy(
+                            grinder = it,
+                            grinderId = grinders.find { item ->
+                                item.id == draft.grinderId && item.name == it
+                            }?.id
+                        )
+                    )
+                }
+            }
+        } else {
+            Column {
+                Field("Molinillo (opcional)", draft.grinder, null, saving) {
+                    onChange(draft.copy(grinder = it, grinderId = null))
+                }
+                TextButton(onClick = onNavigateToGrinders, enabled = !saving) {
+                    Text("+ Agregar molinillo guardado")
                 }
             }
         }
@@ -762,12 +823,14 @@ private fun ShotFormEmptyPreview() {
             machines = mockMachines,
             beans = listOf(mockBean),
             cups = emptyList(),
+            grinders = mockGrinders,
             onChange = {},
             saving = false,
             saveError = null,
             onNavigateToMachines = {},
             onNavigateToBeans = {},
             onNavigateToCups = {},
+            onNavigateToGrinders = {},
             onSave = {}
         )
     }
@@ -789,12 +852,14 @@ private fun ShotFormFilledPreview() {
             machines = mockMachines,
             beans = listOf(mockBean),
             cups = emptyList(),
+            grinders = mockGrinders,
             onChange = {},
             saving = false,
             saveError = null,
             onNavigateToMachines = {},
             onNavigateToBeans = {},
             onNavigateToCups = {},
+            onNavigateToGrinders = {},
             onSave = {}
         )
     }
@@ -816,12 +881,14 @@ private fun ShotFormSavingPreview() {
             machines = mockMachines,
             beans = listOf(mockBean),
             cups = emptyList(),
+            grinders = mockGrinders,
             onChange = {},
             saving = true,
             saveError = null,
             onNavigateToMachines = {},
             onNavigateToBeans = {},
             onNavigateToCups = {},
+            onNavigateToGrinders = {},
             onSave = {}
         )
     }
@@ -843,12 +910,14 @@ private fun ShotFormErrorPreview() {
             machines = mockMachines,
             beans = listOf(mockBean),
             cups = emptyList(),
+            grinders = mockGrinders,
             onChange = {},
             saving = false,
             saveError = "No pudimos guardar el shot. Tus datos siguen acá; intentá otra vez.",
             onNavigateToMachines = {},
             onNavigateToBeans = {},
             onNavigateToCups = {},
+            onNavigateToGrinders = {},
             onSave = {}
         )
     }
@@ -870,6 +939,7 @@ private fun ShotFormScrollablePreview() {
             machines = mockMachines,
             beans = listOf(mockBean),
             cups = emptyList(),
+            grinders = mockGrinders,
             onChange = { draft = it },
             saving = false,
             saveError = null,
@@ -877,6 +947,7 @@ private fun ShotFormScrollablePreview() {
             onNavigateToMachines = {},
             onNavigateToBeans = {},
             onNavigateToCups = {},
+            onNavigateToGrinders = {},
             onSave = {}
         )
     }

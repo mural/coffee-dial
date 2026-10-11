@@ -33,6 +33,15 @@ data class MachineDraft(
     }
 }
 
+data class Grinder(val id: String, val name: String, val type: String)
+
+data class GrinderDraft(val name: String = "", val type: String = "Eléctrico") {
+    fun errors(): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", "Ingresá el nombre del molinillo")
+        if (type.isBlank()) put("type", "Elegí el tipo de molinillo")
+    }
+}
+
 data class Cup(val id: String, val name: String, val weight: Double? = null)
 
 data class CupDraft(val name: String = "", val weight: String = "") {
@@ -66,7 +75,9 @@ data class Shot(
     val taste: TasteProfile? = null,
     val dialIn: DialInContext? = null,
     val machineId: String? = null,
-    val cupId: String? = null
+    val cupId: String? = null,
+    val grinder: String? = null,
+    val grinderId: String? = null
 ) {
     val ratio: Double get() = output / dose
 }
@@ -90,7 +101,9 @@ data class ShotDraft(
     val taste: TasteProfile? = null,
     val dialIn: DialInContext? = null,
     val machineId: String? = null,
-    val cupId: String? = null
+    val cupId: String? = null,
+    val grinder: String = "",
+    val grinderId: String? = null
 ) {
     fun errors(): Map<String, String> = buildMap {
         if (beanName.isBlank()) put("beanName", "Ingresá el nombre del café")

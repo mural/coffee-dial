@@ -19,6 +19,12 @@ CREATE TABLE cup (
     weight REAL
 );
 
+CREATE TABLE grinder (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL
+);
+
 CREATE TABLE shot (
     id TEXT NOT NULL PRIMARY KEY,
     bean_id TEXT NOT NULL REFERENCES bean(id),
@@ -39,7 +45,9 @@ CREATE TABLE shot (
     taste TEXT,
     dial_in TEXT,
     machine_id TEXT,
-    cup_id TEXT
+    cup_id TEXT,
+    grinder TEXT,
+    grinder_id TEXT
 );
 
 CREATE INDEX shot_created_at ON shot(created_at DESC);
@@ -52,7 +60,7 @@ findBean:
 SELECT * FROM bean WHERE name = ? AND roaster = ? AND archived = 0 ORDER BY id LIMIT 1;
 
 insertShot:
-INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO shot VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 history:
 SELECT shot.*, bean.name, bean.roaster
@@ -81,7 +89,7 @@ deleteShot:
 DELETE FROM shot WHERE id = ?;
 
 updateShot:
-UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ?, extra_water = ?, style = ?, cup = ?, first_drop = ?, taste = ?, dial_in = ?, machine_id = ?, cup_id = ? WHERE id = ?;
+UPDATE shot SET bean_id = ?, dose = ?, output = ?, seconds = ?, grind = ?, temperature = ?, notes = ?, rating = ?, milk = ?, machine = ?, extra_water = ?, style = ?, cup = ?, first_drop = ?, taste = ?, dial_in = ?, machine_id = ?, cup_id = ?, grinder = ?, grinder_id = ? WHERE id = ?;
 
 renameShotMachine:
 UPDATE shot SET machine = ? WHERE machine_id = ?;
@@ -94,6 +102,12 @@ UPDATE shot SET cup = ? WHERE cup_id = ?;
 
 clearShotCup:
 UPDATE shot SET cup_id = NULL WHERE cup_id = ?;
+
+renameShotGrinder:
+UPDATE shot SET grinder = ? WHERE grinder_id = ?;
+
+clearShotGrinder:
+UPDATE shot SET grinder_id = NULL WHERE grinder_id = ?;
 
 allMachines:
 SELECT * FROM machine ORDER BY name;
@@ -116,6 +130,15 @@ DELETE FROM cup WHERE id = ?;
 updateCup:
 UPDATE cup SET name = ?, weight = ? WHERE id = ?;
 
+allGrinders:
+SELECT * FROM grinder ORDER BY name;
+
+insertGrinder:
+INSERT OR REPLACE INTO grinder VALUES (?, ?, ?);
+
+deleteGrinder:
+DELETE FROM grinder WHERE id = ?;
+
 CREATE TABLE sync_checkpoint (id INTEGER NOT NULL PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
 
 readSyncCheckpoint:
@@ -135,6 +158,9 @@ DELETE FROM machine;
 
 clearCups:
 DELETE FROM cup;
+
+clearGrinders:
+DELETE FROM grinder;
 
 setBeanPhoto:
 UPDATE bean SET photo = ? WHERE id = ?;

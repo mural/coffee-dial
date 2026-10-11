@@ -4,7 +4,9 @@ data class ResolvedEquipment(
     val machineId: String?,
     val machine: String?,
     val cupId: String?,
-    val cup: String?
+    val cup: String?,
+    val grinderId: String?,
+    val grinder: String?
 )
 
 fun uniqueEquipmentId(name: String?, items: List<Pair<String, String>>): String? {
@@ -31,17 +33,44 @@ fun linkLegacyEquipment(backup: BackupV1): BackupV1 {
     )
 }
 
+/** Copies a dial-in grinder name onto the shot and links a unique catalog entry. */
+fun linkLegacyGrinders(backup: BackupV1): BackupV1 {
+    if (backup.schemaVersion >= 10) return backup
+    val grinders = backup.grinders.map { it.id to it.name }
+    return backup.copy(
+        shots = backup.shots.map { shot ->
+            val name = shot.grinder?.takeIf { it.isNotBlank() }
+                ?: shot.dialIn?.grinder?.takeIf { it.isNotBlank() }
+            shot.copy(
+                grinder = name,
+                grinderId = shot.grinderId ?: uniqueEquipmentId(name, grinders)
+            )
+        }
+    )
+}
+
 fun resolveEquipment(
     machineId: String?,
     machineName: String?,
     cupId: String?,
     cupName: String?,
     machines: List<BackupMachineV1>,
-    cups: List<BackupCupV1>
+    cups: List<BackupCupV1>,
+    grinderId: String? = null,
+    grinderName: String? = null,
+    grinders: List<BackupGrinderV1> = emptyList()
 ): ResolvedEquipment {
     val machine = resolveOne(machineId, machineName, machines.map { it.id to it.name })
     val cup = resolveOne(cupId, cupName, cups.map { it.id to it.name })
-    return ResolvedEquipment(machine.first, machine.second, cup.first, cup.second)
+    val grinder = resolveOne(grinderId, grinderName, grinders.map { it.id to it.name })
+    return ResolvedEquipment(
+        machine.first,
+        machine.second,
+        cup.first,
+        cup.second,
+        grinder.first,
+        grinder.second
+    )
 }
 
 private fun resolveOne(

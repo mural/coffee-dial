@@ -1,7 +1,7 @@
 # Navegación por pilares
 
 - Preparar (Brew): acceso rápido a registrar, timer, guía de ratios/estilos y últimas recetas.
-- Registrar (Track): historial, cafés, máquinas y tazas.
+- Registrar (Track): historial, cafés, máquinas, molinillos y tazas.
 - Mejorar (Improve): asistente de espresso, análisis e historial para explorar intentos/favoritos.
 - Cuenta: sesión, sincronización, administración y backups.
 

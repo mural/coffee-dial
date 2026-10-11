@@ -138,8 +138,15 @@ fun DialInScreen(
     onSelect: (Shot) -> Unit,
     onNext: (ShotDraft, DialInContext) -> Unit
 ) {
-    var context by rememberSaveable(shot.id, shot.dialIn, stateSaver = ContextSaver) {
-        mutableStateOf(shot.dialIn ?: DialInContext())
+    var context by rememberSaveable(shot.id, shot.dialIn, shot.grinder, stateSaver = ContextSaver) {
+        val stored = shot.dialIn ?: DialInContext()
+        mutableStateOf(
+            if (stored.grinder.isBlank() && !shot.grinder.isNullOrBlank()) {
+                stored.copy(grinder = shot.grinder.orEmpty())
+            } else {
+                stored
+            }
+        )
     }
     val advice = dialInAdvice(shot, context, history)
     Column(

@@ -7,7 +7,8 @@ data class ImportSummary(
     val newMachines: Int = 0,
     val duplicates: Int,
     val conflicts: Int,
-    val newCups: Int = 0
+    val newCups: Int = 0,
+    val newGrinders: Int = 0
 )
 
 internal data class ImportPlan(
@@ -15,7 +16,8 @@ internal data class ImportPlan(
     val shots: List<BackupShotV1>,
     val machines: List<BackupMachineV1>,
     val summary: ImportSummary,
-    val cups: List<BackupCupV1> = emptyList()
+    val cups: List<BackupCupV1> = emptyList(),
+    val grinders: List<BackupGrinderV1> = emptyList()
 )
 
 internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
@@ -64,6 +66,26 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             }
         }
     }
+    val grindersById = local.grinders.associateBy { it.id }.toMutableMap()
+    val grindersByName = local.grinders.associateBy { it.name }.toMutableMap()
+    val newGrinders = mutableListOf<BackupGrinderV1>()
+    incoming.grinders.forEach { grinder ->
+        val sameId = grindersById[grinder.id]
+        val sameName = grindersByName[grinder.name]
+        when {
+            sameId != null && sameId != grinder -> conflicts++
+
+            sameId != null -> {}
+
+            sameName != null -> {}
+
+            else -> {
+                newGrinders += grinder
+                grindersById[grinder.id] = grinder
+                grindersByName[grinder.name] = grinder
+            }
+        }
+    }
     val cupsById = local.cups.associateBy { it.id }
     val newCups = mutableListOf<BackupCupV1>()
     incoming.cups.forEach { cup ->
@@ -100,8 +122,10 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             newMachines.size,
             duplicates,
             conflicts,
-            newCups.size
+            newCups.size,
+            newGrinders.size
         ),
-        newCups
+        newCups,
+        newGrinders
     )
 }

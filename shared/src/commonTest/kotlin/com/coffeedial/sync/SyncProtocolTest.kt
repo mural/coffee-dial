@@ -116,6 +116,28 @@ class SyncProtocolTest {
             SyncDocument(backup = base.copy(shots = listOf(named.copy(machineId = "m2"))))
         )
         assertEquals(1, diverged.conflicts.size)
+        val grinder = com.coffeedial.backup.BackupGrinderV1("g1", "Niche", "Eléctrico")
+        val otherGrinder = grinder.copy(id = "g2")
+        val withGrinders = base.copy(grinders = listOf(grinder, otherGrinder))
+        val linkedGrinder = withGrinders.shots.single().copy(grinder = "Niche", grinderId = "g1")
+        val namedGrinder = linkedGrinder.copy(grinderId = null)
+        val filledGrinder = mergeSync(
+            withGrinders,
+            withGrinders.copy(shots = listOf(linkedGrinder)),
+            SyncDocument(backup = withGrinders.copy(shots = listOf(namedGrinder)))
+        )
+        assertTrue(filledGrinder.conflicts.isEmpty())
+        assertEquals("g1", filledGrinder.backup.shots.single().grinderId)
+        val divergedGrinder = mergeSync(
+            withGrinders,
+            withGrinders.copy(shots = listOf(linkedGrinder)),
+            SyncDocument(
+                backup = withGrinders.copy(
+                    shots = listOf(linkedGrinder.copy(grinderId = "g2"))
+                )
+            )
+        )
+        assertEquals(1, divergedGrinder.conflicts.size)
     }
 
     @Test fun deletionPropagatesButEditVersusDeleteConflicts() {

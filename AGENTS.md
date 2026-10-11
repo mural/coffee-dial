@@ -85,7 +85,7 @@ Publicar, solo si se pidió: primero `npm run deploy` en `auth-service`, despué
 
 ## Migraciones SQLDelight
 
-El esquema actual está en `Coffee.sq`. `CoffeeDatabase.Schema.version` es **13**. Las bases ya instaladas están en esa versión. La próxima migración es `shared/src/commonMain/sqldelight/com/coffeedial/database/13.sqm`.
+El esquema actual está en `Coffee.sq`. `CoffeeDatabase.Schema.version` es **14**. Las bases ya instaladas están en esa versión. La próxima migración es `shared/src/commonMain/sqldelight/com/coffeedial/database/14.sqm`.
 
 `databases/1.db` es la baseline. Cada `N.sqm` corre cuando `user_version <= N` y la versión nueva es mayor: `12.sqm` lleva una base 12 a la 13. No editar un `.sqm` ni la baseline que ya haya salido en una app. No reescribir el historial de migraciones para “ordenar” el archivo.
 
@@ -107,11 +107,11 @@ SQLite, el backup JSON y el protocolo de sync se versionan por separado. El deta
 
 | Capa | Vigente | Regla |
 |---|---|---|
-| SQLite | 13 | Arriba |
-| Backup JSON | 9, `BackupFormat.CURRENT_VERSION` | Manual y sync usan el mismo formato `coffee-dial-backup` |
+| SQLite | 14 | Arriba |
+| Backup JSON | 10, `BackupFormat.CURRENT_VERSION` | Manual y sync usan el mismo formato `coffee-dial-backup` |
 | Protocolo | 2 | Compare-and-swap de la revisión del snapshot completo |
 
-Versiones de backup ya aceptadas: 1 base; 2 agua extra y estilo; 3 tazas; 4 archivado; 5 referencia de foto; 6 primera gota; 7 perfil de sabor; 8 dial-in; 9 `machineId` y `cupId`. Cliente y `auth-service/src/sync.js` aceptan 1–9. Un snapshot futuro o desconocido falla sin vaciar datos. Escribir una versión menor que la que ya está en la nube responde 426 `backup_upgrade_required`. No se trunca un documento que no entra: sync rechaza por encima de 1.500.000 bytes; el backup manual, por encima de 10 MB.
+Versiones de backup ya aceptadas: 1 base; 2 agua extra y estilo; 3 tazas; 4 archivado; 5 referencia de foto; 6 primera gota; 7 perfil de sabor; 8 dial-in; 9 `machineId` y `cupId`; 10 molinillos (`grinder`, `grinderId`). Cliente y `auth-service/src/sync.js` aceptan 1–10. Un snapshot futuro o desconocido falla sin vaciar datos. Escribir una versión menor que la que ya está en la nube responde 426 `backup_upgrade_required`. No se trunca un documento que no entra: sync rechaza por encima de 1.500.000 bytes; el backup manual, por encima de 10 MB.
 
 Un campo nuevo que viaje entre dispositivos sube `CURRENT_VERSION` y el arreglo de versiones del servidor en el mismo cambio. Los backups viejos siguen decodificando. Lo que no venía en el archivo queda null. No se inventan valores. Codificar o validar ese campo con una versión anterior es un error. El servidor tiene que conocer la versión nueva antes de que un cliente la escriba. Si no, publicar primero `coffee-dial-auth`.
 
@@ -127,7 +127,7 @@ Importar un backup no reemplaza la cuenta ni el checkpoint. Una nube vacía no v
 
 1. Regla de producto: función pura en `domain/` y test en `commonTest`. Sin driver ni red.
 2. Pantalla: Compose en `commonMain`, para Android, iOS y web a la vez. Plataforma solo si hace falta un API del sistema.
-3. Dato guardado: columna en `Coffee.sq`, migración `13.sqm` o la que corresponda al día, y el mismo campo en `SnapshotRepository`. Nullable si las filas viejas no lo tienen.
+3. Dato guardado: columna en `Coffee.sq`, migración `14.sqm` o la que corresponda al día, y el mismo campo en `SnapshotRepository`. Nullable si las filas viejas no lo tienen.
 4. Si el dato sale del dispositivo, subir el backup como dice la sección anterior y repetir la validación en `auth-service/src/sync.js`. Cubrir con test una versión vieja, la nueva, un valor inválido y el rechazo a bajar de versión.
 5. Si el dato es un archivo, dejarlo fuera del snapshot de sync y subir el objeto antes de la referencia. Ver [docs/PHOTOS.md](docs/PHOTOS.md).
 6. Conflictos: el merge tiene que poder comparar el campo. No pisar en silencio las dos ediciones.

@@ -60,6 +60,15 @@ class ShotDraftTest {
     }
 
     @Test
+    fun validatesGrinderDraft() {
+        val grinder = GrinderDraft(name = "Niche Zero")
+        assertTrue(grinder.errors().isEmpty())
+        assertEquals("Eléctrico", grinder.type)
+        assertTrue("name" in grinder.copy(name = " ").errors())
+        assertTrue("type" in grinder.copy(type = " ").errors())
+    }
+
+    @Test
     fun calculatesBrewRatio() {
         val shot =
             Shot("id", Bean("b", "Coffee", ""), 0, 18.0, 36.0, 28.0, "42", null, null, null, "", 4)

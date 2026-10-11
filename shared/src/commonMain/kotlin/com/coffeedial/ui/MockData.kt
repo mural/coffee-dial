@@ -1,6 +1,7 @@
 package com.coffeedial.ui
 
 import com.coffeedial.domain.Bean
+import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
@@ -21,6 +22,11 @@ internal val mockMachine = Machine(
 internal val mockMachines = listOf(
     mockMachine,
     Machine(id = "2", name = "Nespresso Vertuo", type = "Cápsulas", year = "2021")
+)
+
+internal val mockGrinders = listOf(
+    Grinder(id = "g1", name = "Niche Zero", type = "Eléctrico"),
+    Grinder(id = "g2", name = "1Zpresso J-Ultra", type = "Manual")
 )
 
 internal val mockShot = Shot(

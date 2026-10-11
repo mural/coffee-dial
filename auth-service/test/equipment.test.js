@@ -24,3 +24,20 @@ test('v9 accepts equipment ids and rejects unknown or downgraded links', () => {
     ...backup, shots: [shot({ cupId: 'missing' })]
   }));
 });
+
+test('v10 accepts a grinder link and rejects a downgrade or an unknown id', () => {
+  const backup = {
+    ...emptyBackup(), schemaVersion: 10,
+    beans: [{ id: 'b', name: 'Brasil', roaster: '' }],
+    grinders: [{ id: 'g1', name: 'Niche', type: 'Eléctrico' }],
+    shots: [shot({ grinder: 'Niche', grinderId: 'g1' })]
+  };
+  validateBackup(backup);
+  assert.throws(() => validateBackup({ ...backup, schemaVersion: 9 }));
+  assert.throws(() => validateBackup({
+    ...backup, shots: [shot({ grinderId: 'missing' })]
+  }));
+  assert.throws(() => validateBackup({
+    ...backup, grinders: [{ id: 'g1', name: ' ', type: 'Manual' }]
+  }));
+});

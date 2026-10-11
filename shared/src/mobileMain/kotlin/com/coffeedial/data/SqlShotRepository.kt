@@ -7,6 +7,7 @@ import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.backup.BackupV1
@@ -20,6 +21,8 @@ import com.coffeedial.domain.BeanDraft
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.DialInContext
+import com.coffeedial.domain.Grinder
+import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
@@ -63,7 +66,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 taste = it.taste?.let { value -> Json.decodeFromString<TasteProfile>(value) },
                 dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) },
                 machineId = it.machine_id,
-                cupId = it.cup_id
+                cupId = it.cup_id,
+                grinder = it.grinder,
+                grinderId = it.grinder_id
             )
         }
     }
@@ -97,6 +102,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         rows.map { Cup(it.id, it.name, it.weight) }
     }
 
+    override val grinders: Flow<List<Grinder>> = queries.allGrinders().asFlow().mapToList(
+        Dispatchers.IO
+    ).map { rows ->
+        rows.map { Grinder(it.id, it.name, it.type) }
+    }
+
     override suspend fun readSyncLocal(): com.coffeedial.sync.SyncLocal =
         withContext(Dispatchers.IO) {
             queries.transactionWithResult {
@@ -124,6 +135,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.clearBeans()
             queries.clearMachines()
             queries.clearCups()
+            queries.clearGrinders()
             next.beans.forEach {
                 queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                 queries.setBeanPhoto(
@@ -135,6 +147,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             }
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
             next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
+            next.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
             next.shots.forEach { writeShot(it) }
             queries.writeSyncCheckpoint(checkpoint)
         }
@@ -170,7 +183,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 taste = draft.taste?.let { Json.encodeToString(it) },
                 dial_in = draft.dialIn?.let { Json.encodeToString(it) },
                 machine_id = linked.machineId,
-                cup_id = linked.cupId
+                cup_id = linked.cupId,
+                grinder = linked.grinder,
+                grinder_id = linked.grinderId
             )
         }
     }
@@ -215,6 +230,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 draft.dialIn?.let { Json.encodeToString(it) },
                 linked.machineId,
                 linked.cupId,
+                linked.grinder,
+                linked.grinderId,
                 id
             )
         }
@@ -311,6 +328,30 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             }
         }
 
+    override suspend fun saveGrinder(draft: GrinderDraft): Unit = withContext(Dispatchers.IO) {
+        require(draft.errors().isEmpty()) { "El molinillo contiene valores inválidos" }
+        queries.insertGrinder(Uuid.random().toString(), draft.name.trim(), draft.type.trim())
+    }
+
+    override suspend fun updateGrinder(id: String, draft: GrinderDraft): Unit =
+        withContext(Dispatchers.IO) {
+            require(draft.errors().isEmpty())
+            queries.transaction {
+                check(queries.allGrinders().executeAsList().any { it.id == id }) {
+                    "El molinillo ya no existe."
+                }
+                queries.insertGrinder(id, draft.name.trim(), draft.type.trim())
+                queries.renameShotGrinder(draft.name.trim(), id)
+            }
+        }
+
+    override suspend fun deleteGrinder(id: String): Unit = withContext(Dispatchers.IO) {
+        queries.transaction {
+            queries.clearShotGrinder(id)
+            queries.deleteGrinder(id)
+        }
+    }
+
     override suspend fun deleteCup(id: String): Unit = withContext(Dispatchers.IO) {
         queries.transaction {
             queries.clearShotCup(id)
@@ -353,7 +394,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 taste = it.taste?.let { value -> Json.decodeFromString<TasteProfile>(value) },
                 dialIn = it.dial_in?.let { value -> Json.decodeFromString<DialInContext>(value) },
                 machineId = it.machine_id,
-                cupId = it.cup_id
+                cupId = it.cup_id,
+                grinder = it.grinder,
+                grinderId = it.grinder_id
             )
         },
         machines = queries.allMachines().executeAsList().map {
@@ -361,6 +404,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         },
         cups = queries.allCups().executeAsList().map {
             BackupCupV1(it.id, it.name, it.weight)
+        },
+        grinders = queries.allGrinders().executeAsList().map {
+            BackupGrinderV1(it.id, it.name, it.type)
         }
     )
 
@@ -384,7 +430,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 if (current.beans != prepared.local.beans ||
                     current.shots != prepared.local.shots ||
                     current.machines != prepared.local.machines ||
-                    current.cups != prepared.local.cups
+                    current.cups != prepared.local.cups ||
+                    current.grinders != prepared.local.grinders
                 ) {
                     throw BackupException(
                         "El historial cambió. " +
@@ -404,6 +451,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
                 }
                 prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
+                prepared.plan.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
                 prepared.plan.shots.forEach { writeShot(it) }
                 prepared.summary
             }
@@ -428,6 +476,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.cups.forEach {
                     queries.insertCup(it.id, it.name, it.weight)
                 }
+                incoming.grinders.forEach {
+                    queries.insertGrinder(it.id, it.name, it.type)
+                }
                 incoming.shots.forEach { writeShot(it) }
             }
             ImportSummary(
@@ -436,7 +487,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.machines.size,
                 0,
                 0,
-                newCups = incoming.cups.size
+                newCups = incoming.cups.size,
+                newGrinders = incoming.grinders.size
             )
         }
 
@@ -448,6 +500,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.clearBeans()
                 queries.clearMachines()
                 queries.clearCups()
+                queries.clearGrinders()
                 incoming.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                     queries.setBeanPhoto(
@@ -463,6 +516,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.cups.forEach {
                     queries.insertCup(it.id, it.name, it.weight)
                 }
+                incoming.grinders.forEach {
+                    queries.insertGrinder(it.id, it.name, it.type)
+                }
                 incoming.shots.forEach { writeShot(it) }
             }
             ImportSummary(
@@ -471,7 +527,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.machines.size,
                 0,
                 0,
-                newCups = incoming.cups.size
+                newCups = incoming.cups.size,
+                newGrinders = incoming.grinders.size
             )
         }
 
@@ -483,7 +540,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         queries.allMachines().executeAsList().map {
             BackupMachineV1(it.id, it.name, it.type, it.year)
         },
-        queries.allCups().executeAsList().map { BackupCupV1(it.id, it.name, it.weight) }
+        queries.allCups().executeAsList().map { BackupCupV1(it.id, it.name, it.weight) },
+        draft.grinderId,
+        draft.grinder,
+        queries.allGrinders().executeAsList().map { BackupGrinderV1(it.id, it.name, it.type) }
     )
 
     private fun writeShot(shot: BackupShotV1) {
@@ -507,7 +567,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             taste = shot.taste?.let { Json.encodeToString(it) },
             dial_in = shot.dialIn?.let { Json.encodeToString(it) },
             machine_id = shot.machineId,
-            cup_id = shot.cupId
+            cup_id = shot.cupId,
+            grinder = shot.grinder,
+            grinder_id = shot.grinderId
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.coffeedial.backup
 
+import com.coffeedial.domain.DialInContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -36,7 +37,7 @@ class BackupFormatTest {
             shots = listOf(backup.shots.single().copy(machine = "robot"))
         )
         val linked = BackupFormat.decode(BackupFormat.encode(legacy))
-        assertEquals(9, linked.schemaVersion)
+        assertEquals(BackupFormat.CURRENT_VERSION, linked.schemaVersion)
         assertEquals("m1", linked.shots.single().machineId)
         assertEquals("robot", linked.shots.single().machine)
         assertEquals(linked, BackupFormat.decode(BackupFormat.encode(linked)))
@@ -138,6 +139,57 @@ class BackupFormatTest {
         assertEquals(empty, BackupFormat.decode(BackupFormat.encode(empty)))
         assertFailsWith<BackupException> {
             BackupFormat.decode(" ".repeat(BackupFormat.MAX_BYTES + 1))
+        }
+    }
+
+    @Test
+    fun legacyDialInGrinderIsCopiedAndLinkedOnlyWhenTheNameIsUnique() {
+        val old = BackupFormat.decode(V1_FIXTURE)
+        val dialIn = DialInContext(grinder = "Niche Zero")
+        val unique = BackupFormat.decode(
+            BackupFormat.encode(
+                old.copy(
+                    schemaVersion = 9,
+                    grinders = listOf(BackupGrinderV1("g1", "Niche Zero", "Eléctrico")),
+                    shots = listOf(old.shots.single().copy(dialIn = dialIn))
+                )
+            )
+        )
+        assertEquals(BackupFormat.CURRENT_VERSION, unique.schemaVersion)
+        assertEquals("Niche Zero", unique.shots.single().grinder)
+        assertEquals("g1", unique.shots.single().grinderId)
+        val ambiguous = BackupFormat.decode(
+            BackupFormat.encode(
+                old.copy(
+                    schemaVersion = 9,
+                    grinders = listOf(
+                        BackupGrinderV1("g1", "Niche Zero", "Eléctrico"),
+                        BackupGrinderV1("g2", "niche zero", "Manual")
+                    ),
+                    shots = listOf(old.shots.single().copy(dialIn = dialIn))
+                )
+            )
+        )
+        assertEquals("Niche Zero", ambiguous.shots.single().grinder)
+        assertNull(ambiguous.shots.single().grinderId)
+        val unnamed = BackupFormat.decode(
+            BackupFormat.encode(
+                old.copy(
+                    schemaVersion = 9,
+                    shots = listOf(old.shots.single().copy(dialIn = dialIn))
+                )
+            )
+        )
+        assertEquals("Niche Zero", unnamed.shots.single().grinder)
+        assertNull(unnamed.shots.single().grinderId)
+        assertTrue(unnamed.grinders.isEmpty())
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(
+                old.copy(
+                    schemaVersion = 9,
+                    shots = listOf(old.shots.single().copy(grinder = "Niche Zero"))
+                )
+            )
         }
     }
 }

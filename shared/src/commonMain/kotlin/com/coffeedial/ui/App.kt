@@ -48,6 +48,7 @@ import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.DialInContext
+import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
@@ -70,7 +71,9 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
             it.taste?.let { value -> Json.encodeToString(value) }.orEmpty(),
             it.dialIn?.let { value -> Json.encodeToString(value) }.orEmpty(),
             it.machineId.orEmpty(),
-            it.cupId.orEmpty()
+            it.cupId.orEmpty(),
+            it.grinder,
+            it.grinderId.orEmpty()
         )
     },
     restore = {
@@ -88,7 +91,9 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
                 Json.decodeFromString<com.coffeedial.domain.DialInContext>(value)
             },
             it.getOrNull(17)?.takeIf { value -> value.isNotEmpty() },
-            it.getOrNull(18)?.takeIf { value -> value.isNotEmpty() }
+            it.getOrNull(18)?.takeIf { value -> value.isNotEmpty() },
+            grinder = it.getOrElse(19) { "" },
+            grinderId = it.getOrNull(20)?.takeIf { value -> value.isNotEmpty() }
         )
     }
 )
@@ -118,6 +123,7 @@ fun App(
     var machines by remember { mutableStateOf<List<Machine>>(emptyList()) }
     var beansList by remember { mutableStateOf<List<Bean>>(emptyList()) }
     var cupsList by remember { mutableStateOf<List<Cup>>(emptyList()) }
+    var grinders by remember { mutableStateOf<List<Grinder>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var selectedStyle by rememberSaveable { mutableStateOf<String?>(null) }
@@ -203,6 +209,7 @@ fun App(
             launch { repository.machines.collect { machines = it } }
             launch { repository.beans.collect { beansList = it } }
             launch { repository.cups.collect { cupsList = it } }
+            launch { repository.grinders.collect { grinders = it } }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -348,6 +355,7 @@ fun App(
                                             { screen = "history" },
                                         "Cafés" to { screen = "beans" },
                                         "Máquinas" to { screen = "machines" },
+                                        "Molinillos" to { screen = "grinders" },
                                         "Tazas" to { screen = "cups" }
                                     )
                                 )
@@ -510,6 +518,50 @@ fun App(
                                     }
                                 )
 
+                                "grinders" -> GrindersScreen(
+                                    grinders = grinders,
+                                    saving = saving,
+                                    saveError = saveError,
+                                    onSaveGrinder = { grinderId, grinderDraft, onSaved ->
+                                        saving = true
+                                        saveError = null
+                                        scope.launch {
+                                            try {
+                                                if (grinderId == null) {
+                                                    repository.saveGrinder(grinderDraft)
+                                                } else {
+                                                    repository.updateGrinder(
+                                                        grinderId,
+                                                        grinderDraft
+                                                    )
+                                                }
+                                                onSaved()
+                                                scope.launch { syncEngine.performSync() }
+                                            } catch (cancelled: CancellationException) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                                saveError = "No pudimos guardar el molinillo."
+                                            } finally {
+                                                saving = false
+                                            }
+                                        }
+                                    },
+                                    onDeleteGrinder = { grinderId ->
+                                        saving = true
+                                        scope.launch {
+                                            try {
+                                                repository.deleteGrinder(grinderId)
+                                                scope.launch { syncEngine.performSync() }
+                                            } catch (cancelled: CancellationException) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                            } finally {
+                                                saving = false
+                                            }
+                                        }
+                                    }
+                                )
+
                                 "cups" -> CupsScreen(
                                     cups = cupsList,
                                     saving = saving,
@@ -620,6 +672,7 @@ fun App(
                                     machines = machines,
                                     beans = beansList,
                                     cups = cupsList,
+                                    grinders = grinders,
                                     onChange = {
                                         draft = it
                                         saveError = null
@@ -634,6 +687,7 @@ fun App(
                                     onNavigateToMachines = { screen = "machines" },
                                     onNavigateToBeans = { screen = "beans" },
                                     onNavigateToCups = { screen = "cups" },
+                                    onNavigateToGrinders = { screen = "grinders" },
                                     onSave = {
                                         saving = true
                                         saveError = null
@@ -693,6 +747,9 @@ fun App(
                                                     cup = shot.cup ?: "",
                                                     machineId = shot.machineId,
                                                     cupId = shot.cupId,
+                                                    grinder = shot.grinder
+                                                        ?: shot.dialIn?.grinder.orEmpty(),
+                                                    grinderId = shot.grinderId,
                                                     firstDrop = shot.firstDrop?.pretty().orEmpty(),
                                                     taste = shot.taste,
                                                     dialIn = shot.dialIn

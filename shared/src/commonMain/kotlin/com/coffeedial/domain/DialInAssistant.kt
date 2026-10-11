@@ -18,7 +18,8 @@ fun Shot.toDraft(): ShotDraft = ShotDraft(
     machine = machine.orEmpty(), notes = notes, rating = rating,
     extraWater = extraWater?.toString().orEmpty(), style = style.orEmpty(),
     cup = cup.orEmpty(), firstDrop = firstDrop?.toString().orEmpty(), taste = taste,
-    dialIn = dialIn, machineId = machineId, cupId = cupId
+    dialIn = dialIn, machineId = machineId, cupId = cupId,
+    grinder = grinder.orEmpty(), grinderId = grinderId
 )
 
 fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialInAdvice {
@@ -97,12 +98,23 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
         val name = normalized(shot.machine)
         return name.isNotEmpty() && name == normalized(candidate.machine)
     }
+    fun sameGrinder(candidate: Shot): Boolean {
+        val left = shot.grinderId?.takeIf { it.isNotBlank() }
+        val right = candidate.grinderId?.takeIf { it.isNotBlank() }
+        if (left != null && right != null) return left == right
+        val leftName = shot.grinder?.takeIf { it.isNotBlank() } ?: context.grinder
+        val rightName = candidate.grinder?.takeIf { it.isNotBlank() }
+            ?: candidate.dialIn?.grinder.orEmpty()
+        return leftName.isNotBlank() && normalized(leftName) == normalized(rightName)
+    }
+    val grinderKnown = context.grinder.isNotBlank() || !shot.grinder.isNullOrBlank() ||
+        !shot.grinderId.isNullOrBlank()
     val references = history.filter { candidate ->
         val c = candidate.dialIn
         candidate.id != shot.id && candidate.bean.id == shot.bean.id && c != null &&
             (
                 !shot.machineId.isNullOrBlank() || !shot.machine.isNullOrBlank()
-                ) && context.grinder.isNotBlank() &&
+                ) && grinderKnown &&
             context.roast != RoastLevel.UNKNOWN &&
             candidate.temperature == shot.temperature &&
             normalized(candidate.style) == normalized(shot.style) &&
@@ -116,7 +128,7 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             c.method == BrewMethod.ESPRESSO && c.roast == context.roast && c.goal == context.goal &&
             (c.tasteBasis ?: TasteBasis.ESPRESSO) == basis &&
             sameMachine(candidate) &&
-            normalized(c.grinder) == normalized(context.grinder) &&
+            sameGrinder(candidate) &&
             normalized(candidate.grind) == normalized(shot.grind) &&
             abs(candidate.dose - shot.dose) <= shot.dose * 0.1 &&
             abs((candidate.milk ?: 0.0) - (shot.milk ?: 0.0)) < 0.1 &&
@@ -208,7 +220,7 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
     }
     if (impression == TasteImpression.TOO_SOUR) {
         if (shot.ratio >= 3.5 &&
-            context.grinder.isBlank()
+            !grinderKnown
         ) {
             return DialInAdvice(
                 "Confirmá el molinillo",
@@ -233,7 +245,7 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
     }
     if (impression == TasteImpression.TOO_BITTER) {
         if (shot.ratio <= 1.2 &&
-            context.grinder.isBlank()
+            !grinderKnown
         ) {
             return DialInAdvice(
                 "Confirmá el molinillo",

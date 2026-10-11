@@ -3,6 +3,7 @@ package com.coffeedial.sync
 import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.backup.BackupV1
@@ -74,11 +75,20 @@ data class CupConflict(override val id: String, val local: BackupCupV1?, val rem
     override val kind: String get() = "cups"
 }
 
+data class GrinderConflict(
+    override val id: String,
+    val local: BackupGrinderV1?,
+    val remote: BackupGrinderV1?
+) : RecordConflict {
+    override val kind: String get() = "grinders"
+}
+
 fun sameData(a: BackupV1, b: BackupV1): Boolean =
     a.beans.associateBy { it.id } == b.beans.associateBy { it.id } &&
         a.shots.associateBy { it.id } == b.shots.associateBy { it.id } &&
         a.machines.associateBy { it.id } == b.machines.associateBy { it.id } &&
-        a.cups.associateBy { it.id } == b.cups.associateBy { it.id }
+        a.cups.associateBy { it.id } == b.cups.associateBy { it.id } &&
+        a.grinders.associateBy { it.id } == b.grinders.associateBy { it.id }
 
 fun conflictKey(conflict: RecordConflict) = "${conflict.kind}:${conflict.id}"
 
@@ -87,6 +97,7 @@ fun conflictTitle(conflict: RecordConflict): String = when (conflict) {
     is BeanConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Café"
     is MachineConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Máquina"
     is CupConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Taza"
+    is GrinderConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Molinillo"
 }
 
 fun conflictFields(conflict: RecordConflict): List<ConflictField> = when (conflict) {
@@ -94,20 +105,27 @@ fun conflictFields(conflict: RecordConflict): List<ConflictField> = when (confli
     is BeanConflict -> fields(conflict.local, conflict.remote, beanFields)
     is MachineConflict -> fields(conflict.local, conflict.remote, machineFields)
     is CupConflict -> fields(conflict.local, conflict.remote, cupFields)
+    is GrinderConflict -> fields(conflict.local, conflict.remote, grinderFields)
 }
 
 /** Filling a missing equipment id is not a concurrent edit. */
 fun reconcileShotEquipment(mine: BackupShotV1, theirs: BackupShotV1): BackupShotV1? {
-    if (mine.copy(machineId = null, cupId = null) != theirs.copy(machineId = null, cupId = null)) {
+    if (mine.copy(machineId = null, cupId = null, grinderId = null) !=
+        theirs.copy(machineId = null, cupId = null, grinderId = null)
+    ) {
         return null
     }
     if (mine.machineId != null && theirs.machineId != null && mine.machineId != theirs.machineId) {
         return null
     }
     if (mine.cupId != null && theirs.cupId != null && mine.cupId != theirs.cupId) return null
+    if (mine.grinderId != null && theirs.grinderId != null && mine.grinderId != theirs.grinderId) {
+        return null
+    }
     return mine.copy(
         machineId = mine.machineId ?: theirs.machineId,
-        cupId = mine.cupId ?: theirs.cupId
+        cupId = mine.cupId ?: theirs.cupId,
+        grinderId = mine.grinderId ?: theirs.grinderId
     )
 }
 
@@ -187,7 +205,15 @@ fun mergeSync(
             { it.id },
             ::MachineConflict
         ),
-        merge("cups", base.cups, local.cups, remote.backup.cups, { it.id }, ::CupConflict)
+        merge("cups", base.cups, local.cups, remote.backup.cups, { it.id }, ::CupConflict),
+        merge(
+            "grinders",
+            base.grinders,
+            local.grinders,
+            remote.backup.grinders,
+            { it.id },
+            ::GrinderConflict
+        )
     )
     return if (conflicts.isEmpty()) {
         MergeResult(merged.also(BackupFormat::validate), emptyList())
@@ -238,6 +264,7 @@ private fun localRecord(backup: BackupV1, conflict: RecordConflict): Any? = when
     is BeanConflict -> backup.beans.find { it.id == conflict.id }
     is MachineConflict -> backup.machines.find { it.id == conflict.id }
     is CupConflict -> backup.cups.find { it.id == conflict.id }
+    is GrinderConflict -> backup.grinders.find { it.id == conflict.id }
 }
 
 private fun remoteRecord(backup: BackupV1, conflict: RecordConflict): Any? = when (conflict) {
@@ -245,6 +272,7 @@ private fun remoteRecord(backup: BackupV1, conflict: RecordConflict): Any? = whe
     is BeanConflict -> backup.beans.find { it.id == conflict.id }
     is MachineConflict -> backup.machines.find { it.id == conflict.id }
     is CupConflict -> backup.cups.find { it.id == conflict.id }
+    is GrinderConflict -> backup.grinders.find { it.id == conflict.id }
 }
 
 private fun replaceRecord(backup: BackupV1, conflict: RecordConflict, record: Any?): BackupV1 =
@@ -268,6 +296,11 @@ private fun replaceRecord(backup: BackupV1, conflict: RecordConflict, record: An
             cups = backup.cups.filterNot { it.id == conflict.id } +
                 listOfNotNull(record as BackupCupV1?)
         )
+
+        is GrinderConflict -> backup.copy(
+            grinders = backup.grinders.filterNot { it.id == conflict.id } +
+                listOfNotNull(record as BackupGrinderV1?)
+        )
     }
 
 private fun adoptShotReferences(local: BackupV1, remote: BackupV1, shot: BackupShotV1): BackupV1 {
@@ -286,6 +319,12 @@ private fun adoptShotReferences(local: BackupV1, remote: BackupV1, shot: BackupS
     val cupId = shot.cupId
     if (cupId != null && next.cups.none { it.id == cupId }) {
         remote.cups.find { it.id == cupId }?.let { next = next.copy(cups = next.cups + it) }
+    }
+    val grinderId = shot.grinderId
+    if (grinderId != null && next.grinders.none { it.id == grinderId }) {
+        remote.grinders.find { it.id == grinderId }?.let {
+            next = next.copy(grinders = next.grinders + it)
+        }
     }
     return next
 }
@@ -306,6 +345,8 @@ private val shotFields = listOf(
     FieldSource("Vínculo de máquina") { it.machineId },
     FieldSource("Taza") { it.cup },
     FieldSource("Vínculo de taza") { it.cupId },
+    FieldSource("Molinillo") { it.grinder },
+    FieldSource("Vínculo de molinillo") { it.grinderId },
     FieldSource("Primera gota") { it.firstDrop?.toString() },
     FieldSource("Notas") { it.notes },
     FieldSource("Puntuación") { it.rating.toString() },
@@ -328,6 +369,11 @@ private val machineFields = listOf(
 private val cupFields = listOf(
     FieldSource<BackupCupV1>("Nombre") { it.name },
     FieldSource("Peso") { it.weight?.toString() }
+)
+
+private val grinderFields = listOf(
+    FieldSource<BackupGrinderV1>("Nombre") { it.name },
+    FieldSource("Tipo") { it.type }
 )
 
 private fun <T> fields(local: T?, remote: T?, sources: List<FieldSource<T>>): List<ConflictField> {

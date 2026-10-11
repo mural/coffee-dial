@@ -43,6 +43,9 @@ fun ShotDetail(
         if (!shot.machine.isNullOrBlank()) {
             item { Text("Máquina: ${shot.machine}") }
         }
+        val grinderName = shot.grinder?.takeIf { it.isNotBlank() }
+            ?: shot.dialIn?.grinder?.takeIf { it.isNotBlank() }
+        if (grinderName != null) item { Text("Molinillo: $grinderName") }
         if (!shot.cup.isNullOrBlank()) {
             item { Text("Taza: ${shot.cup}") }
         }

@@ -17,7 +17,8 @@ data class BackupV1(
     val beans: List<BackupBeanV1>,
     val shots: List<BackupShotV1>,
     val machines: List<BackupMachineV1> = emptyList(),
-    val cups: List<BackupCupV1> = emptyList()
+    val cups: List<BackupCupV1> = emptyList(),
+    val grinders: List<BackupGrinderV1> = emptyList()
 )
 
 @Serializable
@@ -34,6 +35,9 @@ data class BackupMachineV1(val id: String, val name: String, val type: String, v
 
 @Serializable
 data class BackupCupV1(val id: String, val name: String, val weight: Double? = null)
+
+@Serializable
+data class BackupGrinderV1(val id: String, val name: String, val type: String)
 
 @Serializable
 data class BackupShotV1(
@@ -56,7 +60,9 @@ data class BackupShotV1(
     val taste: com.coffeedial.domain.TasteProfile? = null,
     val dialIn: com.coffeedial.domain.DialInContext? = null,
     val machineId: String? = null,
-    val cupId: String? = null
+    val cupId: String? = null,
+    val grinder: String? = null,
+    val grinderId: String? = null
 )
 
 class BackupException(message: String, cause: Throwable? = null) :
@@ -64,7 +70,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 9
+    const val CURRENT_VERSION = 10
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -75,7 +81,8 @@ object BackupFormat {
         beans: List<BackupBeanV1>,
         shots: List<BackupShotV1>,
         machines: List<BackupMachineV1> = emptyList(),
-        cups: List<BackupCupV1> = emptyList()
+        cups: List<BackupCupV1> = emptyList(),
+        grinders: List<BackupGrinderV1> = emptyList()
     ): BackupV1 = BackupV1(
         FORMAT,
         CURRENT_VERSION,
@@ -83,7 +90,8 @@ object BackupFormat {
         beans,
         shots,
         machines,
-        cups
+        cups,
+        grinders
     )
 
     fun encode(backup: BackupV1): String {
@@ -122,7 +130,11 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4, 5, 6, 7, 8, 9 -> json.decodeFromJsonElement(BackupV1.serializer(), root)
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10 -> json.decodeFromJsonElement(
+                    BackupV1.serializer(),
+                    root
+                )
+
                 else -> throw BackupException("Esta versión de backup no es compatible ($version).")
             }
             validate(rawBackup)
@@ -153,7 +165,9 @@ object BackupFormat {
 
     fun migrate(backup: BackupV1): BackupV1 {
         validate(backup)
-        val linked = linkLegacyEquipment(backup).copy(schemaVersion = CURRENT_VERSION)
+        val linked = linkLegacyGrinders(linkLegacyEquipment(backup)).copy(
+            schemaVersion = CURRENT_VERSION
+        )
         validate(linked)
         return linked
     }
@@ -168,15 +182,18 @@ object BackupFormat {
         )
         valid(
             backup.beans.size <= 50_000 && backup.shots.size <= 50_000 &&
-                backup.machines.size <= 50_000 && backup.cups.size <= 50_000
+                backup.machines.size <= 50_000 && backup.cups.size <= 50_000 &&
+                backup.grinders.size <= 50_000
         )
         val ids = backup.beans.map { it.id }.toSet()
         val machineIds = backup.machines.map { it.id }.toSet()
         val cupIds = backup.cups.map { it.id }.toSet()
+        val grinderIds = backup.grinders.map { it.id }.toSet()
         valid(ids.size == backup.beans.size)
         valid(backup.shots.map { it.id }.toSet().size == backup.shots.size)
         valid(backup.machines.map { it.id }.toSet().size == backup.machines.size)
         valid(backup.cups.map { it.id }.toSet().size == backup.cups.size)
+        valid(backup.grinders.map { it.id }.toSet().size == backup.grinders.size)
         backup.beans.forEach {
             it.photo?.validate()
             valid(backup.schemaVersion >= 5 || it.photo == null)
@@ -186,6 +203,11 @@ object BackupFormat {
         backup.machines.forEach {
             valid(it.id.isNotBlank() && it.id.length <= 200)
             valid(it.name.isNotBlank() && it.name.length <= 10_000)
+        }
+        backup.grinders.forEach {
+            valid(it.id.isNotBlank() && it.id.length <= 200)
+            valid(it.name.isNotBlank() && it.name.length <= 10_000)
+            valid(it.type.isNotBlank() && it.type.length <= 10_000)
         }
         backup.cups.forEach {
             valid(it.id.isNotBlank() && it.id.length <= 200)
@@ -224,6 +246,14 @@ object BackupFormat {
             valid(
                 it.cupId == null ||
                     (backup.schemaVersion >= 9 && it.cupId.length <= 200 && it.cupId in cupIds)
+            )
+            valid(it.grinder == null || (backup.schemaVersion >= 10 && it.grinder.length <= 10_000))
+            valid(
+                it.grinderId == null ||
+                    (
+                        backup.schemaVersion >= 10 && it.grinderId.length <= 200 &&
+                            it.grinderId in grinderIds
+                        )
             )
             valid(it.grind.isNotBlank() && it.grind.length <= 10_000)
             valid(

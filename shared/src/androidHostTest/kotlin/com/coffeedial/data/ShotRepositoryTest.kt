@@ -95,6 +95,28 @@ class ShotRepositoryTest {
     }
 
     @Test
+    fun grinderEditRenamesLinkedShotsAndDeleteKeepsTheName(): Unit = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repo = ShotRepository(driver)
+            repo.saveGrinder(com.coffeedial.domain.GrinderDraft("Niche"))
+            val id = repo.grinders.first().single().id
+            repo.save(com.coffeedial.domain.ShotDraft(grinder = "Niche", grinderId = id))
+            repo.updateGrinder(id, com.coffeedial.domain.GrinderDraft("Niche Zero", "Manual"))
+            val renamed = repo.history.first().single()
+            assertEquals(id, renamed.grinderId)
+            assertEquals("Niche Zero", renamed.grinder)
+            repo.deleteGrinder(id)
+            val kept = repo.history.first().single()
+            assertEquals(null, kept.grinderId)
+            assertEquals("Niche Zero", kept.grinder)
+            assertFailsWith<IllegalStateException> {
+                repo.updateGrinder(id, com.coffeedial.domain.GrinderDraft("No revivir"))
+            }
+        }
+    }
+
+    @Test
     fun invalidShotDoesNotWriteAnything() = runBlocking {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
             CoffeeDatabase.Schema.create(driver)

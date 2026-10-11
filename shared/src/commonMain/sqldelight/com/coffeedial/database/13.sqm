@@ -1,0 +1,8 @@
+CREATE TABLE grinder (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL
+);
+
+ALTER TABLE shot ADD COLUMN grinder TEXT;
+ALTER TABLE shot ADD COLUMN grinder_id TEXT;

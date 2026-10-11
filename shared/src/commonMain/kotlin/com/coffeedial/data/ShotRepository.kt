@@ -7,6 +7,8 @@ import com.coffeedial.domain.Bean
 import com.coffeedial.domain.BeanDraft
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
+import com.coffeedial.domain.Grinder
+import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
@@ -25,6 +27,7 @@ interface ShotRepository {
     val machines: Flow<List<Machine>>
     val beans: Flow<List<Bean>>
     val cups: Flow<List<Cup>>
+    val grinders: Flow<List<Grinder>>
     suspend fun save(draft: ShotDraft)
     suspend fun update(id: String, draft: ShotDraft)
     suspend fun delete(id: String)
@@ -37,6 +40,9 @@ interface ShotRepository {
     suspend fun saveCup(draft: CupDraft)
     suspend fun updateCup(id: String, draft: CupDraft)
     suspend fun deleteCup(id: String)
+    suspend fun saveGrinder(draft: GrinderDraft)
+    suspend fun updateGrinder(id: String, draft: GrinderDraft)
+    suspend fun deleteGrinder(id: String)
     suspend fun exportBackup(): String
     suspend fun prepareImport(text: String): PreparedImport
     suspend fun importBackup(prepared: PreparedImport): ImportSummary

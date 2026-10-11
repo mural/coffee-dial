@@ -85,7 +85,7 @@ SQLDelight encaja con este esquema chico: deja el SQL explícito, lo verifica al
 
 La molienda es texto porque los ajustes varían por molino (`42`, `2.3`, `12 clicks`). Los IDs son UUID y las fechas son instantes UTC. Esos identificadores son los que usa el sync. Los límites de entrada son guardrails de producto, no recomendaciones de preparación.
 
-El esquema instalado ya tiene migraciones hasta la versión 13 de SQLDelight. La próxima es `13.sqm`. No se edita una migración publicada. Reglas, backup v9 y orden de publicación: [AGENTS.md](AGENTS.md) y [docs/SYNC.md](docs/SYNC.md).
+El esquema instalado ya tiene migraciones hasta la versión 14 de SQLDelight. La próxima es `14.sqm`. No se edita una migración publicada. Reglas, backup v10 y orden de publicación: [AGENTS.md](AGENTS.md) y [docs/SYNC.md](docs/SYNC.md).
 
 ## Calidad
 

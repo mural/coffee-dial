@@ -127,6 +127,26 @@ class SnapshotRepositoryTest {
         assertEquals("Gres", detached.cup)
     }
 
+    @Test fun shotKeepsGrinderIdentityWhenTheCatalogIsRenamedOrRemoved() = runTest {
+        val store = Store()
+        val repo = SnapshotRepository.open(store)
+        repo.saveGrinder(com.coffeedial.domain.GrinderDraft("Niche"))
+        val grinder = repo.grinders.value.single()
+        repo.save(ShotDraft(grinder = grinder.name, grinderId = grinder.id))
+        assertEquals(grinder.id, repo.history.value.single().grinderId)
+        repo.updateGrinder(grinder.id, com.coffeedial.domain.GrinderDraft("Niche Zero", "Manual"))
+        val renamed = repo.history.value.single()
+        assertEquals(grinder.id, renamed.grinderId)
+        assertEquals("Niche Zero", renamed.grinder)
+        repo.deleteGrinder(grinder.id)
+        val detached = repo.history.value.single()
+        assertNull(detached.grinderId)
+        assertEquals("Niche Zero", detached.grinder)
+        assertFailsWith<IllegalStateException> {
+            repo.updateGrinder(grinder.id, com.coffeedial.domain.GrinderDraft("No revivir"))
+        }
+    }
+
     @Test fun legacyBackupLinksUniqueEquipmentAndLeavesAmbiguousNamesAlone() = runTest {
         val bean = BackupBeanV1("bean", "Brasil", "")
         val robot = BackupMachineV1("m-robot", "Robot", "Manual", "")

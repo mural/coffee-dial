@@ -4,6 +4,7 @@ import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
+import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.backup.BackupV1
@@ -14,6 +15,8 @@ import com.coffeedial.domain.Bean
 import com.coffeedial.domain.BeanDraft
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
+import com.coffeedial.domain.Grinder
+import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
 import com.coffeedial.domain.Shot
@@ -72,6 +75,7 @@ class SnapshotRepository private constructor(
     override val machines = MutableStateFlow<List<Machine>>(emptyList())
     override val beans = MutableStateFlow<List<Bean>>(emptyList())
     override val cups = MutableStateFlow<List<Cup>>(emptyList())
+    override val grinders = MutableStateFlow<List<Grinder>>(emptyList())
 
     init {
         publish()
@@ -98,13 +102,16 @@ class SnapshotRepository private constructor(
                     it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
                     it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating,
                     it.extraWater, it.style, it.cup, it.firstDrop, it.taste, it.dialIn,
-                    machineId = it.machineId, cupId = it.cupId
+                    machineId = it.machineId, cupId = it.cupId,
+                    grinder = it.grinder, grinderId = it.grinderId
                 )
             }
         machines.value =
             data.machines.sortedBy { it.name }.map { Machine(it.id, it.name, it.type, it.year) }
         cups.value =
             data.cups.sortedBy { it.name }.map { Cup(it.id, it.name, it.weight) }
+        grinders.value =
+            data.grinders.sortedBy { it.name }.map { Grinder(it.id, it.name, it.type) }
     }
 
     private suspend fun refresh() {
@@ -205,7 +212,8 @@ class SnapshotRepository private constructor(
                 null
             },
             draft.cup.trim().ifBlank { null }, draft.firstDrop.decimal(), draft.taste, draft.dialIn,
-            machineId = draft.machineId, cupId = draft.cupId
+            machineId = draft.machineId, cupId = draft.cupId,
+            grinder = draft.grinder.trim().ifBlank { null }, grinderId = draft.grinderId
         ).let { shot ->
             val linked = resolveEquipment(
                 shot.machineId,
@@ -213,13 +221,18 @@ class SnapshotRepository private constructor(
                 shot.cupId,
                 shot.cup,
                 local.machines,
-                local.cups
+                local.cups,
+                shot.grinderId,
+                shot.grinder,
+                local.grinders
             )
             shot.copy(
                 machineId = linked.machineId,
                 machine = linked.machine,
                 cupId = linked.cupId,
-                cup = linked.cup
+                cup = linked.cup,
+                grinderId = linked.grinderId,
+                grinder = linked.grinder
             )
         }
         return local.copy(
@@ -328,6 +341,45 @@ class SnapshotRepository private constructor(
         )
     }
 
+    override suspend fun saveGrinder(draft: GrinderDraft) = change {
+        require(draft.errors().isEmpty())
+        if (it.grinders.any { grinder -> grinder.name == draft.name.trim() }) {
+            it
+        } else {
+            it.copy(
+                grinders = it.grinders + BackupGrinderV1(
+                    Uuid.random().toString(),
+                    draft.name.trim(),
+                    draft.type.trim()
+                )
+            )
+        }
+    }
+
+    override suspend fun updateGrinder(id: String, draft: GrinderDraft) = change {
+        require(draft.errors().isEmpty())
+        check(it.grinders.any { grinder -> grinder.id == id }) { "El molinillo ya no existe." }
+        val name = draft.name.trim()
+        val type = draft.type.trim()
+        it.copy(
+            grinders = it.grinders.map { grinder ->
+                if (grinder.id == id) BackupGrinderV1(id, name, type) else grinder
+            },
+            shots = it.shots.map { shot ->
+                if (shot.grinderId == id) shot.copy(grinder = name) else shot
+            }
+        )
+    }
+
+    override suspend fun deleteGrinder(id: String) = change {
+        it.copy(
+            grinders = it.grinders.filterNot { grinder -> grinder.id == id },
+            shots = it.shots.map { shot ->
+                if (shot.grinderId == id) shot.copy(grinderId = null) else shot
+            }
+        )
+    }
+
     override suspend fun saveMachine(draft: MachineDraft) = change {
         require(draft.errors().isEmpty())
         if (it.machines.any { machine -> machine.name == draft.name.trim() }) {
@@ -385,7 +437,8 @@ class SnapshotRepository private constructor(
     override suspend fun importBackup(prepared: PreparedImport): ImportSummary {
         change {
             if (it.beans != prepared.local.beans || it.shots != prepared.local.shots ||
-                it.machines != prepared.local.machines || it.cups != prepared.local.cups
+                it.machines != prepared.local.machines || it.cups != prepared.local.cups ||
+                it.grinders != prepared.local.grinders
             ) {
                 throw BackupException(
                     "El historial cambió. Volvé a seleccionar el backup para revisarlo."
@@ -395,7 +448,8 @@ class SnapshotRepository private constructor(
                 beans = it.beans + prepared.plan.beans,
                 shots = it.shots + prepared.plan.shots,
                 machines = it.machines + prepared.plan.machines,
-                cups = it.cups + prepared.plan.cups
+                cups = it.cups + prepared.plan.cups,
+                grinders = it.grinders + prepared.plan.grinders
             )
         }
         return prepared.summary
@@ -408,7 +462,8 @@ class SnapshotRepository private constructor(
                 beans = (it.beans + incoming.beans).distinctBy { bean -> bean.id },
                 shots = (it.shots + incoming.shots).distinctBy { shot -> shot.id },
                 machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id },
-                cups = (it.cups + incoming.cups).distinctBy { cup -> cup.id }
+                cups = (it.cups + incoming.cups).distinctBy { cup -> cup.id },
+                grinders = (it.grinders + incoming.grinders).distinctBy { grinder -> grinder.id }
             )
         }
         return ImportSummary(
@@ -417,7 +472,8 @@ class SnapshotRepository private constructor(
             incoming.machines.size,
             0,
             0,
-            newCups = incoming.cups.size
+            newCups = incoming.cups.size,
+            newGrinders = incoming.grinders.size
         )
     }
 
@@ -428,7 +484,8 @@ class SnapshotRepository private constructor(
                 beans = incoming.beans,
                 shots = incoming.shots,
                 machines = incoming.machines,
-                cups = incoming.cups
+                cups = incoming.cups,
+                grinders = incoming.grinders
             )
         }
         return ImportSummary(
@@ -437,7 +494,8 @@ class SnapshotRepository private constructor(
             incoming.machines.size,
             0,
             0,
-            newCups = incoming.cups.size
+            newCups = incoming.cups.size,
+            newGrinders = incoming.grinders.size
         )
     }
 }
