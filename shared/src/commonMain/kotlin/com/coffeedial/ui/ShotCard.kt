@@ -199,7 +199,7 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
 }
 
 @Composable
-private fun ShotMetric(icon: ImageVector, label: String, value: String, modifier: Modifier) {
+internal fun ShotMetric(icon: ImageVector, label: String, value: String, modifier: Modifier) {
     Row(
         modifier,
         horizontalArrangement = Arrangement.spacedBy(10.dp),

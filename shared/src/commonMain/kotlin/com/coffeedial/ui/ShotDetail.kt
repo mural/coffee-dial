@@ -1,15 +1,25 @@
 package com.coffeedial.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,9 +27,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import com.coffeedial.domain.Bean
+import com.coffeedial.domain.BrewMethod
+import com.coffeedial.domain.Cup
+import com.coffeedial.domain.DialInContext
+import com.coffeedial.domain.Grinder
+import com.coffeedial.domain.Machine
+import com.coffeedial.domain.RoastLevel
 import com.coffeedial.domain.Shot
+import com.coffeedial.domain.StrengthGoal
+import com.coffeedial.domain.TasteBasis
+import com.coffeedial.domain.grindLevels
+import com.coffeedial.photos.BeanPhoto
+import com.coffeedial.photos.decodePhoto
+import kotlin.io.encoding.Base64
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -32,91 +60,289 @@ fun ShotDetail(
     onSaveRecipe: (() -> Unit)? = null,
     onDialIn: (() -> Unit)? = null,
     onFavorite: (() -> Unit)? = null,
-    error: String? = null
+    error: String? = null,
+    beans: List<Bean> = emptyList(),
+    machines: List<Machine> = emptyList(),
+    grinders: List<Grinder> = emptyList(),
+    cups: List<Cup> = emptyList()
 ) {
     var showConfirm by remember { mutableStateOf(false) }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text(shot.bean.name, style = MaterialTheme.typography.headlineLarge) }
+    var enlarged by remember { mutableStateOf<BeanPhoto?>(null) }
+    val beanPhoto = shot.bean.photo?.takeIf { !it.jpeg.isNullOrBlank() }
+        ?: beans.firstOrNull { it.id == shot.bean.id }?.photo?.takeIf { !it.jpeg.isNullOrBlank() }
+    val machine = linked(shot.machineId, shot.machine, machines, { it.id }, { it.name })
+    val grinder = linked(shot.grinderId, shot.grinder, grinders, { it.id }, { it.name })
+    val cup = linked(shot.cupId, shot.cup, cups, { it.id }, { it.name })
+    val grinderName = shot.grinder?.takeIf { it.isNotBlank() }
+        ?: shot.dialIn?.grinder?.takeIf { it.isNotBlank() }
+    val water = shot.extraWater ?: 0.0
+    val milk = shot.milk ?: 0.0
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            onCompare?.let {
-                TextButton(onClick = it, enabled = !saving) { Text("Comparar con otros intentos") }
-            }
-            onSaveRecipe?.let {
-                Button(onClick = it, enabled = !saving) { Text("Guardar como receta") }
-            }
-            onDialIn?.let {
-                Button(onClick = it, enabled = !saving) { Text("Ajustar próxima extracción") }
-            }
-            onFavorite?.let {
-                TextButton(onClick = it, enabled = !saving) {
-                    Text(
-                        if (shot.dialIn?.favorite ==
-                            true
-                        ) {
-                            "Quitar favorito"
-                        } else {
-                            "Marcar favorito"
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (beanPhoto != null) {
+                    BeanThumbnail(beanPhoto, 72.dp) { enlarged = beanPhoto }
+                } else {
+                    Surface(
+                        Modifier.size(72.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                BeanIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(shot.bean.name, style = MaterialTheme.typography.headlineSmall)
+                    if (shot.bean.roaster.isNotBlank()) {
+                        Text(
+                            shot.bean.roaster,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        timestamp(shot.createdAt),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (shot.dialIn?.favorite == true) {
+                        Text("Favorito", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            shot.dialIn?.roast?.let { Text("Tueste: ${it.label()}") }
-            shot.dialIn?.goal?.let { Text("Objetivo: ${it.label()}") }
         }
-        if (shot.bean.roaster.isNotBlank()) item { Text(shot.bean.roaster) }
-        if (!shot.machine.isNullOrBlank()) {
-            item { Text("Máquina: ${shot.machine}") }
+        shot.style?.takeIf { it.isNotBlank() }?.let { style ->
+            item { ReadOnlyChip(style) }
         }
-        val grinderName = shot.grinder?.takeIf { it.isNotBlank() }
-            ?: shot.dialIn?.grinder?.takeIf { it.isNotBlank() }
-        if (grinderName != null) item { Text("Molinillo: $grinderName") }
-        if (!shot.cup.isNullOrBlank()) {
-            item { Text("Taza: ${shot.cup}") }
-        }
-        item { Text(timestamp(shot.createdAt)) }
-        item { Text("1:${shot.ratio.pretty()}", style = MaterialTheme.typography.displayMedium) }
-        item { Text("Ratio de extracción") }
         item {
-            val total = shot.output + (shot.milk ?: 0.0) + (shot.extraWater ?: 0.0)
-            Text(
-                "Entrada: ${shot.dose.pretty()} g\n" +
-                    "Output: ${shot.output.pretty()} g" +
-                    (shot.style?.let { "\nEstilo: $it" } ?: "") +
-                    (shot.extraWater?.let { "\nAgua extra: ${it.pretty()} ml" } ?: "") +
-                    (shot.milk?.let { "\nLeche: ${it.pretty()} ml" } ?: "") +
-                    (
-                        if (shot.milk != null ||
-                            shot.extraWater != null
-                        ) {
-                            "\nTotal: ${total.pretty()} g"
-                        } else {
-                            ""
+            DrinkCupChart(shot.dose, shot.output, water, milk)
+        }
+        item {
+            DetailCard {
+                Text("Extracción", style = MaterialTheme.typography.titleMedium)
+                MetricRow {
+                    ShotMetric(
+                        BeanIcon,
+                        "Dosis de entrada",
+                        "${shot.dose.pretty()} g",
+                        Modifier.weight(1f)
+                    )
+                    ShotMetric(
+                        CoffeeCup,
+                        "Output",
+                        "${shot.output.pretty()} g",
+                        Modifier.weight(1f)
+                    )
+                }
+                if (shot.milk != null || shot.extraWater != null) {
+                    MetricRow {
+                        if (shot.extraWater != null) {
+                            ShotMetric(
+                                WaterIcon,
+                                "Agua extra",
+                                "${shot.extraWater.pretty()} ml",
+                                Modifier.weight(1f)
+                            )
                         }
-                        ) +
-                    "\nTiempo: ${shot.seconds.pretty()} s"
-            )
+                        if (shot.milk != null) {
+                            ShotMetric(
+                                MilkIcon,
+                                "Leche",
+                                "${shot.milk.pretty()} ml",
+                                Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+                MetricRow {
+                    ShotMetric(
+                        MugIcon,
+                        "Total",
+                        "≈ ${drinkTotal(shot.output, water, milk).pretty()}",
+                        Modifier.weight(1f)
+                    )
+                    ShotMetric(
+                        TimerIcon,
+                        "Tiempo",
+                        "${shot.seconds.pretty()} s",
+                        Modifier.weight(1f)
+                    )
+                }
+                shot.firstDrop?.let {
+                    ShotMetric(
+                        TimerIcon,
+                        "Primera gota",
+                        "${it.pretty()} s",
+                        Modifier.fillMaxWidth()
+                    )
+                }
+                val ratioCategory = when {
+                    shot.ratio <= 1.5 -> "ristretto"
+                    shot.ratio <= 2.5 -> "espresso"
+                    shot.ratio <= 3.0 -> "espresso largo"
+                    else -> "lungo"
+                }
+                Text(
+                    "Ratio output 1:${shot.ratio.pretty()} · $ratioCategory",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    "El agua y la leche no cambian el ratio de extracción.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-        shot.firstDrop?.let { item { Text("Primera gota: ${it.pretty()} s") } }
-        item { Text("Molienda: ${shot.grind}") }
         item {
-            Text("Temperatura: ${shot.temperature?.let { "${it.pretty()} °C" } ?: "Sin registrar"}")
+            DetailCard {
+                Text("Molienda", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    shot.grind,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                grindLevels.firstOrNull { it.equals(shot.grind.trim(), ignoreCase = true) }
+                    ?.let {
+                        Text(
+                            "Ajuste del molino · $it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                shot.temperature?.let {
+                    LabeledValue("Temperatura · °C", "${it.pretty()} °C")
+                }
+            }
         }
-        item { CoffeeRating(shot.rating) }
-        shot.taste?.let { item { TasteProfileSummary(it) } }
+        if (machineName(shot) != null || grinderName != null || cupName(shot) != null) {
+            item {
+                DetailCard {
+                    Text("Equipo", style = MaterialTheme.typography.titleMedium)
+                    machineName(shot)?.let { name ->
+                        LabeledValue(
+                            "Máquina",
+                            name,
+                            listOfNotNull(
+                                machine?.type?.takeIf { it.isNotBlank() },
+                                machine?.year?.takeIf { it.isNotBlank() }
+                            ).joinToString(" · ")
+                        )
+                    }
+                    grinderName?.let { name ->
+                        LabeledValue(
+                            "Molinillo",
+                            name,
+                            grinder?.type?.takeIf { it.isNotBlank() }.orEmpty()
+                        )
+                    }
+                    cupName(shot)?.let { name ->
+                        LabeledValue(
+                            "Taza",
+                            name,
+                            cup?.weight?.let { "${it.pretty()} g" }.orEmpty()
+                        )
+                    }
+                }
+            }
+        }
         item {
-            Text(shot.notes.ifBlank { "Sin notas" })
+            DetailCard {
+                Text("¿Qué tal salió?", style = MaterialTheme.typography.titleMedium)
+                CoffeeRating(shot.rating)
+                shot.taste?.let { TasteProfileSummary(it) }
+                Text("Notas", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    shot.notes.ifBlank { "Sin notas" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (shot.notes.isBlank()) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+                )
+            }
+        }
+        shot.dialIn?.takeIf { it.hasVisibleContext() }?.let { dial ->
+            item {
+                DetailCard {
+                    Text(
+                        "Contexto para ajustar espresso",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dial.method?.let { ReadOnlyChip("Preparación · ${it.label()}") }
+                        dial.roast?.let { ReadOnlyChip("Tueste · ${it.label()}") }
+                        dial.goal?.let { ReadOnlyChip(it.label()) }
+                        dial.tasteBasis?.let { ReadOnlyChip(it.label()) }
+                    }
+                    if (dial.previousShotId != null) {
+                        Text(
+                            "Nuevo intento vinculado a una extracción anterior.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
         }
         item {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Button(
-                    onClick = onEdit,
-                    enabled = !saving,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                onCompare?.let {
+                    TextButton(
+                        onClick = it,
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Comparar con otros intentos")
+                    }
+                }
+                onSaveRecipe?.let {
+                    Button(
+                        onClick = it,
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Guardar como receta")
+                    }
+                }
+                onDialIn?.let {
+                    Button(
+                        onClick = it,
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Ajustar próxima extracción")
+                    }
+                }
+                onFavorite?.let {
+                    TextButton(
+                        onClick = it,
+                        enabled = !saving,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (shot.dialIn?.favorite == true) {
+                                "Quitar favorito"
+                            } else {
+                                "Marcar favorito"
+                            }
+                        )
+                    }
+                }
+                Button(onClick = onEdit, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
                     Text("Editar shot")
                 }
                 if (showConfirm) {
@@ -129,16 +355,12 @@ fun ShotDetail(
                                 containerColor = MaterialTheme.colorScheme.error
                             ),
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Sí, eliminar")
-                        }
+                        ) { Text("Sí, eliminar") }
                         OutlinedButton(
                             onClick = { showConfirm = false },
                             enabled = !saving,
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Cancelar")
-                        }
+                        ) { Text("Cancelar") }
                     }
                 } else {
                     TextButton(
@@ -152,12 +374,134 @@ fun ShotDetail(
             }
         }
     }
+    enlarged?.let { image ->
+        Dialog(onDismissRequest = { enlarged = null }) {
+            Card {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BeanThumbnail(image, 280.dp)
+                    TextButton(onClick = { enlarged = null }) { Text("Cerrar") }
+                }
+            }
+        }
+    }
 }
 
-@Preview(name = "Detalle del Shot", showBackground = true, widthDp = 400, heightDp = 800)
+private fun machineName(shot: Shot) = shot.machine?.takeIf { it.isNotBlank() }
+
+private fun cupName(shot: Shot) = shot.cup?.takeIf { it.isNotBlank() }
+
+private fun DialInContext.hasVisibleContext(): Boolean =
+    roast != null || method != null || goal != null || tasteBasis != null || previousShotId != null
+
+private fun <T> linked(
+    id: String?,
+    name: String?,
+    items: List<T>,
+    itemId: (T) -> String,
+    itemName: (T) -> String
+): T? {
+    items.firstOrNull { id != null && itemId(it) == id }?.let { return it }
+    val key = name?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+    return items.filter { itemName(it).trim().lowercase() == key }.distinctBy(itemId).singleOrNull()
+}
+
+@Composable
+private fun DetailCard(content: @Composable () -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = { content() }
+        )
+    }
+}
+
+@Composable
+private fun MetricRow(content: @Composable RowScope.() -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        content()
+    }
+}
+
+@Composable
+private fun LabeledValue(label: String, value: String, detail: String = "") {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(value, style = MaterialTheme.typography.titleMedium)
+        if (detail.isNotBlank()) {
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReadOnlyChip(text: String) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text,
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
+
+@Composable
+private fun BeanThumbnail(photo: BeanPhoto, size: Dp, onClick: (() -> Unit)? = null) {
+    val bitmap = remember(photo.id, photo.jpeg) {
+        runCatching {
+            photo.validate()
+            photo.jpeg?.let { decodePhoto(Base64.decode(it)) }
+        }.getOrNull()
+    } ?: return
+    Image(
+        bitmap,
+        contentDescription = "Foto del café",
+        modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).then(
+            if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+        ),
+        contentScale = ContentScale.Crop
+    )
+}
+
+@Preview(name = "Detalle del Shot", showBackground = true, widthDp = 400, heightDp = 900)
 @Composable
 private fun ShotDetailPreview() {
     MaterialTheme {
-        ShotDetail(shot = mockShot, onEdit = {}, onDelete = {}, saving = false)
+        ShotDetail(
+            shot = mockShot.copy(
+                style = "Latte",
+                extraWater = 30.0,
+                cup = "Cerámica",
+                cupId = "c",
+                grinder = "Niche Zero",
+                grinderId = "g1",
+                machineId = "1",
+                firstDrop = 8.0,
+                dialIn = DialInContext(
+                    roast = RoastLevel.MEDIUM,
+                    method = BrewMethod.ESPRESSO,
+                    goal = StrengthGoal.BALANCED,
+                    tasteBasis = TasteBasis.FINISHED_DRINK,
+                    favorite = true
+                )
+            ),
+            onEdit = {},
+            onDelete = {},
+            saving = false,
+            machines = mockMachines,
+            grinders = mockGrinders,
+            cups = listOf(Cup("c", "Cerámica", 180.0))
+        )
     }
 }

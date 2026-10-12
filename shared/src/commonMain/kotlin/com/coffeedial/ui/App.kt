@@ -843,6 +843,10 @@ fun App(
                                     } else {
                                         ShotDetail(
                                             shot = shot,
+                                            beans = beansList,
+                                            machines = machines,
+                                            grinders = grinders,
+                                            cups = cupsList,
                                             onCompare = {
                                                 comparisonInitial = shot.id
                                                 saveError =
