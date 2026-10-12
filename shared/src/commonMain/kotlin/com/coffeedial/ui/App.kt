@@ -120,6 +120,7 @@ fun App(
     var screen by rememberSaveable { mutableStateOf("home") }
     var recipeInitial by rememberSaveable { mutableStateOf<String?>(null) }
     var recipes by remember { mutableStateOf<List<Recipe>>(emptyList()) }
+    var comparisonInitial by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
     var shots by remember { mutableStateOf<List<Shot>?>(null) }
@@ -193,6 +194,8 @@ fun App(
                 timer.pause()
                 timerOrigin
             }
+
+            "compare" -> if (comparisonInitial == null) "improve" else "detail"
 
             "assistant" -> assistantOrigin
 
@@ -410,7 +413,7 @@ fun App(
                                             screen = "assistant"
                                         },
                                         "Análisis de extracciones" to { screen = "analysis" },
-                                        "Comparar intentos y favoritos" to { screen = "history" },
+                                        "Comparar intentos y favoritos" to { comparisonInitial = null; saveError = null; screen = "compare" },
                                         "Tips y estilos" to { screen = "tips" }
                                     )
                                 )
@@ -647,6 +650,9 @@ fun App(
                                     }
                                 )
 
+                                "compare" -> ShotComparisonScreen(shots.orEmpty(), comparisonInitial, saving, saveError) {
+                                    if (it.dialIn?.favorite != true) favorite(it)
+                                }
                                 "assistant" -> {
                                     val source = shots.orEmpty().find { it.id == selectedId }
                                     if (source == null) {
@@ -765,6 +771,7 @@ fun App(
                                     } else {
                                         ShotDetail(
                                             shot = shot,
+                                            onCompare = { comparisonInitial = shot.id; saveError = null; screen = "compare" },
                                             onSaveRecipe = {
                                                 recipeInitial = Json.encodeToString(shot.asRecipe(kotlin.uuid.Uuid.random().toString(), "${shot.bean.name} · ${shot.style ?: "Espresso"}".take(100)))
                                                 saveError = null
