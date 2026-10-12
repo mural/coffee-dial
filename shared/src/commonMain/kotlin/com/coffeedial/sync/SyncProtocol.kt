@@ -1,6 +1,5 @@
 package com.coffeedial.sync
 
-import com.coffeedial.domain.Recipe
 import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupFormat
@@ -8,6 +7,8 @@ import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
 import com.coffeedial.backup.BackupV1
+import com.coffeedial.domain.BrewDefault
+import com.coffeedial.domain.Recipe
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -83,12 +84,19 @@ data class GrinderConflict(
 ) : RecordConflict {
     override val kind: String get() = "grinders"
 }
-data class RecipeConflict(
-    override val id: String,
-    val local: Recipe?,
-    val remote: Recipe?
-) : RecordConflict {
+data class RecipeConflict(override val id: String, val local: Recipe?, val remote: Recipe?) :
+    RecordConflict {
     override val kind: String get() = "recipes"
+}
+
+data class BrewDefaultConflict(
+    override val id: String,
+    val local: BrewDefault?,
+    val remote: BrewDefault?,
+    val localLabel: String = "Sin predeterminado",
+    val remoteLabel: String = "Sin predeterminado"
+) : RecordConflict {
+    override val kind: String get() = "brewDefaults"
 }
 
 fun sameData(a: BackupV1, b: BackupV1): Boolean =
@@ -97,25 +105,47 @@ fun sameData(a: BackupV1, b: BackupV1): Boolean =
         a.machines.associateBy { it.id } == b.machines.associateBy { it.id } &&
         a.cups.associateBy { it.id } == b.cups.associateBy { it.id } &&
         a.grinders.associateBy { it.id } == b.grinders.associateBy { it.id } &&
-        a.recipes.associateBy { it.id } == b.recipes.associateBy { it.id }
+        a.recipes.associateBy { it.id } == b.recipes.associateBy { it.id } &&
+        a.brewDefaults.associateBy { it.id } == b.brewDefaults.associateBy { it.id }
 
 fun conflictKey(conflict: RecordConflict) = "${conflict.kind}:${conflict.id}"
 
 fun conflictTitle(conflict: RecordConflict): String = when (conflict) {
     is ShotConflict -> "Shot"
+
     is BeanConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Café"
+
     is MachineConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Máquina"
+
     is CupConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Taza"
+
+    is BrewDefaultConflict -> when (conflict.id) {
+        "beans" -> "Café predeterminado"
+        "machines" -> "Máquina predeterminada"
+        "grinders" -> "Molinillo predeterminado"
+        else -> "Taza predeterminada"
+    }
+
     is RecipeConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Receta"
+
     is GrinderConflict -> conflict.local?.name ?: conflict.remote?.name ?: "Molinillo"
 }
 
 fun conflictFields(conflict: RecordConflict): List<ConflictField> = when (conflict) {
     is ShotConflict -> fields(conflict.local, conflict.remote, shotFields)
+
     is BeanConflict -> fields(conflict.local, conflict.remote, beanFields)
+
     is MachineConflict -> fields(conflict.local, conflict.remote, machineFields)
+
     is CupConflict -> fields(conflict.local, conflict.remote, cupFields)
+
+    is BrewDefaultConflict -> listOf(
+        ConflictField("Selección", conflict.localLabel, conflict.remoteLabel)
+    )
+
     is RecipeConflict -> fields(conflict.local, conflict.remote, recipeFields)
+
     is GrinderConflict -> fields(conflict.local, conflict.remote, grinderFields)
 }
 
@@ -225,7 +255,20 @@ fun mergeSync(
             { it.id },
             ::GrinderConflict
         ),
-        merge("recipes", base.recipes, local.recipes, remote.backup.recipes, { it.id }, ::RecipeConflict)
+        merge("recipes", base.recipes, local.recipes, remote.backup.recipes, {
+            it.id
+        }, ::RecipeConflict),
+        merge("brewDefaults", base.brewDefaults, local.brewDefaults, remote.backup.brewDefaults, {
+            it.id
+        }, { id, mine, theirs ->
+            BrewDefaultConflict(
+                id,
+                mine,
+                theirs,
+                defaultLabel(mine, local),
+                defaultLabel(theirs, remote.backup)
+            )
+        })
     )
     return if (conflicts.isEmpty()) {
         MergeResult(merged.also(BackupFormat::validate), emptyList())
@@ -276,6 +319,7 @@ private fun localRecord(backup: BackupV1, conflict: RecordConflict): Any? = when
     is BeanConflict -> backup.beans.find { it.id == conflict.id }
     is MachineConflict -> backup.machines.find { it.id == conflict.id }
     is CupConflict -> backup.cups.find { it.id == conflict.id }
+    is BrewDefaultConflict -> backup.brewDefaults.find { it.id == conflict.id }
     is RecipeConflict -> backup.recipes.find { it.id == conflict.id }
     is GrinderConflict -> backup.grinders.find { it.id == conflict.id }
 }
@@ -285,6 +329,7 @@ private fun remoteRecord(backup: BackupV1, conflict: RecordConflict): Any? = whe
     is BeanConflict -> backup.beans.find { it.id == conflict.id }
     is MachineConflict -> backup.machines.find { it.id == conflict.id }
     is CupConflict -> backup.cups.find { it.id == conflict.id }
+    is BrewDefaultConflict -> backup.brewDefaults.find { it.id == conflict.id }
     is RecipeConflict -> backup.recipes.find { it.id == conflict.id }
     is GrinderConflict -> backup.grinders.find { it.id == conflict.id }
 }
@@ -311,9 +356,17 @@ private fun replaceRecord(backup: BackupV1, conflict: RecordConflict, record: An
                 listOfNotNull(record as BackupCupV1?)
         )
 
-        is RecipeConflict -> backup.copy(
-            recipes = backup.recipes.filterNot { it.id == conflict.id } + listOfNotNull(record as Recipe?)
+        is BrewDefaultConflict -> backup.copy(
+            brewDefaults =
+                backup.brewDefaults.filterNot { it.id == conflict.id } +
+                    listOfNotNull(record as BrewDefault?)
         )
+
+        is RecipeConflict -> backup.copy(
+            recipes =
+                backup.recipes.filterNot { it.id == conflict.id } + listOfNotNull(record as Recipe?)
+        )
+
         is GrinderConflict -> backup.copy(
             grinders = backup.grinders.filterNot { it.id == conflict.id } +
                 listOfNotNull(record as BackupGrinderV1?)
@@ -429,3 +482,14 @@ private fun <T> fields(local: T?, remote: T?, sources: List<FieldSource<T>>): Li
 
 fun checkpoint(text: String?): SyncCheckpoint? =
     text?.let { Json.decodeFromString<SyncCheckpoint>(it) }
+
+private fun defaultLabel(value: BrewDefault?, backup: BackupV1): String {
+    val id = value?.selectedId ?: return "Sin predeterminado"
+    return when (value.id) {
+        "beans" -> backup.beans.find { it.id == id }?.let { "${it.name} · ${it.roaster}" }
+        "machines" -> backup.machines.find { it.id == id }?.name
+        "grinders" -> backup.grinders.find { it.id == id }?.name
+        "cups" -> backup.cups.find { it.id == id }?.name
+        else -> null
+    } ?: "Elemento no disponible"
+}

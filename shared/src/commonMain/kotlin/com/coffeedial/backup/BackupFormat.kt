@@ -1,5 +1,6 @@
 package com.coffeedial.backup
 
+import com.coffeedial.domain.BrewDefault
 import com.coffeedial.domain.Recipe
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -20,7 +21,8 @@ data class BackupV1(
     val machines: List<BackupMachineV1> = emptyList(),
     val cups: List<BackupCupV1> = emptyList(),
     val grinders: List<BackupGrinderV1> = emptyList(),
-    val recipes: List<Recipe> = emptyList()
+    val recipes: List<Recipe> = emptyList(),
+    val brewDefaults: List<BrewDefault> = emptyList()
 )
 
 @Serializable
@@ -72,7 +74,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 11
+    const val CURRENT_VERSION = 12
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -85,7 +87,8 @@ object BackupFormat {
         machines: List<BackupMachineV1> = emptyList(),
         cups: List<BackupCupV1> = emptyList(),
         grinders: List<BackupGrinderV1> = emptyList(),
-        recipes: List<Recipe> = emptyList()
+        recipes: List<Recipe> = emptyList(),
+        brewDefaults: List<BrewDefault> = emptyList()
     ): BackupV1 = BackupV1(
         FORMAT,
         CURRENT_VERSION,
@@ -94,7 +97,7 @@ object BackupFormat {
         shots,
         machines,
         cups,
-        grinders, recipes
+        grinders, recipes, brewDefaults
     )
 
     fun encode(backup: BackupV1): String {
@@ -133,7 +136,7 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 -> json.decodeFromJsonElement(
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 -> json.decodeFromJsonElement(
                     BackupV1.serializer(),
                     root
                 )
@@ -191,6 +194,10 @@ object BackupFormat {
         val ids = backup.beans.map { it.id }.toSet()
         val machineIds = backup.machines.map { it.id }.toSet()
         val cupIds = backup.cups.map { it.id }.toSet()
+        valid(backup.brewDefaults.isEmpty() || backup.schemaVersion >= 12)
+        valid(backup.brewDefaults.size <= 4)
+        valid(backup.brewDefaults.map { it.id }.distinct().size == backup.brewDefaults.size)
+        valid(backup.brewDefaults.all { it.isValid() })
         valid(backup.recipes.isEmpty() || backup.schemaVersion >= 11)
         valid(backup.recipes.size <= 50_000)
         valid(backup.recipes.map { it.id }.toSet().size == backup.recipes.size)

@@ -1,7 +1,7 @@
 package com.coffeedial.domain
 
-import kotlinx.serialization.Serializable
 import kotlin.math.round
+import kotlinx.serialization.Serializable
 
 /** Independent recipe snapshot; catalog names remain usable after deleting equipment or a bean. */
 @Serializable
@@ -30,7 +30,10 @@ data class Recipe(
     )
     fun isValid(): Boolean = id.isNotBlank() && id.length <= 200 &&
         name.isNotBlank() && name.length <= 100 &&
-        listOf(beanName, roaster, grind, machine.orEmpty(), grinder.orEmpty(), cup.orEmpty()).all { it.length <= 10000 } &&
+        listOf(beanName, roaster, grind, machine.orEmpty(), grinder.orEmpty(), cup.orEmpty()).all {
+            it.length <=
+                10000
+        } &&
         toDraft().copy(seconds = "1").errors().isEmpty()
 }
 
@@ -53,3 +56,10 @@ data class RecipeAmounts(val dose: Double, val output: Double) {
         return next.takeIf { it.dose in 0.1..100.0 && it.output in 0.1..1000.0 }
     }
 }
+
+/** Repeat preparation parameters, never the previous extraction's evaluation or experiment. */
+fun Shot.repeatDraft(): ShotDraft = asRecipe("repeat", "repeat").toDraft().copy(
+    machineId = machineId,
+    cupId = cupId,
+    grinderId = grinderId
+)

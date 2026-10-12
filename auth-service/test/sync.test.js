@@ -107,3 +107,28 @@ test('explicit overwrite respects CAS and clears restored tombstones', async () 
   assert.deepEqual(restored.deleted.beans, []);
   assert.equal((await updateSync(storage, request(3))).revision, 4);
 });
+
+
+test('v12 defaults round trip, reject downgrade and validate unique category slots', async () => {
+  const storage = new Store();
+  const value = { ...backup(), schemaVersion: 12, brewDefaults: [{ id: 'beans', selectedId: 'b' }] };
+  const first = await updateSync(storage, request(0, value));
+  assert.deepEqual(first.backup.brewDefaults, value.brewDefaults);
+  await assert.rejects(updateSync(storage, request(1, { ...backup(), schemaVersion: 11 })), /backup_upgrade_required/);
+  for (const brewDefaults of [[{ id: 'invalid' }], [{ id: 'beans', selectedId: '' }], [{ id: 'beans' }, { id: 'beans' }]]) {
+    await assert.rejects(updateSync(storage, request(1, { ...value, brewDefaults })));
+  }
+  await assert.rejects(updateSync(storage, request(1, { ...value, schemaVersion: 11 })), /invalid_brew_default/);
+  await updateSync(storage, request(1, { ...value, brewDefaults: [] }));
+  const selectedAgain = await updateSync(storage, request(2, value));
+  assert.equal(selectedAgain.conflict, undefined);
+  assert.deepEqual(selectedAgain.deleted.brewDefaults, []);
+  const unset = await updateSync(storage, request(3, { ...value, brewDefaults: [{ id: 'beans', selectedId: null }] }));
+  assert.equal(unset.backup.brewDefaults[0].selectedId, null);
+});
+
+test('old snapshot responses do not gain unsupported preference fields', async () => {
+  const storage = new Store();
+  const result = await updateSync(storage, request(0));
+  assert.equal(Object.hasOwn(result.backup, 'brewDefaults'), false);
+});

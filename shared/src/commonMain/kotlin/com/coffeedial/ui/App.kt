@@ -44,16 +44,19 @@ import com.coffeedial.auth.AuthState
 import com.coffeedial.auth.User
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
-import com.coffeedial.domain.Recipe
-import com.coffeedial.domain.asRecipe
 import com.coffeedial.domain.Bean
+import com.coffeedial.domain.BrewDefault
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.DialInContext
 import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.Machine
+import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
 import com.coffeedial.domain.TasteProfile
+import com.coffeedial.domain.asRecipe
+import com.coffeedial.domain.newShot
+import com.coffeedial.domain.repeatDraft
 import com.coffeedial.domain.toDraft
 import com.coffeedial.sync.SyncEngine
 import com.coffeedial.sync.SyncState
@@ -124,6 +127,7 @@ fun App(
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(stateSaver = DraftSaver) { mutableStateOf(ShotDraft()) }
     var shots by remember { mutableStateOf<List<Shot>?>(null) }
+    var brewDefaults by remember { mutableStateOf<List<BrewDefault>>(emptyList()) }
     var machines by remember { mutableStateOf<List<Machine>>(emptyList()) }
     var beansList by remember { mutableStateOf<List<Bean>>(emptyList()) }
     var cupsList by remember { mutableStateOf<List<Cup>>(emptyList()) }
@@ -155,6 +159,29 @@ fun App(
         // Keep the notice hidden while restoring or verifying the session.
         updateWebNotice(authState is AuthState.LoggedIn || authState is AuthState.Authenticating)
         if (authState is AuthState.LoggedIn) syncEngine.performSync()
+    }
+    fun newShot() {
+        draft = brewDefaults.newShot(beansList, machines, grinders, cupsList)
+        selectedId = null
+        timer.reset()
+        saveError = null
+        screen = "new"
+    }
+    fun chooseDefault(kind: String, id: String?) {
+        saving = true
+        saveError = null
+        scope.launch {
+            try {
+                repository.setBrewDefault(BrewDefault(kind, id))
+                scope.launch { syncEngine.performSync() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                saveError = "No pudimos guardar el predeterminado. Intentá otra vez."
+            } finally {
+                saving = false
+            }
+        }
     }
     fun favorite(shot: Shot, context: DialInContext = shot.dialIn ?: DialInContext()) {
         saving = true
@@ -217,6 +244,7 @@ fun App(
             launch { repository.machines.collect { machines = it } }
             launch { repository.beans.collect { beansList = it } }
             launch { repository.cups.collect { cupsList = it } }
+            launch { repository.brewDefaults.collect { brewDefaults = it } }
             launch { repository.recipes.collect { recipes = it } }
             launch { repository.grinders.collect { grinders = it } }
         } catch (cancelled: CancellationException) {
@@ -350,30 +378,49 @@ fun App(
                             }
                             when (screen) {
                                 "recipes" -> RecipesScreen(
-                                    recipes, recipeInitial, saving, saveError,
+                                    recipes,
+                                    recipeInitial,
+                                    saving,
+                                    saveError,
                                     onHistory = { screen = "history" },
                                     onSave = { recipe, done ->
-                                        saving = true; saveError = null
+                                        saving = true
+                                        saveError = null
                                         scope.launch {
                                             try {
                                                 repository.saveRecipe(recipe)
                                                 recipeInitial = null
                                                 done()
                                                 scope.launch { syncEngine.performSync() }
-                                            } catch (cancelled: CancellationException) { throw cancelled }
-                                            catch (_: Exception) { saveError = "No pudimos guardar la receta. Reintentá." }
-                                            finally { saving = false }
+                                            } catch (
+                                                cancelled: CancellationException
+                                            ) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                                saveError =
+                                                    "No pudimos guardar la receta. Reintentá."
+                                            } finally {
+                                                saving = false
+                                            }
                                         }
                                     },
                                     onDelete = { id ->
-                                        saving = true; saveError = null
+                                        saving = true
+                                        saveError = null
                                         scope.launch {
                                             try {
                                                 repository.deleteRecipe(id)
                                                 scope.launch { syncEngine.performSync() }
-                                            } catch (cancelled: CancellationException) { throw cancelled }
-                                            catch (_: Exception) { saveError = "No pudimos eliminar la receta. Reintentá." }
-                                            finally { saving = false }
+                                            } catch (
+                                                cancelled: CancellationException
+                                            ) {
+                                                throw cancelled
+                                            } catch (_: Exception) {
+                                                saveError =
+                                                    "No pudimos eliminar la receta. Reintentá."
+                                            } finally {
+                                                saving = false
+                                            }
                                         }
                                     },
                                     onPrepare = { recipe, withTimer ->
@@ -384,6 +431,7 @@ fun App(
                                         screen = if (withTimer) "timer" else "new"
                                     }
                                 )
+
                                 "backup" -> BackupScreen(repository, backupFiles, saving, {
                                     saving = it
                                 })
@@ -392,7 +440,7 @@ fun App(
                                     "Registrar",
                                     "Tu café, tu equipo y cada extracción.",
                                     listOf(
-                                        "Registrar un shot" to { screen = "new" },
+                                        "Registrar un shot" to { newShot() },
                                         "Historial (${shots.orEmpty().size})" to
                                             { screen = "history" },
                                         "Cafés" to { screen = "beans" },
@@ -413,7 +461,13 @@ fun App(
                                             screen = "assistant"
                                         },
                                         "Análisis de extracciones" to { screen = "analysis" },
-                                        "Comparar intentos y favoritos" to { comparisonInitial = null; saveError = null; screen = "compare" },
+                                        "Comparar intentos y favoritos" to
+                                            {
+                                                comparisonInitial = null
+                                                saveError = null
+                                                screen =
+                                                    "compare"
+                                            },
                                         "Tips y estilos" to { screen = "tips" }
                                     )
                                 )
@@ -479,6 +533,10 @@ fun App(
                                 "tips" -> TipsScreen()
 
                                 "machines" -> MachinesScreen(
+                                    defaultId = brewDefaults.find {
+                                        it.id == "machines"
+                                    }?.selectedId,
+                                    onDefault = { chooseDefault("machines", it) },
                                     machines = machines,
                                     saving = saving,
                                     saveError = saveError,
@@ -523,6 +581,8 @@ fun App(
                                 )
 
                                 "beans" -> BeansScreen(
+                                    defaultId = brewDefaults.find { it.id == "beans" }?.selectedId,
+                                    onDefault = { chooseDefault("beans", it) },
                                     photos = backupFiles.photos,
                                     canAddPhoto = authState is AuthState.LoggedIn,
                                     beans = beansList,
@@ -566,6 +626,10 @@ fun App(
                                 )
 
                                 "grinders" -> GrindersScreen(
+                                    defaultId = brewDefaults.find {
+                                        it.id == "grinders"
+                                    }?.selectedId,
+                                    onDefault = { chooseDefault("grinders", it) },
                                     grinders = grinders,
                                     saving = saving,
                                     saveError = saveError,
@@ -610,6 +674,8 @@ fun App(
                                 )
 
                                 "cups" -> CupsScreen(
+                                    defaultId = brewDefaults.find { it.id == "cups" }?.selectedId,
+                                    onDefault = { chooseDefault("cups", it) },
                                     cups = cupsList,
                                     saving = saving,
                                     saveError = saveError,
@@ -650,9 +716,15 @@ fun App(
                                     }
                                 )
 
-                                "compare" -> ShotComparisonScreen(shots.orEmpty(), comparisonInitial, saving, saveError) {
+                                "compare" -> ShotComparisonScreen(
+                                    shots.orEmpty(),
+                                    comparisonInitial,
+                                    saving,
+                                    saveError
+                                ) {
                                     if (it.dialIn?.favorite != true) favorite(it)
                                 }
+
                                 "assistant" -> {
                                     val source = shots.orEmpty().find { it.id == selectedId }
                                     if (source == null) {
@@ -771,9 +843,22 @@ fun App(
                                     } else {
                                         ShotDetail(
                                             shot = shot,
-                                            onCompare = { comparisonInitial = shot.id; saveError = null; screen = "compare" },
+                                            onCompare = {
+                                                comparisonInitial = shot.id
+                                                saveError =
+                                                    null
+                                                screen = "compare"
+                                            },
                                             onSaveRecipe = {
-                                                recipeInitial = Json.encodeToString(shot.asRecipe(kotlin.uuid.Uuid.random().toString(), "${shot.bean.name} · ${shot.style ?: "Espresso"}".take(100)))
+                                                recipeInitial =
+                                                    Json.encodeToString(
+                                                        shot.asRecipe(
+                                                            kotlin.uuid.Uuid.random().toString(),
+                                                            "${shot.bean.name} · ${shot.style ?: "Espresso"}".take(
+                                                                100
+                                                            )
+                                                        )
+                                                    )
                                                 saveError = null
                                                 screen = "recipes"
                                             },
@@ -838,7 +923,12 @@ fun App(
 
                                     HomeScreen(
                                         screen = screen,
-                                    onRecipes = { recipeInitial = null; saveError = null; screen = "recipes" },
+                                        onRecipes = {
+                                            recipeInitial = null
+                                            saveError = null
+                                            screen =
+                                                "recipes"
+                                        },
                                         shots = shots,
                                         filteredShots = filteredShots,
                                         selectedStyle = selectedStyle,
@@ -855,10 +945,18 @@ fun App(
                                                 "assistant"
                                         },
                                         onOpenTimer = {
+                                            newShot()
                                             timerOrigin = "home"
                                             screen = "timer"
                                         },
-                                        onNewShot = { screen = "new" },
+                                        onRepeatShot = { shot ->
+                                            draft = shot.repeatDraft()
+                                            selectedId = null
+                                            timer.reset()
+                                            saveError = null
+                                            screen = "new"
+                                        },
+                                        onNewShot = { newShot() },
                                         onSelectShot = {
                                             selectedId = it.id
                                             screen = "detail"

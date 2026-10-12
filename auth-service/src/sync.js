@@ -1,8 +1,8 @@
 // Versioned snapshot CAS. Tombstones are permanent: UUIDs must never be reused.
 export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [] });
-export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [] } });
+export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [], brewDefaults: [] } });
 export function validateBackup(b) {
-  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
+  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
@@ -10,9 +10,13 @@ export function validateBackup(b) {
   b.cups ??= [];
   b.grinders ??= [];
   b.recipes ??= [];
-  for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders', 'recipes']) {
+  b.brewDefaults ??= [];
+  for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders', 'recipes', 'brewDefaults']) {
     if (!Array.isArray(b[kind]) || b[kind].length > 50000 || b[kind].some(x => !x || !id(x.id)) || new Set(b[kind].map(x => x.id)).size !== b[kind].length) throw new Error('invalid_ids');
   }
+  if (b.brewDefaults.length > 4 || b.brewDefaults.some(x => b.schemaVersion < 12 ||
+    !['beans', 'machines', 'grinders', 'cups'].includes(x.id) ||
+    (x.selectedId != null && !id(x.selectedId)))) throw new Error('invalid_brew_default');
   if (b.beans.some(x => x.archived !== undefined && typeof x.archived !== 'boolean')) throw new Error('invalid_bean');
   if (b.beans.some(x => x.photo != null && (b.schemaVersion < 5 ||
     typeof x.photo !== 'object' || !/^[a-f0-9-]{36}$/.test(x.photo.id) || x.photo.jpeg != null))) throw new Error('invalid_photo');
@@ -46,6 +50,7 @@ export function validateBackup(b) {
   const machineIds = new Set(b.machines.map(x => x.id));
   const cupIds = new Set(b.cups.map(x => x.id));
   const grinderIds = new Set(b.grinders.map(x => x.id));
+  if (b.schemaVersion < 12) delete b.brewDefaults;
   if (b.shots.some(x => (x.machineId != null || x.cupId != null) && b.schemaVersion < 9 ||
     (x.machineId != null && (!id(x.machineId) || !machineIds.has(x.machineId))) ||
     (x.cupId != null && (!id(x.cupId) || !cupIds.has(x.cupId))) ||
@@ -64,7 +69,9 @@ export async function updateSync(storage, input) {
     if (input.backup.schemaVersion < previous.backup.schemaVersion) throw new Error("backup_upgrade_required");
     if (previous.revision !== input.baseRevision) return { conflict: true };
     const deleted = {};
-    for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders', 'recipes']) {
+    for (const kind of ['beans', 'shots', 'machines', 'cups', 'grinders', 'recipes', 'brewDefaults']) {
+      // Preference keys identify slots, not deletable UUID records; they may be selected again.
+      if (kind === 'brewDefaults') { deleted[kind] = []; continue; }
       const tombstones = new Set(previous.deleted[kind] || []);
       const ids = new Set(input.backup[kind].map(x => x.id));
       if (!input.force && [...ids].some(id => tombstones.has(id))) return { conflict: true };

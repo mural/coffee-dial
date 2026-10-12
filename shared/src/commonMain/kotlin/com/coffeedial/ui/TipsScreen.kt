@@ -306,7 +306,6 @@ private fun StylesTabContent() {
                 style = MaterialTheme.typography.bodySmall
             )
         }
-
     }
 }
 

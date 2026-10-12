@@ -35,7 +35,9 @@ fun CupsScreen(
     saving: Boolean,
     saveError: String?,
     onSaveCup: (String?, CupDraft, () -> Unit) -> Unit,
-    onDeleteCup: (String) -> Unit
+    onDeleteCup: (String) -> Unit,
+    defaultId: String? = null,
+    onDefault: ((String?) -> Unit)? = null
 ) {
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -76,6 +78,24 @@ fun CupsScreen(
                         Text(cup.name, style = MaterialTheme.typography.titleMedium)
                         if (cup.weight != null) {
                             Text("Peso: ${cup.weight.pretty()} g")
+                        }
+                        onDefault?.let { choose ->
+                            androidx.compose.material3.FilterChip(
+                                selected = defaultId == cup.id,
+                                onClick = { choose(if (defaultId == cup.id) null else cup.id) },
+                                enabled = !saving,
+                                label = {
+                                    Text(
+                                        if (defaultId ==
+                                            cup.id
+                                        ) {
+                                            "Predeterminado"
+                                        } else {
+                                            "Usar por defecto"
+                                        }
+                                    )
+                                }
+                            )
                         }
                         FlowRow {
                             TextButton(onClick = {

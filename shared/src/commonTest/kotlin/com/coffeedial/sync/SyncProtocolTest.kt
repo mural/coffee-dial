@@ -143,7 +143,13 @@ class SyncProtocolTest {
 
     @Test fun recipeEditsMergeWhenTheyDifferAndConflictOnTheSameRecord() {
         val recipe = Recipe(
-            "r", "Diario", "Brasil", "", 18.0, 36.0, "Medio"
+            "r",
+            "Diario",
+            "Brasil",
+            "",
+            18.0,
+            36.0,
+            "Medio"
         )
         val base = backup()
         val added = mergeSync(

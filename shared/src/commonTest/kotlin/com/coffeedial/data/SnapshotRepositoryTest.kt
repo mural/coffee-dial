@@ -17,6 +17,27 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class SnapshotRepositoryTest {
+    @Test
+    fun defaultsSurviveReopenSyncAndBackupAndCanBeUnset() = runTest {
+        val store = Store()
+        val first = SnapshotRepository.open(store)
+        first.saveBean(com.coffeedial.domain.BeanDraft("Brasil", "Tostador"))
+        val choice = com.coffeedial.domain.BrewDefault("beans", first.beans.value.single().id)
+        first.setBrewDefault(choice)
+        val reopened = SnapshotRepository.open(store)
+        assertEquals(listOf(choice), reopened.brewDefaults.value)
+        val backup = reopened.exportBackup()
+        val imported = SnapshotRepository.open(Store())
+        imported.importBackup(imported.prepareImport(backup))
+        assertEquals(listOf(choice), imported.brewDefaults.value)
+        val local = reopened.readSyncLocal()
+        val next = local.backup.copy(brewDefaults = listOf(choice.copy(selectedId = "next")))
+        reopened.commitSync(local, next, "checkpoint")
+        assertEquals(next.brewDefaults, SnapshotRepository.open(store).brewDefaults.value)
+        reopened.setBrewDefault(choice.copy(selectedId = null))
+        assertEquals(null, SnapshotRepository.open(store).brewDefaults.value.single().selectedId)
+    }
+
     private class Store : SnapshotStore {
         var text: String? = null
         var fail = false

@@ -34,7 +34,9 @@ fun GrindersScreen(
     saving: Boolean,
     saveError: String?,
     onSaveGrinder: (String?, GrinderDraft, () -> Unit) -> Unit,
-    onDeleteGrinder: (String) -> Unit
+    onDeleteGrinder: (String) -> Unit,
+    defaultId: String? = null,
+    onDefault: ((String?) -> Unit)? = null
 ) {
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -72,6 +74,34 @@ fun GrindersScreen(
                     ) {
                         Text(grinder.name, style = MaterialTheme.typography.titleMedium)
                         Text(grinder.type)
+                        onDefault?.let { choose ->
+                            androidx.compose.material3.FilterChip(
+                                selected = defaultId == grinder.id,
+                                onClick = {
+                                    choose(
+                                        if (defaultId ==
+                                            grinder.id
+                                        ) {
+                                            null
+                                        } else {
+                                            grinder.id
+                                        }
+                                    )
+                                },
+                                enabled = !saving,
+                                label = {
+                                    Text(
+                                        if (defaultId ==
+                                            grinder.id
+                                        ) {
+                                            "Predeterminado"
+                                        } else {
+                                            "Usar por defecto"
+                                        }
+                                    )
+                                }
+                            )
+                        }
                         FlowRow {
                             TextButton(onClick = { open(grinder) }, enabled = !saving) {
                                 Text("Editar")

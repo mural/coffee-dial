@@ -47,7 +47,9 @@ fun BeansScreen(
     saving: Boolean,
     saveError: String?,
     onSaveBean: (String?, BeanDraft, () -> Unit) -> Unit,
-    onDeleteBean: (String) -> Unit
+    onDeleteBean: (String) -> Unit,
+    defaultId: String? = null,
+    onDefault: ((String?) -> Unit)? = null
 ) {
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -104,6 +106,24 @@ fun BeansScreen(
                         Text(bean.name, style = MaterialTheme.typography.titleMedium)
                         if (bean.roaster.isNotBlank()) {
                             Text("Tostador: ${bean.roaster}")
+                        }
+                        onDefault?.let { choose ->
+                            androidx.compose.material3.FilterChip(
+                                selected = defaultId == bean.id,
+                                onClick = { choose(if (defaultId == bean.id) null else bean.id) },
+                                enabled = !saving,
+                                label = {
+                                    Text(
+                                        if (defaultId ==
+                                            bean.id
+                                        ) {
+                                            "Predeterminado"
+                                        } else {
+                                            "Usar por defecto"
+                                        }
+                                    )
+                                }
+                            )
                         }
                         FlowRow {
                             TextButton(onClick = {

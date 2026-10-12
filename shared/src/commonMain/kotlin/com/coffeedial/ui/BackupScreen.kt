@@ -104,7 +104,7 @@ internal fun BackupScreen(
             Text(
                 "${summary.newBeans} cafés · ${summary.newShots} shots · " +
                     "${summary.newMachines} máquinas · ${summary.newGrinders} molinillos · " +
-                    "${summary.newCups} tazas · ${summary.newRecipes} recetas nuevas"
+                    "${summary.newCups} tazas · ${summary.newRecipes} recetas nuevas · ${summary.newDefaults} predeterminados"
             )
             if (summary.duplicates > 0) {
                 Text("${summary.duplicates} shots ya existentes.")

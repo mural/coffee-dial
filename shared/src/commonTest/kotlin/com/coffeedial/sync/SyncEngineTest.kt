@@ -114,7 +114,11 @@ class SyncEngineTest {
                 grind = "12",
                 firstDrop = "6.5",
                 taste = com.coffeedial.domain.TasteProfile(body = 8, acidity = 1),
-                dialIn = com.coffeedial.domain.DialInContext(grinder = "J-Ultra", previousShotId = "previous", favorite = true)
+                dialIn = com.coffeedial.domain.DialInContext(
+                    grinder = "J-Ultra",
+                    previousShotId = "previous",
+                    favorite = true
+                )
             )
         )
         var remote = SyncDocument(backup = BackupFormat.create(emptyList(), emptyList()))

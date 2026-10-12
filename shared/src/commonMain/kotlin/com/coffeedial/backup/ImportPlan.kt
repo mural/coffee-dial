@@ -9,7 +9,8 @@ data class ImportSummary(
     val conflicts: Int,
     val newCups: Int = 0,
     val newGrinders: Int = 0,
-    val newRecipes: Int = 0
+    val newRecipes: Int = 0,
+    val newDefaults: Int = 0
 )
 
 internal data class ImportPlan(
@@ -19,17 +20,31 @@ internal data class ImportPlan(
     val summary: ImportSummary,
     val cups: List<BackupCupV1> = emptyList(),
     val grinders: List<BackupGrinderV1> = emptyList(),
-    val recipes: List<com.coffeedial.domain.Recipe> = emptyList()
+    val recipes: List<com.coffeedial.domain.Recipe> = emptyList(),
+    val brewDefaults: List<com.coffeedial.domain.BrewDefault> = emptyList()
 )
 
 internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
+    val newDefaults = incoming.brewDefaults.filter { value ->
+        local.brewDefaults.none {
+            it.id ==
+                value.id
+        }
+    }
+    val defaultConflicts = incoming.brewDefaults.count { value ->
+        local.brewDefaults.any {
+            it.id ==
+                value.id &&
+                it != value
+        }
+    }
     val beansById = local.beans.associateBy { it.id }.toMutableMap()
     val beansByName = local.beans.associateBy {
         Triple(it.name, it.roaster, it.archived)
     }.toMutableMap()
     val mapping = mutableMapOf<String, String>()
     val newBeans = mutableListOf<BackupBeanV1>()
-    var conflicts = 0
+    var conflicts = defaultConflicts
     incoming.beans.forEach { bean ->
         val sameId = beansById[bean.id]
         val sameName = beansByName[Triple(bean.name, bean.roaster, bean.archived)]
@@ -131,9 +146,28 @@ internal fun planImport(local: BackupV1, incoming: BackupV1): ImportPlan {
             duplicates,
             conflicts,
             newCups.size,
-            newGrinders.size, newRecipes.size
+            newGrinders.size, newRecipes.size, newDefaults.size
         ),
         newCups,
-        newGrinders, newRecipes
+        newGrinders,
+        newRecipes,
+        newDefaults.map { value ->
+            val target = when (value.id) {
+                "beans" -> mapping[value.selectedId]
+
+                "machines" -> incoming.machines.find { it.id == value.selectedId }?.let { source ->
+                    (local.machines + newMachines).find { it.id == source.id }?.id
+                        ?: (local.machines + newMachines).find { it.name == source.name }?.id
+                }
+
+                "grinders" -> incoming.grinders.find { it.id == value.selectedId }?.let { source ->
+                    (local.grinders + newGrinders).find { it.id == source.id }?.id
+                        ?: (local.grinders + newGrinders).find { it.name == source.name }?.id
+                }
+
+                else -> value.selectedId
+            }
+            value.copy(selectedId = target)
+        }
     )
 }

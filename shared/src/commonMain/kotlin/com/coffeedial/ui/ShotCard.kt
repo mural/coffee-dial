@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.Shot
+import com.coffeedial.domain.TasteImpression
+import com.coffeedial.domain.TasteProfile
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.jetbrains.compose.ui.tooling.preview.PreviewParameter
 import org.jetbrains.compose.ui.tooling.preview.PreviewParameterProvider
@@ -44,7 +47,8 @@ internal class ShotPreviewParameterProvider : PreviewParameterProvider<Shot> {
             rating = 5,
             notes = "Espresso clásico perfecto, excelente crema.",
             style = "Espresso",
-            createdAt = 1791231400000L
+            createdAt = 1791231400000L,
+            taste = TasteProfile(TasteImpression.TOO_SOUR)
         ),
         Shot(
             id = "3",
@@ -82,10 +86,15 @@ internal class ShotPreviewParameterProvider : PreviewParameterProvider<Shot> {
 }
 
 @Composable
-internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
+internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    timestamp(shot.createdAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(shot.bean.name, style = MaterialTheme.typography.titleLarge)
                 val details = listOfNotNull(
                     shot.style?.takeIf { it.isNotBlank() },
@@ -170,15 +179,20 @@ internal fun ShotCard(shot: Shot, onClick: () -> Unit) {
                 },
                 style = MaterialTheme.typography.bodyLarge
             )
-            Text(
-                timestamp(shot.createdAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (shot.dialIn?.favorite == true) Text("Favorito", color = MaterialTheme.colorScheme.primary)
-            CoffeeRating(shot.rating)
-            shot.taste?.impression?.let {
-                Text(it.label(), style = MaterialTheme.typography.bodySmall)
+            if (shot.dialIn?.favorite == true) {
+                Text("Favorito", color = MaterialTheme.colorScheme.primary)
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                CoffeeRating(shot.rating)
+                shot.taste?.impression?.let {
+                    Text(it.label(), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            onRepeat?.let { repeat ->
+                Button(onClick = repeat) { Text("Repetir") }
             }
         }
     }
@@ -209,6 +223,7 @@ private fun ShotCardPreview(@PreviewParameter(ShotPreviewParameterProvider::clas
     MaterialTheme {
         ShotCard(
             shot = shot,
+            onRepeat = {},
             onClick = {}
         )
     }

@@ -15,6 +15,26 @@ import kotlinx.coroutines.runBlocking
 
 class ShotRepositoryTest {
     @Test
+    fun defaultsPersistAndSyncDoesNotLoseThem() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repository = ShotRepository(driver)
+            repository.setBrewDefault(com.coffeedial.domain.BrewDefault("machines", "m"))
+            assertEquals("m", ShotRepository(driver).brewDefaults.first().single().selectedId)
+            val local = repository.readSyncLocal()
+            val next = local.backup.copy(
+                brewDefaults = listOf(com.coffeedial.domain.BrewDefault("machines"))
+            )
+            repository.commitSync(local, next, "checkpoint")
+            assertEquals(next.brewDefaults, repository.brewDefaults.first())
+            assertEquals(
+                next.brewDefaults,
+                com.coffeedial.backup.BackupFormat.decode(repository.exportBackup()).brewDefaults
+            )
+        }
+    }
+
+    @Test
     fun persistsAcrossReopenAndReusesBeans() = runBlocking {
         val file = Files.createTempFile("coffee-dial-test", ".db")
         try {

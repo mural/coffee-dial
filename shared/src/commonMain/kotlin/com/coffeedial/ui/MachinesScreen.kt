@@ -34,7 +34,9 @@ fun MachinesScreen(
     saving: Boolean,
     saveError: String?,
     onSaveMachine: (String?, MachineDraft, () -> Unit) -> Unit,
-    onDeleteMachine: (String) -> Unit
+    onDeleteMachine: (String) -> Unit,
+    defaultId: String? = null,
+    onDefault: ((String?) -> Unit)? = null
 ) {
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -78,6 +80,34 @@ fun MachinesScreen(
                                 it.isNotBlank()
                             }.joinToString(" · ")
                         )
+                        onDefault?.let { choose ->
+                            androidx.compose.material3.FilterChip(
+                                selected = defaultId == machine.id,
+                                onClick = {
+                                    choose(
+                                        if (defaultId ==
+                                            machine.id
+                                        ) {
+                                            null
+                                        } else {
+                                            machine.id
+                                        }
+                                    )
+                                },
+                                enabled = !saving,
+                                label = {
+                                    Text(
+                                        if (defaultId ==
+                                            machine.id
+                                        ) {
+                                            "Predeterminado"
+                                        } else {
+                                            "Usar por defecto"
+                                        }
+                                    )
+                                }
+                            )
+                        }
                         FlowRow {
                             TextButton(onClick = {
                                 open(machine)

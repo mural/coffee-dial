@@ -7,7 +7,6 @@ import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
-import com.coffeedial.domain.Recipe
 import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
@@ -19,6 +18,7 @@ import com.coffeedial.backup.resolveEquipment
 import com.coffeedial.database.CoffeeDatabase
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.BeanDraft
+import com.coffeedial.domain.BrewDefault
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.DialInContext
@@ -26,6 +26,7 @@ import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
+import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
 import com.coffeedial.domain.TasteProfile
@@ -103,7 +104,19 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         rows.map { Cup(it.id, it.name, it.weight) }
     }
 
-    override val recipes: Flow<List<Recipe>> = queries.allRecipes().asFlow().mapToList(Dispatchers.IO).map { rows ->
+    override val brewDefaults: Flow<List<BrewDefault>> = queries.allBrewDefaults().asFlow().mapToList(
+        Dispatchers.IO
+    ).map { rows ->
+        rows.map { BrewDefault(it.id, it.selected_id) }
+    }
+    override suspend fun setBrewDefault(value: BrewDefault): Unit = withContext(Dispatchers.IO) {
+        require(value.isValid())
+        queries.setBrewDefault(value.id, value.selectedId)
+    }
+
+    override val recipes: Flow<List<Recipe>> = queries.allRecipes().asFlow().mapToList(
+        Dispatchers.IO
+    ).map { rows ->
         rows.map { Json.decodeFromString<Recipe>(it.payload) }.sortedBy { it.name }
     }
 
@@ -142,6 +155,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.clearCups()
             queries.clearGrinders()
             queries.clearRecipes()
+            queries.clearBrewDefaults()
             next.beans.forEach {
                 queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                 queries.setBeanPhoto(
@@ -154,6 +168,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
             next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
             next.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
+            next.brewDefaults.forEach { queries.setBrewDefault(it.id, it.selectedId) }
             next.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
             next.shots.forEach { writeShot(it) }
             queries.writeSyncCheckpoint(checkpoint)
@@ -375,7 +390,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     }
 
     private fun snapshot(): BackupV1 = BackupFormat.create(
-        recipes = queries.allRecipes().executeAsList().map { Json.decodeFromString<Recipe>(it.payload) },
+        brewDefaults = queries.allBrewDefaults().executeAsList().map {
+            BrewDefault(it.id, it.selected_id)
+        },
+        recipes = queries.allRecipes().executeAsList().map {
+            Json.decodeFromString<Recipe>(it.payload)
+        },
         beans = queries.allBeans().executeAsList().map {
             BackupBeanV1(
                 it.id,
@@ -448,7 +468,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     current.machines != prepared.local.machines ||
                     current.cups != prepared.local.cups ||
                     current.grinders != prepared.local.grinders ||
-                    current.recipes != prepared.local.recipes
+                    current.recipes != prepared.local.recipes ||
+                    current.brewDefaults != prepared.local.brewDefaults
                 ) {
                     throw BackupException(
                         "El historial cambió. " +
@@ -469,7 +490,10 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 }
                 prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
                 prepared.plan.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
-                prepared.plan.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
+                prepared.plan.brewDefaults.forEach { queries.setBrewDefault(it.id, it.selectedId) }
+                prepared.plan.recipes.forEach {
+                    queries.insertRecipe(it.id, Json.encodeToString(it))
+                }
                 prepared.plan.shots.forEach { writeShot(it) }
                 prepared.summary
             }
@@ -497,6 +521,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.grinders.forEach {
                     queries.insertGrinder(it.id, it.name, it.type)
                 }
+                val existingDefaults = queries.allBrewDefaults().executeAsList().map {
+                    it.id
+                }.toSet()
+                incoming.brewDefaults.filterNot {
+                    it.id in existingDefaults
+                }.forEach { queries.setBrewDefault(it.id, it.selectedId) }
                 incoming.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
                 incoming.shots.forEach { writeShot(it) }
             }
@@ -507,7 +537,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 0,
                 0,
                 newCups = incoming.cups.size,
-                newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
+                newGrinders = incoming.grinders.size,
+                newRecipes = incoming.recipes.size
             )
         }
 
@@ -520,7 +551,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.clearMachines()
                 queries.clearCups()
                 queries.clearGrinders()
-            queries.clearRecipes()
+                queries.clearRecipes()
+                queries.clearBrewDefaults()
                 incoming.beans.forEach {
                     queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
                     queries.setBeanPhoto(
@@ -539,6 +571,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 incoming.grinders.forEach {
                     queries.insertGrinder(it.id, it.name, it.type)
                 }
+                val existingDefaults = queries.allBrewDefaults().executeAsList().map {
+                    it.id
+                }.toSet()
+                incoming.brewDefaults.filterNot {
+                    it.id in existingDefaults
+                }.forEach { queries.setBrewDefault(it.id, it.selectedId) }
                 incoming.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
                 incoming.shots.forEach { writeShot(it) }
             }
@@ -549,7 +587,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 0,
                 0,
                 newCups = incoming.cups.size,
-                newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
+                newGrinders = incoming.grinders.size,
+                newRecipes = incoming.recipes.size
             )
         }
 

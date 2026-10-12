@@ -16,6 +16,9 @@ import com.coffeedial.domain.ShotDraft
 import kotlinx.coroutines.flow.Flow
 
 interface ShotRepository {
+    val brewDefaults: Flow<List<com.coffeedial.domain.BrewDefault>>
+    suspend fun setBrewDefault(value: com.coffeedial.domain.BrewDefault)
+
     val recipes: Flow<List<com.coffeedial.domain.Recipe>>
     suspend fun saveRecipe(recipe: com.coffeedial.domain.Recipe)
     suspend fun deleteRecipe(id: String)

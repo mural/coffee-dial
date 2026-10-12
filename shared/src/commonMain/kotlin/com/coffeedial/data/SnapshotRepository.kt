@@ -4,7 +4,6 @@ import com.coffeedial.backup.BackupBeanV1
 import com.coffeedial.backup.BackupCupV1
 import com.coffeedial.backup.BackupException
 import com.coffeedial.backup.BackupFormat
-import com.coffeedial.domain.Recipe
 import com.coffeedial.backup.BackupGrinderV1
 import com.coffeedial.backup.BackupMachineV1
 import com.coffeedial.backup.BackupShotV1
@@ -14,12 +13,14 @@ import com.coffeedial.backup.planImport
 import com.coffeedial.backup.resolveEquipment
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.BeanDraft
+import com.coffeedial.domain.BrewDefault
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
 import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
+import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
 import com.coffeedial.domain.decimal
@@ -76,6 +77,7 @@ class SnapshotRepository private constructor(
     override val machines = MutableStateFlow<List<Machine>>(emptyList())
     override val beans = MutableStateFlow<List<Bean>>(emptyList())
     override val cups = MutableStateFlow<List<Cup>>(emptyList())
+    override val brewDefaults = MutableStateFlow<List<BrewDefault>>(emptyList())
     override val recipes = MutableStateFlow<List<Recipe>>(emptyList())
     override val grinders = MutableStateFlow<List<Grinder>>(emptyList())
 
@@ -112,6 +114,7 @@ class SnapshotRepository private constructor(
             data.machines.sortedBy { it.name }.map { Machine(it.id, it.name, it.type, it.year) }
         cups.value =
             data.cups.sortedBy { it.name }.map { Cup(it.id, it.name, it.weight) }
+        brewDefaults.value = data.brewDefaults
         recipes.value = data.recipes.sortedBy { it.name }
         grinders.value =
             data.grinders.sortedBy { it.name }.map { Grinder(it.id, it.name, it.type) }
@@ -344,6 +347,11 @@ class SnapshotRepository private constructor(
         )
     }
 
+    override suspend fun setBrewDefault(value: BrewDefault) = change {
+        require(value.isValid())
+        it.copy(brewDefaults = it.brewDefaults.filterNot { item -> item.id == value.id } + value)
+    }
+
     override suspend fun saveRecipe(recipe: Recipe) = change {
         require(recipe.isValid())
         it.copy(recipes = it.recipes.filterNot { item -> item.id == recipe.id } + recipe)
@@ -449,7 +457,8 @@ class SnapshotRepository private constructor(
         change {
             if (it.beans != prepared.local.beans || it.shots != prepared.local.shots ||
                 it.machines != prepared.local.machines || it.cups != prepared.local.cups ||
-                it.grinders != prepared.local.grinders || it.recipes != prepared.local.recipes
+                it.grinders != prepared.local.grinders || it.recipes != prepared.local.recipes ||
+                it.brewDefaults != prepared.local.brewDefaults
             ) {
                 throw BackupException(
                     "El historial cambió. Volvé a seleccionar el backup para revisarlo."
@@ -461,6 +470,7 @@ class SnapshotRepository private constructor(
                 machines = it.machines + prepared.plan.machines,
                 cups = it.cups + prepared.plan.cups,
                 recipes = it.recipes + prepared.plan.recipes,
+                brewDefaults = it.brewDefaults + prepared.plan.brewDefaults,
                 grinders = it.grinders + prepared.plan.grinders
             )
         }
@@ -476,6 +486,9 @@ class SnapshotRepository private constructor(
                 machines = (it.machines + incoming.machines).distinctBy { machine -> machine.id },
                 cups = (it.cups + incoming.cups).distinctBy { cup -> cup.id },
                 recipes = (it.recipes + incoming.recipes).distinctBy { recipe -> recipe.id },
+                brewDefaults = (it.brewDefaults + incoming.brewDefaults).distinctBy { value ->
+                    value.id
+                },
                 grinders = (it.grinders + incoming.grinders).distinctBy { grinder -> grinder.id }
             )
         }
@@ -486,7 +499,8 @@ class SnapshotRepository private constructor(
             0,
             0,
             newCups = incoming.cups.size,
-            newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
+            newGrinders = incoming.grinders.size,
+            newRecipes = incoming.recipes.size
         )
     }
 
@@ -499,6 +513,7 @@ class SnapshotRepository private constructor(
                 machines = incoming.machines,
                 cups = incoming.cups,
                 recipes = incoming.recipes,
+                brewDefaults = incoming.brewDefaults,
                 grinders = incoming.grinders
             )
         }
@@ -509,7 +524,8 @@ class SnapshotRepository private constructor(
             0,
             0,
             newCups = incoming.cups.size,
-            newGrinders = incoming.grinders.size, newRecipes = incoming.recipes.size
+            newGrinders = incoming.grinders.size,
+            newRecipes = incoming.recipes.size
         )
     }
 }

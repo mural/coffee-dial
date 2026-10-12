@@ -37,6 +37,7 @@ fun HomeScreen(
     userName: String? = null,
     onSelectStyle: (String?) -> Unit,
     onNewShot: () -> Unit,
+    onRepeatShot: ((Shot) -> Unit)? = null,
     onOpenTimer: () -> Unit = {},
     onOpenDialIn: () -> Unit = {},
     onRecipes: () -> Unit = {},
@@ -124,7 +125,9 @@ fun HomeScreen(
                     }
                     if (screen == "home") {
                         Text("Timer y recetas para tu próxima extracción.")
-                        Button(onClick = onRecipes, modifier = Modifier.fillMaxWidth()) { Text("Mis recetas · repetir café") }
+                        Button(onClick = onRecipes, modifier = Modifier.fillMaxWidth()) {
+                            Text("Mis recetas · repetir café")
+                        }
                         Button(onClick = onOpenTimer, modifier = Modifier.fillMaxWidth()) {
                             Text("Iniciar Shot Timer")
                         }
@@ -176,7 +179,7 @@ fun HomeScreen(
                     if (screen == "home") shots.take(3) else filteredShots,
                     key = { it.id }
                 ) { shot ->
-                    ShotCard(shot) {
+                    ShotCard(shot, onRepeat = onRepeatShot?.let { repeat -> { repeat(shot) } }) {
                         onSelectShot(shot)
                     }
                 }

@@ -178,3 +178,14 @@ DELETE FROM recipe WHERE id = ?;
 
 clearRecipes:
 DELETE FROM recipe;
+
+CREATE TABLE brew_default (id TEXT NOT NULL PRIMARY KEY, selected_id TEXT);
+
+allBrewDefaults:
+SELECT * FROM brew_default;
+
+setBrewDefault:
+INSERT OR REPLACE INTO brew_default VALUES (?, ?);
+
+clearBrewDefaults:
+DELETE FROM brew_default;
