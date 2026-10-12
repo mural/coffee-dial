@@ -1,5 +1,6 @@
-html,body { margin:0; height:100%; overflow:hidden; background:#fcf8f3; color:#342319; font-family:system-ui,sans-serif; user-select:text !important; -webkit-user-select:text !important; }
+:root { color-scheme:light; --page-bg:#fcf8f3; --page-fg:#342319; --notice-bg:#ede0cf; }
+html,body { margin:0; height:100%; overflow:hidden; background:var(--page-bg); color:var(--page-fg); font-family:system-ui,sans-serif; user-select:text !important; -webkit-user-select:text !important; }
 body { display:flex; flex-direction:column; }
-.notice { padding:10px 20px; text-align:center; font-size:13px; line-height:1.45; background:#ede0cf; }
+.notice { padding:10px 20px; text-align:center; font-size:13px; line-height:1.45; background:var(--notice-bg); }
 #loading { padding:20px; text-align:center; }
 #app, canvas { flex:1; min-height:0; width:100%; max-width:960px; margin:auto; position:relative; user-select:text !important; -webkit-user-select:text !important; }

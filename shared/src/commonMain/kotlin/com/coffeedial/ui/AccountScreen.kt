@@ -2,6 +2,7 @@ package com.coffeedial.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
 import com.coffeedial.auth.InMemoryAuthRepository
 import com.coffeedial.auth.User
+import com.coffeedial.domain.ThemeMode
 import com.coffeedial.sync.SyncEngine
 import com.coffeedial.sync.SyncState
 import kotlinx.coroutines.launch
@@ -38,7 +41,9 @@ fun AccountScreen(
     syncEngine: SyncEngine? = null,
     onAdmin: () -> Unit = {},
     onBackup: (() -> Unit)? = null,
-    onConflicts: () -> Unit = {}
+    onConflicts: () -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeMode: (ThemeMode) -> Unit = {}
 ) {
     val state by authRepository.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -335,7 +340,39 @@ fun AccountScreen(
                 }
             }
         }
+        item { AppearanceChoices(themeMode, onThemeMode) }
     }
+}
+
+@Composable
+private fun AppearanceChoices(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Apariencia", style = MaterialTheme.typography.titleMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ThemeMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = themeMode == mode,
+                        onClick = { onThemeMode(mode) },
+                        label = { Text(mode.appearanceLabel()) }
+                    )
+                }
+            }
+            Text(
+                "Se guarda solo en este dispositivo.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+private fun ThemeMode.appearanceLabel(): String = when (this) {
+    ThemeMode.LIGHT -> "Claro"
+    ThemeMode.DARK -> "Oscuro"
+    ThemeMode.SYSTEM -> "Sistema"
 }
 
 @Preview(name = "Cuenta - Sin Sesión", showBackground = true)

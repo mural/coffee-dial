@@ -6,6 +6,22 @@
   <meta name="theme-color" content="#704a32">
   <title>Coffee Dial</title>
   <link rel="stylesheet" href="web.css">
+  <script>
+    try {
+      var mode = localStorage.getItem("coffee_theme");
+      var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var dark = mode === "DARK" || (mode !== "LIGHT" && systemDark);
+      if (dark) {
+        var root = document.documentElement;
+        root.style.setProperty("--page-bg", "#1c1612");
+        root.style.setProperty("--page-fg", "#f6efe6");
+        root.style.setProperty("--notice-bg", "#3a2c22");
+        root.style.setProperty("color-scheme", "dark");
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", "#1c1612");
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header id="web-notice" class="notice" style="display:none">Datos guardados en este navegador. Logueate o usa el Backup para pasarlos al teléfono o conservar una copia.</header>

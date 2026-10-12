@@ -1,5 +1,6 @@
 package com.coffeedial.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -249,14 +248,12 @@ fun App(
             }
         }
     }
+    var themeMode by remember { mutableStateOf(readThemeMode()) }
+    val dark = themeMode.isDark(isSystemInDarkTheme())
     MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Color(0xFF704A32),
-            background = Color(0xFFFCF8F3),
-            surface = Color(0xFFFCF8F3),
-            secondaryContainer = Color(0xFFEDE0CF)
-        )
+        colorScheme = if (dark) coffeeDarkColorScheme() else coffeeLightColorScheme()
     ) {
+        ThemeChrome(dark)
         var navigationHeight by remember { mutableIntStateOf(0) }
         var headerHeight by remember(screen) { mutableIntStateOf(0) }
         var headerOffset by remember(screen) { mutableStateOf(0f) }
@@ -423,7 +420,12 @@ fun App(
                                     syncEngine = syncEngine,
                                     onAdmin = { screen = "admin" },
                                     onBackup = { screen = "backup" },
-                                    onConflicts = { screen = "conflicts" }
+                                    onConflicts = { screen = "conflicts" },
+                                    themeMode = themeMode,
+                                    onThemeMode = { mode ->
+                                        themeMode = mode
+                                        writeThemeMode(mode)
+                                    }
                                 )
 
                                 "conflicts" -> {

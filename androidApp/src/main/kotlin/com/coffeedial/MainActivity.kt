@@ -13,6 +13,11 @@ import com.coffeedial.ui.App
 import kotlinx.coroutines.launch
 
 class CoffeeDialApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        com.coffeedial.ui.installThemeStore(this)
+    }
+
     val authRepository by lazy { AndroidAuthRepository(this, BuildConfig.GOOGLE_WEB_CLIENT_ID) }
     val backupFiles = BackupFiles()
     val repository by lazy { createRepository(this) }

@@ -9,12 +9,23 @@ import GoogleSignIn
 @main
 struct CoffeeDialApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("coffee_theme") private var themeMode = "SYSTEM"
     @StateObject private var backup = BackupCoordinator()
     @StateObject private var account = AccountCoordinator()
 
+    private var preferredScheme: ColorScheme? {
+        switch themeMode {
+        case "DARK": return .dark
+        case "LIGHT": return .light
+        default: return nil
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
-            CoffeeDialView(files: backup.files, account: account.repository).ignoresSafeArea()
+            CoffeeDialView(files: backup.files, account: account.repository)
+                .ignoresSafeArea()
+                .preferredColorScheme(preferredScheme)
                 .sheet(isPresented: $backup.pickingPhoto) {
                     BeanPhotoPicker(files: backup.files, dismiss: { backup.pickingPhoto = false })
                         .interactiveDismissDisabled()
