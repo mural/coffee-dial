@@ -1,6 +1,7 @@
 package com.coffeedial.backup
 
 import com.coffeedial.domain.BrewDefault
+import com.coffeedial.domain.fromTenPointScale
 import com.coffeedial.domain.Recipe
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -38,7 +39,12 @@ data class BackupBeanV1(
 data class BackupMachineV1(val id: String, val name: String, val type: String, val year: String)
 
 @Serializable
-data class BackupCupV1(val id: String, val name: String, val weight: Double? = null)
+data class BackupCupV1(
+    val id: String,
+    val name: String,
+    val weight: Double? = null,
+    val capacity: Double? = null
+)
 
 @Serializable
 data class BackupGrinderV1(val id: String, val name: String, val type: String)
@@ -74,7 +80,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 12
+    const val CURRENT_VERSION = 14
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -136,7 +142,7 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 -> json.decodeFromJsonElement(
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 -> json.decodeFromJsonElement(
                     BackupV1.serializer(),
                     root
                 )
@@ -171,7 +177,10 @@ object BackupFormat {
 
     fun migrate(backup: BackupV1): BackupV1 {
         validate(backup)
-        val linked = linkLegacyGrinders(linkLegacyEquipment(backup)).copy(
+        val scaled = if (backup.schemaVersion < 14) {
+            backup.copy(shots = backup.shots.map { it.copy(taste = it.taste?.fromTenPointScale()) })
+        } else backup
+        val linked = linkLegacyGrinders(linkLegacyEquipment(scaled)).copy(
             schemaVersion = CURRENT_VERSION
         )
         validate(linked)
@@ -227,6 +236,8 @@ object BackupFormat {
             valid(it.id.isNotBlank() && it.id.length <= 200)
             valid(it.name.isNotBlank() && it.name.length <= 10_000)
             valid(it.weight == null || (it.weight.isFinite() && it.weight > 0))
+            valid(it.capacity == null || (it.capacity.isFinite() && it.capacity > 0))
+            valid(backup.schemaVersion >= 13 || it.capacity == null)
         }
         backup.shots.forEach {
             valid(it.id.isNotBlank() && it.id.length <= 200 && it.beanId in ids)
@@ -277,7 +288,9 @@ object BackupFormat {
                             it.dialIn.previousShotId != it.id
                         )
             )
-            valid(it.taste == null || (backup.schemaVersion >= 7 && it.taste.isValid()))
+            valid(it.taste == null || (backup.schemaVersion >= 7 &&
+                if (backup.schemaVersion >= 14) it.taste.isValid()
+                else listOf(it.taste.body, it.taste.acidity, it.taste.bitterness).all { value -> value == null || value in 0..10 }))
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)
         }
     }

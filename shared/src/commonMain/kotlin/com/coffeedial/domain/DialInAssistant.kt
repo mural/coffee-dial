@@ -206,7 +206,7 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             "La bebida te resultó equilibrada. Repetila para comprobar consistencia y marcala como favorita si la preferís."
         )
     }
-    if ((shot.taste.acidity ?: 0) >= 8 && (shot.taste.bitterness ?: 0) >= 8) {
+    if ((shot.taste.acidity ?: 0) >= 4 && (shot.taste.bitterness ?: 0) >= 4) {
         return advice(
             "Revisá la consistencia",
             "Acidez y amargor altos pueden tener varias causas. Repetí con distribución pareja del café antes de cambiar la receta; no podemos concluir subextracción o sobreextracción."

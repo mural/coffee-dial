@@ -125,7 +125,7 @@ fun ShotDetail(
             item { ReadOnlyChip(style) }
         }
         item {
-            DrinkCupChart(shot.dose, shot.output, water, milk)
+            DrinkCupChart(shot.dose, shot.output, water, milk, cup?.capacity)
         }
         item {
             DetailCard {
@@ -246,10 +246,14 @@ fun ShotDetail(
                         )
                     }
                     cupName(shot)?.let { name ->
+                        val cupDetails = listOfNotNull(
+                            cup?.weight?.let { "${it.pretty()} g" },
+                            cup?.capacity?.let { "${it.pretty()} cm³" }
+                        ).joinToString(" · ")
                         LabeledValue(
                             "Taza",
                             name,
-                            cup?.weight?.let { "${it.pretty()} g" }.orEmpty()
+                            cupDetails
                         )
                     }
                 }
@@ -474,7 +478,7 @@ private fun BeanThumbnail(photo: BeanPhoto, size: Dp, onClick: (() -> Unit)? = n
     )
 }
 
-@Preview(name = "Detalle del Shot", showBackground = true, widthDp = 400, heightDp = 900)
+@Preview(name = "Detalle del Shot", showBackground = true, widthDp = 400, heightDp = 1400)
 @Composable
 private fun ShotDetailPreview() {
     MaterialTheme {
@@ -501,7 +505,7 @@ private fun ShotDetailPreview() {
             saving = false,
             machines = mockMachines,
             grinders = mockGrinders,
-            cups = listOf(Cup("c", "Cerámica", 180.0))
+            cups = listOf(Cup("c", "Cerámica", 180.0, 250.0))
         )
     }
 }

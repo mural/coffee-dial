@@ -100,7 +100,7 @@ class SyncEngine(
             "Actualizá Coffee Dial: el formato de sincronización no es compatible."
         }
         BackupFormat.validate(result.backup)
-        return result
+        return result.copy(backup = BackupFormat.migrate(result.backup))
     }
 
     private suspend fun run(mode: Mode): Result<SyncResponse> = mutex.withLock {

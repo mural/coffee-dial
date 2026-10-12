@@ -39,11 +39,11 @@ class ShotComparisonTest {
         val second = first.copy(
             id = "two",
             milk = 100.0,
-            taste = TasteProfile(body = 0, acidity = 10)
+            taste = TasteProfile(body = 1, acidity = 5)
         )
         val rows = compareShots(listOf(first, second))
-        assertEquals(listOf(null, 0), rows.first { it.label == "Cuerpo" }.sensory)
-        assertEquals(listOf("Sin registrar", "0/10"), rows.first { it.label == "Cuerpo" }.values)
+        assertEquals(listOf(null, 1), rows.first { it.label == "Cuerpo" }.sensory)
+        assertEquals(listOf("Sin registrar", "1/5"), rows.first { it.label == "Cuerpo" }.values)
         assertFalse(rows.first { it.label == "Ratio extracción" }.changed(1))
         assertTrue(rows.first { it.label == "Leche · ml" }.changed(1))
     }

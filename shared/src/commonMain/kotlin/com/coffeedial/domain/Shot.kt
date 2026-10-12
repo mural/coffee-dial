@@ -42,15 +42,28 @@ data class GrinderDraft(val name: String = "", val type: String = "Eléctrico") 
     }
 }
 
-data class Cup(val id: String, val name: String, val weight: Double? = null)
+data class Cup(
+    val id: String,
+    val name: String,
+    val weight: Double? = null,
+    val capacity: Double? = null
+)
 
-data class CupDraft(val name: String = "", val weight: String = "") {
+data class CupDraft(val name: String = "", val weight: String = "", val capacity: String = "") {
     fun errors(): Map<String, String> = buildMap {
         if (name.isBlank()) put("name", "Ingresá el nombre de la taza")
         if (weight.isNotBlank() &&
             (weight.decimal() == null || !weight.decimal()!!.isFinite() || weight.decimal()!! <= 0)
         ) {
             put("weight", "Ingresá un peso válido en gramos")
+        }
+        if (capacity.isNotBlank() &&
+            (
+                capacity.decimal() == null || !capacity.decimal()!!.isFinite() ||
+                    capacity.decimal()!! <= 0
+                )
+        ) {
+            put("capacity", "Ingresá una capacidad válida en cm³")
         }
     }
 }
@@ -133,7 +146,7 @@ data class ShotDraft(
         }
         if (style.length > 100) put("style", "Usá hasta 100 caracteres")
         if (dialIn?.isValid() == false) put("dialIn", "Revisá los datos del ajuste")
-        if (taste?.isValid() == false) put("taste", "Usá valores de 0 a 10")
+        if (taste?.isValid() == false) put("taste", "Usá valores de 1 a 5")
         if (rating !in 1..5) put("rating", "Elegí entre 1 y 5")
     }
 }

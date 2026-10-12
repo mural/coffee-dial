@@ -43,6 +43,7 @@ fun CupsScreen(
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
     var weight by rememberSaveable { mutableStateOf("") }
+    var capacity by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
@@ -51,13 +52,14 @@ fun CupsScreen(
         editorOpen = false
     }
 
-    val draft = CupDraft(name, weight)
+    val draft = CupDraft(name, weight, capacity)
     val errors = if (submitted) draft.errors() else emptyMap()
 
     fun open(cup: Cup?) {
         editingId = cup?.id
         name = cup?.name.orEmpty()
         weight = cup?.weight?.pretty().orEmpty()
+        capacity = cup?.capacity?.pretty().orEmpty()
         submitted = false
         editorOpen = true
     }
@@ -76,8 +78,12 @@ fun CupsScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(cup.name, style = MaterialTheme.typography.titleMedium)
-                        if (cup.weight != null) {
-                            Text("Peso: ${cup.weight.pretty()} g")
+                        val details = listOfNotNull(
+                            cup.weight?.let { "Peso: ${it.pretty()} g" },
+                            cup.capacity?.let { "Capacidad: ${it.pretty()} cm³" }
+                        ).joinToString(" · ")
+                        if (details.isNotBlank()) {
+                            Text(details)
                         }
                         onDefault?.let { choose ->
                             androidx.compose.material3.FilterChip(
@@ -86,13 +92,7 @@ fun CupsScreen(
                                 enabled = !saving,
                                 label = {
                                     Text(
-                                        if (defaultId ==
-                                            cup.id
-                                        ) {
-                                            "Predeterminado"
-                                        } else {
-                                            "Usar por defecto"
-                                        }
+                                        if (defaultId == cup.id) "Predeterminado" else "Usar por defecto"
                                     )
                                 }
                             )
@@ -147,6 +147,16 @@ fun CupsScreen(
                     isError = errors["weight"] != null,
                     supportingText = errors["weight"]?.let { { Text(it) } }
                 )
+                OutlinedTextField(
+                    value = capacity,
+                    onValueChange = { capacity = it },
+                    label = { Text("Capacidad de la taza · cm³ (opcional)") },
+                    enabled = !saving,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = errors["capacity"] != null,
+                    supportingText = errors["capacity"]?.let { { Text(it) } }
+                )
                 if (editingId != null) {
                     Text(
                         "Los shots anteriores conservan la información que tenían al registrarlos."
@@ -173,8 +183,8 @@ private fun CupsPreview() {
     MaterialTheme {
         CupsScreen(
             cups = listOf(
-                Cup("1", "Taza Loveramics 150ml", 180.0),
-                Cup("2", "Vaso Duralex", 120.0)
+                Cup("1", "Taza Loveramics 150ml", 180.0, 150.0),
+                Cup("2", "Vaso Duralex", 120.0, 220.0)
             ),
             saving = false,
             saveError = null,

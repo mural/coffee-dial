@@ -2,7 +2,7 @@
 export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [] });
 export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [], brewDefaults: [] } });
 export function validateBackup(b) {
-  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
+  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
@@ -23,7 +23,7 @@ export function validateBackup(b) {
   if (b.shots.some(x => x.firstDrop != null && (b.schemaVersion < 6 || typeof x.firstDrop !== 'number' || !Number.isFinite(x.firstDrop) || x.firstDrop < 0 || x.firstDrop > x.seconds))) throw new Error('invalid_shot');
   if (b.shots.some(x => x.taste != null && (b.schemaVersion < 7 || typeof x.taste !== 'object' || Array.isArray(x.taste) ||
     (x.taste.impression != null && !['TOO_SOUR', 'TOO_BITTER', 'WEAK', 'BALANCED', 'TOO_STRONG'].includes(x.taste.impression)) ||
-    ['body', 'acidity', 'bitterness'].some(k => x.taste[k] != null && (!Number.isInteger(x.taste[k]) || x.taste[k] < 0 || x.taste[k] > 10))))) throw new Error('invalid_shot');
+    ['body', 'acidity', 'bitterness'].some(k => x.taste[k] != null && (!Number.isInteger(x.taste[k]) || x.taste[k] < (b.schemaVersion >= 14 ? 1 : 0) || x.taste[k] > (b.schemaVersion >= 14 ? 5 : 10)))))) throw new Error('invalid_shot');
   const optionalChoice = (value, choices) => value == null || choices.includes(value);
   if (b.shots.some(x => x.dialIn != null && (b.schemaVersion < 8 || typeof x.dialIn !== 'object' || Array.isArray(x.dialIn) ||
     !optionalChoice(x.dialIn.roast, ['LIGHT','MEDIUM','DARK','UNKNOWN']) ||
@@ -44,7 +44,7 @@ export function validateBackup(b) {
   const beans = new Set(b.beans.map(x => x.id));
   if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster))) throw new Error('invalid_bean');
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');
-  if (b.cups.some(x => !text(x.name) || !x.name.trim() || (x.weight != null && !positive(x.weight)))) throw new Error('invalid_cup');
+  if (b.cups.some(x => !text(x.name) || !x.name.trim() || (x.weight != null && !positive(x.weight)) || (x.capacity != null && (b.schemaVersion < 13 || !positive(x.capacity))))) throw new Error('invalid_cup');
   if (b.grinders.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !x.type.trim())) throw new Error('invalid_grinder');
   if (b.shots.some(x => !beans.has(x.beanId) || !Number.isSafeInteger(x.createdAt) || x.createdAt < 0 || x.createdAt > 253402300799999 || !positive(x.dose) || !positive(x.output) || !positive(x.seconds) || !text(x.grind) || !x.grind.trim() || !text(x.notes, 1000000) || !Number.isInteger(x.rating) || x.rating < 1 || x.rating > 5 || (x.temperature != null && !positive(x.temperature)) || (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 200)) || (x.machine != null && !text(x.machine)) || (x.cup != null && !text(x.cup)) || (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) || (x.style != null && !text(x.style, 100)) || (b.schemaVersion < 2 && (x.extraWater != null || x.style != null)))) throw new Error('invalid_shot');
   const machineIds = new Set(b.machines.map(x => x.id));

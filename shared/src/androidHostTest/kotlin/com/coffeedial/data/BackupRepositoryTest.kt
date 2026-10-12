@@ -32,7 +32,7 @@ class BackupRepositoryTest {
                     beanName = "Brasil",
                     seconds = "28.3",
                     firstDrop = "7.5",
-                    taste = com.coffeedial.domain.TasteProfile(body = 8, bitterness = 0),
+                    taste = com.coffeedial.domain.TasteProfile(body = 4, bitterness = 1),
                     dialIn = com.coffeedial.domain.DialInContext(
                         grinder = "J-Ultra",
                         previousShotId = "previous",
@@ -48,7 +48,7 @@ class BackupRepositoryTest {
                 target.importBackup(target.prepareImport(text))
                 assertEquals(photo, target.beans.first().single().photo)
                 assertEquals(7.5, target.history.first().single().firstDrop)
-                assertEquals(8, target.history.first().single().taste?.body)
+                assertEquals(4, target.history.first().single().taste?.body)
                 assertEquals(true, target.history.first().single().dialIn?.favorite)
                 val shot = target.history.first().single()
                 target.update(shot.id, ShotDraft(beanName = "Brasil", taste = null))

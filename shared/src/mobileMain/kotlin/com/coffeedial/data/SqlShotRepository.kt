@@ -26,6 +26,7 @@ import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
+import com.coffeedial.domain.fromTenPointScale
 import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
@@ -43,6 +44,16 @@ import kotlinx.serialization.json.Json
 
 class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     private val queries = CoffeeDatabase(driver).coffeeQueries
+
+    init {
+        // Avoid relying on JSON SQL extensions unavailable on older Android SQLite versions.
+        queries.transaction {
+            queries.legacyTasteProfiles().executeAsList().forEach { row ->
+                val taste = row.taste?.let { Json.decodeFromString<TasteProfile>(it).fromTenPointScale() }
+                queries.migrateTasteProfile(taste?.let { Json.encodeToString(it) }, row.id)
+            }
+        }
+    }
 
     override val history: Flow<List<Shot>> = queries.history().asFlow().mapToList(
         Dispatchers.IO
@@ -101,7 +112,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
     override val cups: Flow<List<Cup>> = queries.allCups().asFlow().mapToList(
         Dispatchers.IO
     ).map { rows ->
-        rows.map { Cup(it.id, it.name, it.weight) }
+        rows.map { Cup(it.id, it.name, it.weight, it.capacity) }
     }
 
     override val brewDefaults: Flow<List<BrewDefault>> = queries.allBrewDefaults().asFlow().mapToList(
@@ -166,7 +177,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 )
             }
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
-            next.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
+            next.cups.forEach { queries.insertCup(it.id, it.name, it.weight, it.capacity) }
             next.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
             next.brewDefaults.forEach { queries.setBrewDefault(it.id, it.selectedId) }
             next.recipes.forEach { queries.insertRecipe(it.id, Json.encodeToString(it)) }
@@ -332,7 +343,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         queries.insertCup(
             Uuid.random().toString(),
             draft.name.trim(),
-            draft.weight.decimal()
+            draft.weight.decimal(),
+            draft.capacity.decimal()
         )
     }
 
@@ -345,7 +357,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                         it.id == id
                     }
                 ) { "La taza ya no existe." }
-                queries.updateCup(draft.name.trim(), draft.weight.decimal(), id)
+                queries.updateCup(
+                    draft.name.trim(),
+                    draft.weight.decimal(),
+                    draft.capacity.decimal(),
+                    id
+                )
                 queries.renameShotCup(draft.name.trim(), id)
             }
         }
@@ -439,7 +456,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             BackupMachineV1(it.id, it.name, it.type, it.year)
         },
         cups = queries.allCups().executeAsList().map {
-            BackupCupV1(it.id, it.name, it.weight)
+            BackupCupV1(it.id, it.name, it.weight, it.capacity)
         },
         grinders = queries.allGrinders().executeAsList().map {
             BackupGrinderV1(it.id, it.name, it.type)
@@ -488,7 +505,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 prepared.plan.machines.forEach {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
                 }
-                prepared.plan.cups.forEach { queries.insertCup(it.id, it.name, it.weight) }
+                prepared.plan.cups.forEach {
+                    queries.insertCup(it.id, it.name, it.weight, it.capacity)
+                }
                 prepared.plan.grinders.forEach { queries.insertGrinder(it.id, it.name, it.type) }
                 prepared.plan.brewDefaults.forEach { queries.setBrewDefault(it.id, it.selectedId) }
                 prepared.plan.recipes.forEach {
@@ -516,7 +535,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
                 }
                 incoming.cups.forEach {
-                    queries.insertCup(it.id, it.name, it.weight)
+                    queries.insertCup(it.id, it.name, it.weight, it.capacity)
                 }
                 incoming.grinders.forEach {
                     queries.insertGrinder(it.id, it.name, it.type)
@@ -566,7 +585,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.insertMachine(it.id, it.name, it.type, it.year)
                 }
                 incoming.cups.forEach {
-                    queries.insertCup(it.id, it.name, it.weight)
+                    queries.insertCup(it.id, it.name, it.weight, it.capacity)
                 }
                 incoming.grinders.forEach {
                     queries.insertGrinder(it.id, it.name, it.type)
@@ -600,7 +619,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         queries.allMachines().executeAsList().map {
             BackupMachineV1(it.id, it.name, it.type, it.year)
         },
-        queries.allCups().executeAsList().map { BackupCupV1(it.id, it.name, it.weight) },
+        queries.allCups().executeAsList().map {
+            BackupCupV1(it.id, it.name, it.weight, it.capacity)
+        },
         draft.grinderId,
         draft.grinder,
         queries.allGrinders().executeAsList().map { BackupGrinderV1(it.id, it.name, it.type) }

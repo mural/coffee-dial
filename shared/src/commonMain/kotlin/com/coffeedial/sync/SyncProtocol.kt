@@ -438,7 +438,8 @@ private val machineFields = listOf(
 
 private val cupFields = listOf(
     FieldSource<BackupCupV1>("Nombre") { it.name },
-    FieldSource("Peso") { it.weight?.toString() }
+    FieldSource("Peso") { it.weight?.toString() },
+    FieldSource("Capacidad") { it.capacity?.toString() }
 )
 
 private val recipeFields = listOf(
@@ -481,7 +482,10 @@ private fun <T> fields(local: T?, remote: T?, sources: List<FieldSource<T>>): Li
 }
 
 fun checkpoint(text: String?): SyncCheckpoint? =
-    text?.let { Json.decodeFromString<SyncCheckpoint>(it) }
+    text?.let {
+        val saved = Json.decodeFromString<SyncCheckpoint>(it)
+        saved.copy(document = saved.document.copy(backup = BackupFormat.migrate(saved.document.backup)))
+    }
 
 private fun defaultLabel(value: BrewDefault?, backup: BackupV1): String {
     val id = value?.selectedId ?: return "Sin predeterminado"

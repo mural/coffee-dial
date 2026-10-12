@@ -188,7 +188,7 @@ fun ShotComparisonScreen(
                                         ) {
                                             Box(
                                                 Modifier.fillMaxWidth(
-                                                    amount / 10f
+                                                    amount / 5f
                                                 ).fillMaxHeight().background(
                                                     MaterialTheme.colorScheme.primary
                                                 )

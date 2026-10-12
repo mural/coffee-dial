@@ -20,7 +20,7 @@ fun compareShots(shots: List<Shot>): List<ComparisonRow> {
     fun sensory(label: String, value: (Shot) -> Int?) = ComparisonRow(
         label,
         shots.map {
-            value(it)?.let { n -> "$n/10" }
+            value(it)?.let { n -> "$n/5" }
                 ?: "Sin registrar"
         },
         shots.map(value)

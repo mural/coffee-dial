@@ -79,7 +79,7 @@ fun TasteProfileEditor(value: TasteProfile?, enabled: Boolean, onChange: (TasteP
                 update(profile.copy(bitterness = it))
             }
             Text(
-                "0 a 10 · Mové solo los controles que quieras registrar.",
+                "1 a 5 · Mové solo los controles que quieras registrar.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -103,14 +103,14 @@ private fun TasteSlider(
         ) {
             Text(
                 "$title · ${value?.let {
-                    "$it/10"
+                    "$it/5"
                 } ?: "Sin registrar"}",
                 style = MaterialTheme.typography.titleSmall
             )
             if (value ==
                 null
             ) {
-                TextButton(enabled = enabled, onClick = { onChange(5) }) { Text("Registrar") }
+                TextButton(enabled = enabled, onClick = { onChange(3) }) { Text("Registrar") }
             }
             if (value !=
                 null
@@ -119,14 +119,14 @@ private fun TasteSlider(
             }
         }
         Slider(
-            value = (value ?: 5).toFloat(),
+            value = (value ?: 3).toFloat(),
             onValueChange = { onChange(it.roundToInt()) },
-            valueRange = 0f..10f,
-            steps = 9,
+            valueRange = 1f..5f,
+            steps = 3,
             enabled = enabled,
             modifier = Modifier.fillMaxWidth().semantics {
                 contentDescription = title
-                stateDescription = value?.let { "$it de 10" } ?: "Sin registrar"
+                stateDescription = value?.let { "$it de 5" } ?: "Sin registrar"
             }
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -142,8 +142,8 @@ fun TasteProfileSummary(profile: TasteProfile) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Perfil de sabor", style = MaterialTheme.typography.titleMedium)
         profile.impression?.let { Text(it.label()) }
-        profile.body?.let { Text("Cuerpo: $it/10") }
-        profile.acidity?.let { Text("Acidez: $it/10") }
-        profile.bitterness?.let { Text("Amargor: $it/10") }
+        profile.body?.let { Text("Cuerpo: $it/5") }
+        profile.acidity?.let { Text("Acidez: $it/5") }
+        profile.bitterness?.let { Text("Amargor: $it/5") }
     }
 }

@@ -113,7 +113,7 @@ class SnapshotRepository private constructor(
         machines.value =
             data.machines.sortedBy { it.name }.map { Machine(it.id, it.name, it.type, it.year) }
         cups.value =
-            data.cups.sortedBy { it.name }.map { Cup(it.id, it.name, it.weight) }
+            data.cups.sortedBy { it.name }.map { Cup(it.id, it.name, it.weight, it.capacity) }
         brewDefaults.value = data.brewDefaults
         recipes.value = data.recipes.sortedBy { it.name }
         grinders.value =
@@ -310,6 +310,7 @@ class SnapshotRepository private constructor(
         require(draft.errors().isEmpty())
         val name = draft.name.trim()
         val weight = draft.weight.decimal()
+        val capacity = draft.capacity.decimal()
         if (it.cups.any { cup -> cup.name == name }) {
             it
         } else {
@@ -317,7 +318,8 @@ class SnapshotRepository private constructor(
                 cups = it.cups + BackupCupV1(
                     Uuid.random().toString(),
                     name,
-                    weight
+                    weight,
+                    capacity
                 )
             )
         }
@@ -328,9 +330,10 @@ class SnapshotRepository private constructor(
         check(it.cups.any { c -> c.id == id }) { "La taza ya no existe." }
         val name = draft.name.trim()
         val weight = draft.weight.decimal()
+        val capacity = draft.capacity.decimal()
         it.copy(
             cups = it.cups.map { cup ->
-                if (cup.id == id) BackupCupV1(id, name, weight) else cup
+                if (cup.id == id) BackupCupV1(id, name, weight, capacity) else cup
             },
             shots = it.shots.map { shot ->
                 if (shot.cupId == id) shot.copy(cup = name) else shot

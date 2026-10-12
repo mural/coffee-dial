@@ -11,7 +11,7 @@ class RepeatShotTest {
             "old-shot", Bean("bean", "Brasil", "Tostador"), 100L,
             16.0, 32.0, 28.0, "1.4.2", 93.0, 40.0, "Máquina", "Amargo", 5,
             extraWater = 10.0, style = "Latte", cup = "Taza", firstDrop = 6.0,
-            taste = TasteProfile(body = 8), dialIn = DialInContext(favorite = true),
+            taste = TasteProfile(body = 4), dialIn = DialInContext(favorite = true),
             machineId = "machine", cupId = "cup", grinder = "J-Ultra", grinderId = "grinder"
         )
         val draft = shot.repeatDraft()

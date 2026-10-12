@@ -18,6 +18,24 @@ import kotlinx.coroutines.test.runTest
 
 class SnapshotRepositoryTest {
     @Test
+    fun legacyTasteScalesOnceOnOpenAndStaysMigratedAfterSave() = runTest {
+        val store = Store()
+        val old = BackupFormat.decode(com.coffeedial.backup.V1_FIXTURE).let { backup ->
+            backup.copy(schemaVersion = 13, shots = listOf(backup.shots.single().copy(
+                taste = com.coffeedial.domain.TasteProfile(body = 9, bitterness = 3)
+            )))
+        }
+        store.text = BackupFormat.encode(old)
+        val repo = SnapshotRepository.open(store)
+        assertEquals(5, repo.history.value.single().taste?.body)
+        assertEquals(2, repo.history.value.single().taste?.bitterness)
+        repo.save(com.coffeedial.domain.ShotDraft())
+        val reopened = SnapshotRepository.open(store)
+        assertEquals(5, reopened.history.value.find { it.id == old.shots.single().id }?.taste?.body)
+        assertEquals(14, BackupFormat.decode(reopened.exportBackup()).schemaVersion)
+    }
+
+    @Test
     fun defaultsSurviveReopenSyncAndBackupAndCanBeUnset() = runTest {
         val store = Store()
         val first = SnapshotRepository.open(store)
@@ -59,7 +77,7 @@ class SnapshotRepositoryTest {
             ShotDraft(
                 beanName = "Brasil",
                 firstDrop = "6.2",
-                taste = com.coffeedial.domain.TasteProfile(body = 7, acidity = 2),
+                taste = com.coffeedial.domain.TasteProfile(body = 4, acidity = 2),
                 dialIn = com.coffeedial.domain.DialInContext(
                     grinder = "J-Ultra",
                     previousShotId = "previous",
@@ -74,7 +92,7 @@ class SnapshotRepositoryTest {
         )
         first.saveMachine(MachineDraft("Bambino"))
         val reopened = SnapshotRepository.open(store)
-        assertEquals(7, reopened.history.value.single().taste?.body)
+        assertEquals(4, reopened.history.value.single().taste?.body)
         assertEquals(true, reopened.history.value.single().dialIn?.favorite)
         assertEquals(6.2, reopened.history.value.single().firstDrop)
         assertEquals(100.5, reopened.history.value.single().extraWater)
@@ -118,9 +136,10 @@ class SnapshotRepositoryTest {
         val store = Store()
         val repo = SnapshotRepository.open(store)
         repo.saveMachine(MachineDraft("Bianca"))
-        repo.saveCup(CupDraft("Cerámica", "180"))
+        repo.saveCup(CupDraft("Cerámica", "180", "250"))
         val machine = repo.machines.value.single()
         val cup = repo.cups.value.single()
+        assertEquals(250.0, cup.capacity)
         repo.save(
             ShotDraft(
                 machine = machine.name,
@@ -133,7 +152,8 @@ class SnapshotRepositoryTest {
         assertEquals(machine.id, shot.machineId)
         assertEquals(cup.id, shot.cupId)
         repo.updateMachine(machine.id, MachineDraft("Lelit Bianca"))
-        repo.updateCup(cup.id, CupDraft("Gres", "180"))
+        repo.updateCup(cup.id, CupDraft("Gres", "180", "300"))
+        assertEquals(300.0, repo.cups.value.single().capacity)
         val renamed = repo.history.value.single()
         assertEquals(machine.id, renamed.machineId)
         assertEquals("Lelit Bianca", renamed.machine)

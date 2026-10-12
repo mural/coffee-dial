@@ -216,4 +216,18 @@ class BackupFormatTest {
             BackupFormat.encode(saved.copy(recipes = listOf(recipe.copy(name = " "))))
         }
     }
+
+    @Test
+    fun cupCapacityRoundTripsAtSchema13AndIsRejectedOnAnOlderBackup() {
+        val old = BackupFormat.decode(V1_FIXTURE)
+        val cup = BackupCupV1("c1", "Taza Loveramics", 180.0, 250.0)
+        val saved = old.copy(cups = listOf(cup))
+        assertEquals(saved.cups, BackupFormat.decode(BackupFormat.encode(saved)).cups)
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(old.copy(schemaVersion = 12, cups = listOf(cup)))
+        }
+        assertFailsWith<BackupException> {
+            BackupFormat.encode(saved.copy(cups = listOf(cup.copy(capacity = -10.0))))
+        }
+    }
 }

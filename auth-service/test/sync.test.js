@@ -132,3 +132,28 @@ test('old snapshot responses do not gain unsupported preference fields', async (
   const result = await updateSync(storage, request(0));
   assert.equal(Object.hasOwn(result.backup, 'brewDefaults'), false);
 });
+
+test('v13 accepts cup capacity, rejects downgrade and validates positive capacity', async () => {
+  const storage = new Store();
+  const value = { ...backup(), schemaVersion: 13, cups: [{ id: 'c1', name: 'Cerámica', weight: 180, capacity: 250 }] };
+  const first = await updateSync(storage, request(0, value));
+  assert.deepEqual(first.backup.cups, value.cups);
+  await assert.rejects(updateSync(storage, request(1, { ...value, cups: [{ id: 'c1', name: 'Cerámica', capacity: 0 }] })), /invalid_cup/);
+  await assert.rejects(updateSync(storage, request(1, { ...value, schemaVersion: 12 })), /invalid_cup/);
+});
+
+test('v14 sensory scores use 1–5; old snapshots retain their legacy interpretation', async () => {
+  const storage = new Store();
+  const legacy = { ...backup(), schemaVersion: 13 };
+  legacy.shots[0].taste = { body: 9, acidity: 0, bitterness: null };
+  await updateSync(storage, request(0, legacy));
+  const current = structuredClone(legacy); current.schemaVersion = 14;
+  current.shots[0].taste = { body: 5, acidity: 1, bitterness: null };
+  const result = await updateSync(storage, request(1, current));
+  assert.deepEqual(result.backup.shots[0].taste, current.shots[0].taste);
+  await assert.rejects(updateSync(storage, request(2, legacy)), /backup_upgrade_required/);
+  for (const value of [0, 6, 10, 1.5, '3']) {
+    const invalid = structuredClone(current); invalid.shots[0].taste.body = value;
+    await assert.rejects(updateSync(storage, request(2, invalid)), /invalid_shot/);
+  }
+});
