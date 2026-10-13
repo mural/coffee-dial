@@ -55,6 +55,9 @@ fun BeansScreen(
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
     var roaster by rememberSaveable { mutableStateOf("") }
+    var origin by rememberSaveable { mutableStateOf("") }
+    var process by rememberSaveable { mutableStateOf("") }
+    var bagWeightGrams by rememberSaveable { mutableStateOf("") }
     var photo by rememberSaveable(
         stateSaver = Saver<BeanPhoto?, String>(
             save = { it?.let { value -> Json.encodeToString(value) } ?: "" },
@@ -76,13 +79,16 @@ fun BeansScreen(
         editorOpen = false
     }
 
-    val draft = BeanDraft(name, roaster, photo)
+    val draft = BeanDraft(name, roaster, photo, null, origin, process, bagWeightGrams)
     val errors = if (submitted) draft.errors() else emptyMap()
 
     fun open(bean: Bean?) {
         editingId = bean?.id
         name = bean?.name.orEmpty()
         roaster = bean?.roaster.orEmpty()
+        origin = bean?.origin.orEmpty()
+        process = bean?.process.orEmpty()
+        bagWeightGrams = bean?.bagWeightGrams?.pretty().orEmpty()
         photo = bean?.photo
         submitted = false
         editorOpen = true
@@ -106,6 +112,23 @@ fun BeansScreen(
                         Text(bean.name, style = MaterialTheme.typography.titleMedium)
                         if (bean.roaster.isNotBlank()) {
                             Text("Tostador: ${bean.roaster}")
+                        }
+                        val originProcess = listOfNotNull(
+                            bean.origin?.takeIf { it.isNotBlank() },
+                            bean.process?.takeIf { it.isNotBlank() }
+                        ).joinToString(" · ")
+                        if (originProcess.isNotBlank()) {
+                            Text(
+                                originProcess,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        bean.bagWeightGrams?.let {
+                            Text("Bolsa: ${it.pretty()} g", style = MaterialTheme.typography.bodySmall)
+                        }
+                        bean.roastAgeSummary(kotlin.time.Clock.System.now().toEpochMilliseconds())?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
                         onDefault?.let { choose ->
                             androidx.compose.material3.FilterChip(
@@ -202,6 +225,30 @@ fun BeansScreen(
                     label = { Text("Tostador (opcional)") },
                     enabled = !saving,
                     singleLine = true
+                )
+                OutlinedTextField(
+                    value = origin,
+                    onValueChange = { origin = it },
+                    label = { Text("Origen · ej. Colombia - Huila (opcional)") },
+                    enabled = !saving,
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = process,
+                    onValueChange = { process = it },
+                    label = { Text("Proceso · ej. Lavado, Natural (opcional)") },
+                    enabled = !saving,
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = bagWeightGrams,
+                    onValueChange = { bagWeightGrams = it },
+                    label = { Text("Peso de la bolsa · g (opcional)") },
+                    enabled = !saving,
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                    isError = errors["bagWeightGrams"] != null,
+                    supportingText = errors["bagWeightGrams"]?.let { { Text(it) } }
                 )
                 if (editingId != null) {
                     Text(

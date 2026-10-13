@@ -133,13 +133,14 @@ test('old snapshot responses do not gain unsupported preference fields', async (
   assert.equal(Object.hasOwn(result.backup, 'brewDefaults'), false);
 });
 
-test('v13 accepts cup capacity, rejects downgrade and validates positive capacity', async () => {
+test('v14 accepts bean roastDate, origin, process, and bagWeightGrams', async () => {
   const storage = new Store();
-  const value = { ...backup(), schemaVersion: 13, cups: [{ id: 'c1', name: 'Cerámica', weight: 180, capacity: 250 }] };
+  const bean = { id: 'b', name: 'Brasil', roaster: 'Fuego', roastDate: 1700000000000, origin: 'Mogiana', process: 'Natural', bagWeightGrams: 250 };
+  const value = { ...backup(), schemaVersion: 14, beans: [bean] };
   const first = await updateSync(storage, request(0, value));
-  assert.deepEqual(first.backup.cups, value.cups);
-  await assert.rejects(updateSync(storage, request(1, { ...value, cups: [{ id: 'c1', name: 'Cerámica', capacity: 0 }] })), /invalid_cup/);
-  await assert.rejects(updateSync(storage, request(1, { ...value, schemaVersion: 12 })), /invalid_cup/);
+  assert.deepEqual(first.backup.beans, value.beans);
+  await assert.rejects(updateSync(storage, request(1, { ...value, beans: [{ ...bean, bagWeightGrams: -10 }] })), /invalid_bean/);
+  await assert.rejects(updateSync(storage, request(1, { ...value, schemaVersion: 13 })), /invalid_bean/);
 });
 
 test('v14 sensory scores use 1–5; old snapshots retain their legacy interpretation', async () => {

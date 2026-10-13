@@ -94,7 +94,18 @@ class SnapshotRepository private constructor(
         beans.value =
             data.beans.filterNot {
                 it.archived
-            }.sortedBy { it.name }.map { Bean(it.id, it.name, it.roaster, it.photo) }
+            }.sortedBy { it.name }.map {
+                Bean(
+                    it.id,
+                    it.name,
+                    it.roaster,
+                    it.photo,
+                    it.roastDate,
+                    it.origin,
+                    it.process,
+                    it.bagWeightGrams
+                )
+            }
         history.value =
             data.shots.sortedWith(
                 compareByDescending<BackupShotV1> {
@@ -103,11 +114,37 @@ class SnapshotRepository private constructor(
             ).map {
                 val bean = beansMap[it.beanId] ?: BackupBeanV1(it.beanId, "Café molido", "")
                 Shot(
-                    it.id, Bean(bean.id, bean.name, bean.roaster), it.createdAt, it.dose, it.output,
-                    it.seconds, it.grind, it.temperature, it.milk, it.machine, it.notes, it.rating,
-                    it.extraWater, it.style, it.cup, it.firstDrop, it.taste, it.dialIn,
-                    machineId = it.machineId, cupId = it.cupId,
-                    grinder = it.grinder, grinderId = it.grinderId
+                    it.id,
+                    Bean(
+                        bean.id,
+                        bean.name,
+                        bean.roaster,
+                        bean.photo,
+                        bean.roastDate,
+                        bean.origin,
+                        bean.process,
+                        bean.bagWeightGrams
+                    ),
+                    it.createdAt,
+                    it.dose,
+                    it.output,
+                    it.seconds,
+                    it.grind,
+                    it.temperature,
+                    it.milk,
+                    it.machine,
+                    it.notes,
+                    it.rating,
+                    it.extraWater,
+                    it.style,
+                    it.cup,
+                    it.firstDrop,
+                    it.taste,
+                    it.dialIn,
+                    machineId = it.machineId,
+                    cupId = it.cupId,
+                    grinder = it.grinder,
+                    grinderId = it.grinderId
                 )
             }
         machines.value =
@@ -280,7 +317,11 @@ class SnapshotRepository private constructor(
                     Uuid.random().toString(),
                     name,
                     roaster,
-                    photo = draft.photo
+                    photo = draft.photo,
+                    roastDate = draft.roastDate,
+                    origin = draft.origin.trim().ifBlank { null },
+                    process = draft.process.trim().ifBlank { null },
+                    bagWeightGrams = draft.bagWeightGrams.decimal()
                 )
             )
         }
@@ -293,7 +334,20 @@ class SnapshotRepository private constructor(
         val roaster = draft.roaster.trim()
         it.copy(
             beans = it.beans.map { bean ->
-                if (bean.id == id) BackupBeanV1(id, name, roaster, photo = draft.photo) else bean
+                if (bean.id == id) {
+                    BackupBeanV1(
+                        id,
+                        name,
+                        roaster,
+                        photo = draft.photo,
+                        roastDate = draft.roastDate,
+                        origin = draft.origin.trim().ifBlank { null },
+                        process = draft.process.trim().ifBlank { null },
+                        bagWeightGrams = draft.bagWeightGrams.decimal()
+                    )
+                } else {
+                    bean
+                }
             }
         )
     }

@@ -47,10 +47,12 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
 
     init {
         // Avoid relying on JSON SQL extensions unavailable on older Android SQLite versions.
-        queries.transaction {
-            queries.legacyTasteProfiles().executeAsList().forEach { row ->
-                val taste = row.taste?.let { Json.decodeFromString<TasteProfile>(it).fromTenPointScale() }
-                queries.migrateTasteProfile(taste?.let { Json.encodeToString(it) }, row.id)
+        runCatching {
+            queries.transaction {
+                queries.legacyTasteProfiles().executeAsList().forEach { row ->
+                    val taste = row.taste?.let { Json.decodeFromString<TasteProfile>(it).fromTenPointScale() }
+                    queries.migrateTasteProfile(taste?.let { Json.encodeToString(it) }, row.id)
+                }
             }
         }
     }
@@ -104,7 +106,11 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     Json.decodeFromString<BeanPhoto>(
                         value
                     )
-                }
+                },
+                it.roast_date,
+                it.origin,
+                it.process,
+                it.bag_weight_grams
             )
         }
     }
@@ -168,12 +174,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             queries.clearRecipes()
             queries.clearBrewDefaults()
             next.beans.forEach {
-                queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
-                queries.setBeanPhoto(
-                    it.photo?.let { photo ->
-                        Json.encodeToString(photo)
-                    },
-                    it.id
+                queries.insertBean(
+                    it.id,
+                    it.name,
+                    it.roaster,
+                    if (it.archived) 1L else 0L,
+                    it.photo?.let { photo -> Json.encodeToString(photo) },
+                    it.roastDate,
+                    it.origin,
+                    it.process,
+                    it.bagWeightGrams
                 )
             }
             next.machines.forEach { queries.insertMachine(it.id, it.name, it.type, it.year) }
@@ -192,7 +202,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             val name = draft.beanName.trim()
             val roaster = draft.roaster.trim()
             if (queries.findBean(name, roaster).executeAsOneOrNull() == null) {
-                queries.insertBean(Uuid.random().toString(), name, roaster, 0L)
+                queries.insertBean(Uuid.random().toString(), name, roaster, 0L, null, null, null, null, null)
             }
             val bean = queries.findBean(name, roaster).executeAsOne()
             val linked = linkedEquipment(draft)
@@ -236,7 +246,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             check(previous != null) { "Este shot ya no existe." }
             val keepPrevious = previous.name == name && previous.roaster == roaster
             if (!keepPrevious && queries.findBean(name, roaster).executeAsOneOrNull() == null) {
-                queries.insertBean(Uuid.random().toString(), name, roaster, 0L)
+                queries.insertBean(Uuid.random().toString(), name, roaster, 0L, null, null, null, null, null)
             }
             val bean = if (keepPrevious) {
                 previous
@@ -305,12 +315,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         require(draft.errors().isEmpty()) { "El café contiene valores inválidos" }
         val id = Uuid.random().toString()
         queries.transaction {
-            queries.insertBean(id, draft.name.trim(), draft.roaster.trim(), 0L)
-            queries.setBeanPhoto(
-                draft.photo?.let {
-                    Json.encodeToString(it)
-                },
-                id
+            queries.insertBean(
+                id,
+                draft.name.trim(),
+                draft.roaster.trim(),
+                0L,
+                draft.photo?.let { Json.encodeToString(it) },
+                draft.roastDate,
+                draft.origin.trim().ifBlank { null },
+                draft.process.trim().ifBlank { null },
+                draft.bagWeightGrams.decimal()
             )
         }
     }
@@ -324,11 +338,17 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                         it.id == id && it.archived == 0L
                     }
                 ) { "El café ya no existe." }
-                queries.updateBean(draft.name.trim(), draft.roaster.trim(), id)
+                queries.updateBean(
+                    draft.name.trim(),
+                    draft.roaster.trim(),
+                    draft.roastDate,
+                    draft.origin.trim().ifBlank { null },
+                    draft.process.trim().ifBlank { null },
+                    draft.bagWeightGrams.decimal(),
+                    id
+                )
                 queries.setBeanPhoto(
-                    draft.photo?.let {
-                        Json.encodeToString(it)
-                    },
+                    draft.photo?.let { Json.encodeToString(it) },
                     id
                 )
             }
@@ -423,7 +443,11 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     Json.decodeFromString<BeanPhoto>(
                         value
                     )
-                }
+                },
+                it.roast_date,
+                it.origin,
+                it.process,
+                it.bag_weight_grams
             )
         },
         shots = queries.allShots().executeAsList().map {
@@ -494,12 +518,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     )
                 }
                 prepared.plan.beans.forEach {
-                    queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
-                    queries.setBeanPhoto(
-                        it.photo?.let { photo ->
-                            Json.encodeToString(photo)
-                        },
-                        it.id
+                    queries.insertBean(
+                        it.id,
+                        it.name,
+                        it.roaster,
+                        if (it.archived) 1L else 0L,
+                        it.photo?.let { photo -> Json.encodeToString(photo) },
+                        it.roastDate,
+                        it.origin,
+                        it.process,
+                        it.bagWeightGrams
                     )
                 }
                 prepared.plan.machines.forEach {
@@ -523,12 +551,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             val incoming = BackupFormat.decode(text)
             queries.transaction {
                 incoming.beans.forEach {
-                    queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
-                    queries.setBeanPhoto(
-                        it.photo?.let { photo ->
-                            Json.encodeToString(photo)
-                        },
-                        it.id
+                    queries.insertBean(
+                        it.id,
+                        it.name,
+                        it.roaster,
+                        if (it.archived) 1L else 0L,
+                        it.photo?.let { photo -> Json.encodeToString(photo) },
+                        it.roastDate,
+                        it.origin,
+                        it.process,
+                        it.bagWeightGrams
                     )
                 }
                 incoming.machines.forEach {
@@ -573,12 +605,16 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 queries.clearRecipes()
                 queries.clearBrewDefaults()
                 incoming.beans.forEach {
-                    queries.insertBean(it.id, it.name, it.roaster, if (it.archived) 1L else 0L)
-                    queries.setBeanPhoto(
-                        it.photo?.let { photo ->
-                            Json.encodeToString(photo)
-                        },
-                        it.id
+                    queries.insertBean(
+                        it.id,
+                        it.name,
+                        it.roaster,
+                        if (it.archived) 1L else 0L,
+                        it.photo?.let { photo -> Json.encodeToString(photo) },
+                        it.roastDate,
+                        it.origin,
+                        it.process,
+                        it.bagWeightGrams
                     )
                 }
                 incoming.machines.forEach {

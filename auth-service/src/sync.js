@@ -42,7 +42,7 @@ export function validateBackup(b) {
     ['machine', 'grinder', 'cup'].some(k => x[k] != null && !text(x[k])) ||
     (x.style != null && !text(x.style, 100)))) throw new Error('invalid_recipe');
   const beans = new Set(b.beans.map(x => x.id));
-  if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster))) throw new Error('invalid_bean');
+  if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster) || (x.roastDate != null && (b.schemaVersion < 14 || !Number.isSafeInteger(x.roastDate) || x.roastDate < 0 || x.roastDate > 253402300799999)) || (x.origin != null && (b.schemaVersion < 14 || !text(x.origin))) || (x.process != null && (b.schemaVersion < 14 || !text(x.process))) || (x.bagWeightGrams != null && (b.schemaVersion < 14 || !positive(x.bagWeightGrams))))) throw new Error('invalid_bean');
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');
   if (b.cups.some(x => !text(x.name) || !x.name.trim() || (x.weight != null && !positive(x.weight)) || (x.capacity != null && (b.schemaVersion < 13 || !positive(x.capacity))))) throw new Error('invalid_cup');
   if (b.grinders.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !x.type.trim())) throw new Error('invalid_grinder');

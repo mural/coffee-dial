@@ -68,6 +68,8 @@ fun ShotDetail(
 ) {
     var showConfirm by remember { mutableStateOf(false) }
     var enlarged by remember { mutableStateOf<BeanPhoto?>(null) }
+    var copiedText by remember { mutableStateOf(false) }
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     val beanPhoto = shot.bean.photo?.takeIf { !it.jpeg.isNullOrBlank() }
         ?: beans.firstOrNull { it.id == shot.bean.id }?.photo?.takeIf { !it.jpeg.isNullOrBlank() }
     val machine = linked(shot.machineId, shot.machine, machines, { it.id }, { it.name })
@@ -178,11 +180,12 @@ fun ShotDetail(
                         Modifier.weight(1f)
                     )
                 }
-                shot.firstDrop?.let {
+                shot.firstDrop?.takeIf { it > 0 }?.let { drop ->
+                    val extraction = (shot.seconds - drop).coerceAtLeast(0.0)
                     ShotMetric(
                         TimerIcon,
-                        "Primera gota",
-                        "${it.pretty()} s",
+                        "Fase de extracción",
+                        "Pre-infusión: ${drop.pretty()} s · Extracción: ${extraction.pretty()} s",
                         Modifier.fillMaxWidth()
                     )
                 }
@@ -304,6 +307,18 @@ fun ShotDetail(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                TextButton(
+                    onClick = {
+                        clipboardManager.setText(
+                            androidx.compose.ui.text.AnnotatedString(shotShareText(shot))
+                        )
+                        copiedText = true
+                    },
+                    enabled = !saving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (copiedText) "¡Receta copiada al portapapeles! 📋" else "Copiar receta / resumen")
+                }
                 onCompare?.let {
                     TextButton(
                         onClick = it,
@@ -508,4 +523,26 @@ private fun ShotDetailPreview() {
             cups = listOf(Cup("c", "Cerámica", 180.0, 250.0))
         )
     }
+}
+
+internal fun shotShareText(shot: Shot): String = buildString {
+    append("☕ ").append(shot.bean.name)
+    if (shot.bean.roaster.isNotBlank()) append(" (").append(shot.bean.roaster).append(")")
+    val originProcess = listOfNotNull(
+        shot.bean.origin?.takeIf { it.isNotBlank() },
+        shot.bean.process?.takeIf { it.isNotBlank() }
+    ).joinToString(" · ")
+    if (originProcess.isNotBlank()) append(" - ").append(originProcess)
+    append("\n")
+    append("⏱️ ").append(shot.dose.pretty()).append(" g in -> ").append(shot.output.pretty()).append(" g out (1:").append(shot.ratio.pretty()).append(")")
+    append(" en ").append(shot.seconds.pretty()).append("s")
+    shot.firstDrop?.takeIf { it > 0 }?.let { append(" (Pre-infusión: ").append(it.pretty()).append("s)") }
+    append("\n")
+    append("⚙️ Molienda: ").append(shot.grind)
+    val machineStr = listOfNotNull(shot.machine, shot.grinder, shot.cup).joinToString(" · ")
+    if (machineStr.isNotBlank()) append(" · ").append(machineStr)
+    append("\n")
+    append("⭐ Rating: ").append(shot.rating).append("/5")
+    shot.taste?.impression?.let { append(" (").append(it.label()).append(")") }
+    if (shot.notes.isNotBlank()) append("\n📝 ").append(shot.notes)
 }

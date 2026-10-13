@@ -4,17 +4,46 @@ data class Bean(
     val id: String,
     val name: String,
     val roaster: String,
-    val photo: com.coffeedial.photos.BeanPhoto? = null
-)
+    val photo: com.coffeedial.photos.BeanPhoto? = null,
+    val roastDate: Long? = null,
+    val origin: String? = null,
+    val process: String? = null,
+    val bagWeightGrams: Double? = null
+) {
+    fun daysSinceRoast(nowMs: Long): Int? {
+        if (roastDate == null || roastDate > nowMs) return null
+        return ((nowMs - roastDate) / (24 * 3600 * 1000L)).toInt()
+    }
+
+    fun roastAgeSummary(nowMs: Long): String? {
+        val days = daysSinceRoast(nowMs) ?: return null
+        return when {
+            days == 0 -> "Tostado hoy"
+            days == 1 -> "Tostado ayer"
+            days in 2..6 -> "Tostado hace $days días (desgasificando)"
+            days in 7..30 -> "Tostado hace $days días (ventana ideal ☕)"
+            else -> "Tostado hace $days días"
+        }
+    }
+}
 
 data class BeanDraft(
     val name: String = "",
     val roaster: String = "",
-    val photo: com.coffeedial.photos.BeanPhoto? = null
+    val photo: com.coffeedial.photos.BeanPhoto? = null,
+    val roastDate: Long? = null,
+    val origin: String = "",
+    val process: String = "",
+    val bagWeightGrams: String = ""
 ) {
     fun errors(): Map<String, String> = buildMap {
         if (name.isBlank()) put("name", "Ingresá el nombre del café")
         if (runCatching { photo?.validate() }.isFailure) put("photo", "La foto no es válida.")
+        if (bagWeightGrams.isNotBlank() &&
+            (bagWeightGrams.decimal() == null || !bagWeightGrams.decimal()!!.isFinite() || bagWeightGrams.decimal()!! <= 0)
+        ) {
+            put("bagWeightGrams", "Ingresá un peso de bolsa válido en gramos")
+        }
     }
 }
 

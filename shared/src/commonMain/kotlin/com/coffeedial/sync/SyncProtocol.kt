@@ -427,6 +427,9 @@ private val shotFields = listOf(
 private val beanFields = listOf(
     FieldSource<BackupBeanV1>("Nombre") { it.name },
     FieldSource("Tostador") { it.roaster },
+    FieldSource("Origen") { it.origin },
+    FieldSource("Proceso") { it.process },
+    FieldSource("Bolsa (g)") { it.bagWeightGrams?.toString() },
     FieldSource("Archivado") { if (it.archived) "sí" else "no" }
 )
 

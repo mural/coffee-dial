@@ -3,7 +3,11 @@ CREATE TABLE bean (
     name TEXT NOT NULL,
     roaster TEXT NOT NULL,
     archived INTEGER NOT NULL DEFAULT 0,
-    photo TEXT
+    photo TEXT,
+    roast_date INTEGER,
+    origin TEXT,
+    process TEXT,
+    bag_weight_grams REAL
 );
 
 CREATE TABLE machine (
@@ -56,7 +60,7 @@ CREATE INDEX shot_created_at ON shot(created_at DESC);
 CREATE INDEX shot_bean_id ON shot(bean_id);
 
 insertBean:
-INSERT OR REPLACE INTO bean(id, name, roaster, archived) VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO bean VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 findBean:
 SELECT * FROM bean WHERE name = ? AND roaster = ? AND archived = 0 ORDER BY id LIMIT 1;
@@ -82,7 +86,7 @@ deleteBean:
 UPDATE bean SET archived = 1, photo = NULL WHERE id = ?;
 
 updateBean:
-UPDATE bean SET name = ?, roaster = ? WHERE id = ?;
+UPDATE bean SET name = ?, roaster = ?, roast_date = ?, origin = ?, process = ?, bag_weight_grams = ? WHERE id = ?;
 
 allShots:
 SELECT * FROM shot ORDER BY id;

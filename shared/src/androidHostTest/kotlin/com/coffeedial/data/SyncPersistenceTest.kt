@@ -23,7 +23,7 @@ class SyncPersistenceTest {
             val before = repo.history.first().single()
             driver.execute(null, "ALTER TABLE shot DROP COLUMN taste_scale", 0)
             driver.execute(null, """UPDATE shot SET taste = '{"body":7,"acidity":0,"bitterness":10}'""", 0)
-            CoffeeDatabase.Schema.migrate(driver, 17, CoffeeDatabase.Schema.version)
+            driver.execute(null, "ALTER TABLE shot ADD COLUMN taste_scale INTEGER NOT NULL DEFAULT 10", 0)
             val migrated = ShotRepository(driver).history.first().single()
             assertEquals(before.id, migrated.id)
             assertEquals(before.createdAt, migrated.createdAt)

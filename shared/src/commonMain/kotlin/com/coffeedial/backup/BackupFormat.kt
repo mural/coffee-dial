@@ -32,7 +32,11 @@ data class BackupBeanV1(
     val name: String,
     val roaster: String,
     val archived: Boolean = false,
-    val photo: com.coffeedial.photos.BeanPhoto? = null
+    val photo: com.coffeedial.photos.BeanPhoto? = null,
+    val roastDate: Long? = null,
+    val origin: String? = null,
+    val process: String? = null,
+    val bagWeightGrams: Double? = null
 )
 
 @Serializable
@@ -222,6 +226,14 @@ object BackupFormat {
             valid(backup.schemaVersion >= 5 || it.photo == null)
             valid(it.id.isNotBlank() && it.id.length <= 200)
             valid(it.name.isNotBlank() && it.name.length <= 10_000 && it.roaster.length <= 10_000)
+            valid(it.roastDate == null || (it.roastDate in 0..253402300799999L))
+            valid(it.origin == null || it.origin.length <= 1000)
+            valid(it.process == null || it.process.length <= 1000)
+            valid(it.bagWeightGrams == null || (it.bagWeightGrams.isFinite() && it.bagWeightGrams > 0))
+            valid(
+                backup.schemaVersion >= 14 ||
+                    (it.roastDate == null && it.origin == null && it.process == null && it.bagWeightGrams == null)
+            )
         }
         backup.machines.forEach {
             valid(it.id.isNotBlank() && it.id.length <= 200)

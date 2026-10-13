@@ -144,6 +144,14 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                 ShotMetric(MugIcon, "Total", "≈ ${total.pretty()} ml", Modifier.weight(1f))
                 ShotMetric(TimerIcon, "Tiempo", "${shot.seconds.pretty()} s", Modifier.weight(1f))
             }
+            shot.firstDrop?.takeIf { it > 0 }?.let { drop ->
+                val extraction = (shot.seconds - drop).coerceAtLeast(0.0)
+                Text(
+                    "Pre-infusión: ${drop.pretty()} s · Extracción: ${extraction.pretty()} s",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             val ratioCategory = when {
                 shot.ratio <= 1.5 -> "ristretto"
