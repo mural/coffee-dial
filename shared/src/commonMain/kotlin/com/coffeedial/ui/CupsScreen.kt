@@ -10,12 +10,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +24,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Cup
 import com.coffeedial.domain.CupDraft
+import com.coffeedial.ui.CoffeeButton as Button
+import com.coffeedial.ui.CoffeeCard as Card
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -65,10 +65,15 @@ fun CupsScreen(
     }
 
     if (!editorOpen) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+        ) {
             item {
-                Text("Tazas guardadas", style = MaterialTheme.typography.headlineSmall)
-                Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar taza") }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Tazas guardadas", style = MaterialTheme.typography.headlineSmall)
+                    Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar taza") }
+                }
             }
             if (cups.isEmpty()) item { Text("Todavía no agregaste ninguna taza.") }
             items(cups, key = { it.id }) { cup ->
@@ -133,12 +138,13 @@ fun CupsScreen(
                 if (editingId == null) "Nueva taza" else "Editar taza",
                 style = MaterialTheme.typography.headlineSmall
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CoffeeSection {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Nombre de la taza") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["name"] != null,
                     supportingText = errors["name"]?.let { { Text(it) } }
@@ -148,6 +154,7 @@ fun CupsScreen(
                     onValueChange = { weight = it },
                     label = { Text("Peso de la taza · g (opcional)") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     isError = errors["weight"] != null,
@@ -158,6 +165,7 @@ fun CupsScreen(
                     onValueChange = { capacity = it },
                     label = { Text("Capacidad de la taza · cm³ (opcional)") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     isError = errors["capacity"] != null,
@@ -173,7 +181,7 @@ fun CupsScreen(
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(enabled = !saving, onClick = {
+                Button(enabled = !saving, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveCup(editingId, draft) { closeEditor() }
                 }) { Text(if (saving) "Guardando…" else "Guardar") }

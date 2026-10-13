@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
+import com.coffeedial.ui.CoffeeButton as Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import com.coffeedial.ui.CoffeeCard as Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import com.coffeedial.ui.CoffeeOutlinedButton as OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -68,7 +68,7 @@ fun AccountScreen(
     ) {
         if (onBackup != null) {
             item {
-                androidx.compose.material3.TextButton(onClick = onBackup) {
+                CoffeeTextButton(onClick = onBackup) {
                     Text("Backup: exportar / importar")
                 }
             }

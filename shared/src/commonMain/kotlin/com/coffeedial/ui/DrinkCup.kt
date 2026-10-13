@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
@@ -249,6 +250,25 @@ internal fun DrinkCupChart(
                                     topLeft = Offset(0f, cursor),
                                     size = Size(w, foamHeight)
                                 )
+                                // Small staggered bubbles, clipped to the foam rather than the milk.
+                                clipRect(left = 0f, top = cursor, right = w, bottom = cursor + foamHeight) {
+                                    val spacing = 7.dp.toPx()
+                                    var row = 0
+                                    var y = cursor + 3.dp.toPx()
+                                    while (y < cursor + foamHeight) {
+                                        var x = if (row % 2 == 0) 0f else spacing / 2f
+                                        while (x < w) {
+                                            drawCircle(
+                                                Color(0xFFAA8966).copy(alpha = 0.28f),
+                                                radius = 1.dp.toPx(), center = Offset(x, y),
+                                                style = Stroke(width = 0.6.dp.toPx())
+                                            )
+                                            x += spacing
+                                        }
+                                        y += spacing
+                                        row++
+                                    }
+                                }
                                 val edge = 1.25.dp.toPx()
                                 if (foamHeight > edge * 2f) {
                                     drawRect(

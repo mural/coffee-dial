@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -31,6 +30,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import com.coffeedial.ui.CoffeeButton as Button
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 internal val LocalNavigationSpace = staticCompositionLocalOf { 0.dp }
@@ -122,8 +122,16 @@ fun PillarScreen(title: String, description: String, actions: List<Pair<String, 
     ) {
         Text(title, style = MaterialTheme.typography.headlineLarge)
         Text(description)
-        actions.forEach { (label, action) ->
-            Button(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(label) }
+        CoffeeSection(if (title == "Registrar") "Tus registros" else "Explorá tus resultados") {
+            actions.forEachIndexed { index, (label, action) ->
+                if (index == 0) {
+                    Button(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(label) }
+                } else {
+                    CoffeeOutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth()) {
+                        Text(label)
+                    }
+                }
+            }
         }
     }
 }

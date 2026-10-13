@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import com.coffeedial.ui.CoffeeButton as Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -156,13 +156,6 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
             shot.milkFoam?.let {
                 Text("Espuma: ${it.label}", style = MaterialTheme.typography.bodySmall)
             }
-            val ratioCategory = when {
-                shot.ratio <= 1.5 -> "ristretto"
-                shot.ratio <= 2.5 -> "espresso"
-                shot.ratio <= 3.0 -> "espresso largo"
-                else -> "lungo"
-            }
-
             Text(
                 buildAnnotatedString {
                     append("Ratio output 1:")
@@ -174,7 +167,7 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                     ) {
                         append(shot.ratio.pretty())
                     }
-                    append(" -> $ratioCategory")
+                    append(" · ${extractionStyle(shot.ratio)}")
                 },
                 style = MaterialTheme.typography.bodyLarge
             )

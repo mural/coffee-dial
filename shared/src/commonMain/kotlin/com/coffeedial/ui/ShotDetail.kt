@@ -13,15 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import com.coffeedial.ui.CoffeeButton as Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import com.coffeedial.ui.CoffeeCard as Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import com.coffeedial.ui.CoffeeOutlinedButton as OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -189,14 +189,8 @@ fun ShotDetail(
                         Modifier.fillMaxWidth()
                     )
                 }
-                val ratioCategory = when {
-                    shot.ratio <= 1.5 -> "ristretto"
-                    shot.ratio <= 2.5 -> "espresso"
-                    shot.ratio <= 3.0 -> "espresso largo"
-                    else -> "lungo"
-                }
                 Text(
-                    "Ratio output 1:${shot.ratio.pretty()} · $ratioCategory",
+                    "Ratio output 1:${shot.ratio.pretty()} · ${extractionStyle(shot.ratio)}",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Text(

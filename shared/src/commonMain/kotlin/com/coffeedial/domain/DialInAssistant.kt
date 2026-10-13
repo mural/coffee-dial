@@ -61,8 +61,10 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             "Editá el shot y elegí cómo salió en Perfil de sabor. El tiempo y el ratio solos no alcanzan."
         )
     val additions = (shot.milk ?: 0.0) > 0 || (shot.extraWater ?: 0.0) > 0 ||
-        shot.style?.lowercase() in
-        setOf("latte", "cappuccino", "capuchino", "americano", "macchiato", "flat white")
+        shot.style?.lowercase() in setOf(
+            "latte", "cappuccino", "capuchino", "americano", "macchiato",
+            "espresso macchiato", "flat white", "cortado", "café con leche", "cafe con leche"
+        )
     if (additions &&
         context.tasteBasis == null
     ) {

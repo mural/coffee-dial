@@ -9,13 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +23,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.GrinderDraft
+import com.coffeedial.ui.CoffeeButton as Button
+import com.coffeedial.ui.CoffeeCard as Card
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -60,10 +60,17 @@ fun GrindersScreen(
     }
 
     if (!editorOpen) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+        ) {
             item {
-                Text("Molinillos", style = MaterialTheme.typography.headlineSmall)
-                Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar molinillo") }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Molinillos", style = MaterialTheme.typography.headlineSmall)
+                    Button(onClick = {
+                        open(null)
+                    }, enabled = !saving) { Text("Agregar molinillo") }
+                }
             }
             if (grinders.isEmpty()) item { Text("Todavía no agregaste ningún molinillo.") }
             items(grinders, key = { it.id }) { grinder ->
@@ -129,37 +136,40 @@ fun GrindersScreen(
                 if (editingId == null) "Nuevo molinillo" else "Editar molinillo",
                 style = MaterialTheme.typography.headlineSmall
             )
-            OutlinedTextField(
-                name,
-                { name = it },
-                label = { Text("Nombre") },
-                enabled = !saving,
-                singleLine = true,
-                isError = errors["name"] != null,
-                supportingText = errors["name"]?.let { { Text(it) } }
-            )
-            Text("Tipo de molinillo")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Eléctrico", "Manual").forEach { option ->
-                    FilterChip(
-                        selected = type == option,
-                        onClick = { type = option },
-                        enabled = !saving,
-                        label = { Text(option) }
+            CoffeeSection {
+                OutlinedTextField(
+                    name,
+                    { name = it },
+                    label = { Text("Nombre") },
+                    enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = errors["name"] != null,
+                    supportingText = errors["name"]?.let { { Text(it) } }
+                )
+                Text("Tipo de molinillo")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Eléctrico", "Manual").forEach { option ->
+                        FilterChip(
+                            selected = type == option,
+                            onClick = { type = option },
+                            enabled = !saving,
+                            label = { Text(option) }
+                        )
+                    }
+                }
+                if (editingId != null) {
+                    Text(
+                        "Si cambiás el nombre, los shots vinculados muestran el nuevo. " +
+                            "Si lo eliminás, el shot conserva el último nombre."
                     )
                 }
-            }
-            if (editingId != null) {
-                Text(
-                    "Si cambiás el nombre, los shots vinculados muestran el nuevo. " +
-                        "Si lo eliminás, el shot conserva el último nombre."
-                )
-            }
-            if (submitted && saveError != null) {
-                Text(saveError, color = MaterialTheme.colorScheme.error)
+                if (submitted && saveError != null) {
+                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(enabled = !saving, onClick = {
+                Button(enabled = !saving, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveGrinder(editingId, draft) { closeEditor() }
                 }) { Text(if (saving) "Guardando…" else "Guardar") }

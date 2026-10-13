@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +21,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.TasteImpression
 import com.coffeedial.domain.TasteProfile
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import kotlin.math.roundToInt
 
 internal fun TasteImpression.label(): String = when (this) {
@@ -39,8 +38,8 @@ fun TasteProfileEditor(value: TasteProfile?, enabled: Boolean, onChange: (TasteP
     fun update(next: TasteProfile) {
         onChange(next.takeUnless { it.isEmpty() })
     }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    CoffeeSection {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Perfil de sabor", style = MaterialTheme.typography.titleMedium)
             Text("Opcional · ¿Cómo lo sentiste?", style = MaterialTheme.typography.bodyMedium)
             Column(Modifier.selectableGroup()) {

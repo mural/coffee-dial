@@ -11,12 +11,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +30,9 @@ import com.coffeedial.domain.BeanDraft
 import com.coffeedial.photos.BeanPhoto
 import com.coffeedial.photos.PhotoPicker
 import com.coffeedial.photos.decodePhoto
+import com.coffeedial.ui.CoffeeButton as Button
+import com.coffeedial.ui.CoffeeCard as Card
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import kotlin.io.encoding.Base64
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -95,11 +95,16 @@ fun BeansScreen(
     }
 
     if (!editorOpen) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+        ) {
             item {
-                Text("Cafés guardados", style = MaterialTheme.typography.headlineSmall)
-                Text("Eliminar un café no borra los shots registrados.")
-                Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar café") }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Cafés guardados", style = MaterialTheme.typography.headlineSmall)
+                    Text("Eliminar un café no borra los shots registrados.")
+                    Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar café") }
+                }
             }
             if (beans.isEmpty()) item { Text("Todavía no agregaste ningún café.") }
             items(beans, key = { it.id }) { bean ->
@@ -187,7 +192,7 @@ fun BeansScreen(
                 if (editingId == null) "Nuevo café" else "Editar café",
                 style = MaterialTheme.typography.headlineSmall
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CoffeeSection {
                 BeanPhotoImage(photo, 160) { enlarged = photo }
                 FlowRow {
                     TextButton(enabled = canAddPhoto && !saving && !photos.busy, onClick = {
@@ -211,7 +216,7 @@ fun BeansScreen(
                     if (photo !=
                         null
                     ) {
-                        TextButton(enabled = !saving && !photos.busy, onClick = {
+                        Button(enabled = !saving && !photos.busy, onClick = {
                             photo = null
                         }) { Text("Quitar foto") }
                     }
@@ -224,6 +229,7 @@ fun BeansScreen(
                     onValueChange = { name = it },
                     label = { Text("Nombre del café") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["name"] != null,
                     supportingText = errors["name"]?.let { { Text(it) } }
@@ -254,6 +260,7 @@ fun BeansScreen(
                     onValueChange = { bagWeightGrams = it },
                     label = { Text("Peso de la bolsa · g (opcional)") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal

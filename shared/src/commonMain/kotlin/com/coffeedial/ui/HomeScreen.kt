@@ -12,19 +12,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.PreparedAmounts
 import com.coffeedial.domain.Shot
+import com.coffeedial.ui.CoffeeButton as Button
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -82,7 +82,7 @@ fun HomeScreen(
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = LocalNavigationSpace.current),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 item {
                     if (screen == "home" && !userName.isNullOrBlank()) {
@@ -122,25 +122,65 @@ fun HomeScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
                     }
-                    Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
-                        Text("Registrar un shot")
-                    }
-                    if (screen == "home") {
-                        PrepareCoffeeSection(onPrepare)
-                    }
-                    if (screen == "home") {
-                        Text("Timer y recetas para tu próxima extracción.")
-                        Button(onClick = onRecipes, modifier = Modifier.fillMaxWidth()) {
-                            Text("Mis recetas · repetir café")
+                    if (screen != "home") {
+                        Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
+                            Text("Registrar un shot")
                         }
-                        Button(onClick = onOpenTimer, modifier = Modifier.fillMaxWidth()) {
-                            Text("Iniciar Shot Timer")
+                    }
+                }
+                if (screen == "home") {
+                    item {
+                        CoffeeSection {
+                            Text(
+                                "Tu próxima extracción",
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            Text(
+                                "Registrá las medidas y el sabor de tu café.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
+                                Text("Registrar un shot")
+                            }
                         }
-                        TextButton(onClick = onNavigateToTips) { Text("Ratios y estilos de café") }
-                        Text(
-                            "Últimos shots",
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                    }
+                    item {
+                        CoffeeSection { PrepareCoffeeSection(onPrepare) }
+                    }
+                    item {
+                        CoffeeSection {
+                            Text("A tu manera", style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                "Repetí una receta o medí una nueva extracción.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            CoffeeOutlinedButton(
+                                onClick = onRecipes,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Mis recetas · repetir café")
+                            }
+                            CoffeeOutlinedButton(
+                                onClick = onOpenTimer,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Iniciar Shot Timer")
+                            }
+                            TextButton(onClick = onNavigateToTips) {
+                                Text("Ratios y estilos de café")
+                            }
+                        }
+                    }
+                    item {
+                        Column(
+                            Modifier.padding(top = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("Últimos shots", style = MaterialTheme.typography.titleLarge)
+                            TextButton(onClick = onNavigateToHistory) {
+                                Text("Ver historial (${shots.size})")
+                            }
+                        }
                     }
                 }
 

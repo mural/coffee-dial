@@ -9,13 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +23,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
+import com.coffeedial.ui.CoffeeButton as Button
+import com.coffeedial.ui.CoffeeCard as Card
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -62,10 +62,15 @@ fun MachinesScreen(
     }
 
     if (!editorOpen) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+        ) {
             item {
-                Text("Máquinas de café", style = MaterialTheme.typography.headlineSmall)
-                Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar máquina") }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Máquinas de café", style = MaterialTheme.typography.headlineSmall)
+                    Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar máquina") }
+                }
             }
             if (machines.isEmpty()) item { Text("Todavía no agregaste ninguna máquina.") }
             items(machines, key = { it.id }) { machine ->
@@ -143,14 +148,13 @@ fun MachinesScreen(
                 },
                 style = MaterialTheme.typography.headlineSmall
             )
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            CoffeeSection {
                 OutlinedTextField(
                     name,
                     { name = it },
                     label = { Text("Nombre") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["name"] != null,
                     supportingText = errors["name"]?.let { { Text(it) } }
@@ -172,6 +176,7 @@ fun MachinesScreen(
                     { year = it },
                     label = { Text("Año (opcional)") },
                     enabled = !saving,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["year"] != null,
                     supportingText = errors["year"]?.let { { Text(it) } }
@@ -188,7 +193,7 @@ fun MachinesScreen(
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(enabled = !saving, onClick = {
+                Button(enabled = !saving, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveMachine(editingId, draft) { closeEditor() }
                 }) { Text(if (saving) "Guardando…" else "Guardar") }
