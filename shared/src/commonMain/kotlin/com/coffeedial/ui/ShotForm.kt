@@ -230,6 +230,7 @@ fun ShotFormContent(
         MlSliderField("Leche", draft.milk, errors["milk"], saving) {
             onChange(draft.copy(milk = it))
         }
+        MilkFoamChoices(draft.milkFoam, !saving) { onChange(draft.copy(milkFoam = it)) }
 
         if (machines.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

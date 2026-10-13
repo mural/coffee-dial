@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,9 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import kotlin.math.pow
+import com.coffeedial.domain.CupProfile
+import com.coffeedial.domain.MilkFoam
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 internal data class DrinkLayer(val label: String, val amount: Double)
@@ -73,6 +77,39 @@ internal fun coffeeRelation(coffee: Double, water: Double, milk: Double): String
     return "1 : ${(safeWater / coffee).pretty()} : ${(safeMilk / coffee).pretty()}"
 }
 
+/** Share of the milk drawn as foam. It stays inside the milk and adds no volume. */
+internal fun foamShare(foam: MilkFoam?): Double = when (foam) {
+    MilkFoam.LOW -> 0.15
+    MilkFoam.MEDIUM -> 0.3
+    MilkFoam.HIGH -> 0.5
+    else -> 0.0
+}
+
+/** Foam : liquid milk. A cappuccino cap is about 1 : 1. */
+internal fun foamMilkRelation(share: Double): String? {
+    if (!share.isFinite() || share <= 0.0 || share >= 1.0) return null
+    val foamToMilk = share / (1.0 - share)
+    return if (foamToMilk >= 1.0) {
+        "${foamToMilk.pretty()} : 1"
+    } else {
+        "1 : ${(1.0 / foamToMilk).pretty()}"
+    }
+}
+
+internal data class CupDraw(val width: Double, val height: Double)
+
+/** Medium cup when capacity is missing. Smaller cups are a little wider than a plain scale. */
+internal fun cupDrawSize(capacityCm3: Double?): CupDraw {
+    val capacity = capacityCm3?.takeIf { it.isFinite() && it > 0.0 } ?: 200.0
+    val volumeScale = (capacity / 200.0).coerceIn(0.4, 2.0)
+    val linear = volumeScale.pow(1.0 / 3.0)
+    val widen = if (volumeScale < 1.0) 1.0 + (1.0 - volumeScale) * 0.28 else 1.0
+    return CupDraw(
+        width = 168.0 * linear * widen,
+        height = 198.0 * linear / (widen * widen)
+    )
+}
+
 private val CupCoffee = Color(0xFF704A32)
 private val CupWater = Color(0xFF6E9BB5)
 private val CupMilk = Color(0xFFF6E6D4)
@@ -89,15 +126,24 @@ internal fun DrinkCupChart(
     output: Double,
     water: Double,
     milk: Double,
-    capacityCm3: Double? = null
+    capacityCm3: Double? = null,
+    milkFoam: MilkFoam? = null,
+    onFoamClick: (() -> Unit)? = null,
+    foamNote: String? = null
 ) {
     val layers = drinkLayers(output, water, milk)
     val total = drinkTotal(output, water, milk)
     val capacity = capacityCm3?.takeIf { it.isFinite() && it > 0.0 }
     val relation = coffeeRelation(output, water, milk)
+    val share = foamShare(milkFoam)
+    val foamRelation = if (milk > 0.0) foamMilkRelation(share) else null
+    val foamMl = if (foamRelation == null) 0.0 else milk * share
+    val liquidMilkMl = if (foamRelation == null) milk else milk - foamMl
     val description = buildString {
         append("Taza con total ${total.pretty()}. ")
         append("Dosis ${dose.pretty()} g, agua ${water.pretty()} ml, leche ${milk.pretty()} ml.")
+        milkFoam?.let { append(" Espuma: ${it.label}.") }
+        foamRelation?.let { append(" Espuma : leche ≈ $it.") }
         if (capacity != null) append(" Capacidad ${capacity.pretty()} cm³.")
     }
     Column(
@@ -105,8 +151,44 @@ internal fun DrinkCupChart(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        milkFoam?.let { foam ->
+            val foamText = if (onFoamClick == null) {
+                "Espuma: ${foam.label} · textura ilustrativa"
+            } else {
+                "Espuma: ${foam.label}"
+            }
+            if (onFoamClick != null) {
+                TextButton(onClick = onFoamClick) { Text(foamText) }
+            } else {
+                Text(foamText, style = MaterialTheme.typography.bodySmall)
+            }
+            foamNote?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            foamRelation?.let { ratio ->
+                Text(
+                    "Espuma : leche ≈ $ratio",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "De la leche, unos ${foamMl.pretty()} ml son espuma " +
+                        "y ${liquidMilkMl.pretty()} ml quedan líquidos.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Text("En la taza", style = MaterialTheme.typography.titleMedium)
-        Box(Modifier.width(168.dp).height(198.dp), contentAlignment = Alignment.TopCenter) {
+        val draw = cupDrawSize(capacity)
+        Box(
+            Modifier.width(draw.width.dp).height(draw.height.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
             val outline = MaterialTheme.colorScheme.onSurface
             val page = MaterialTheme.colorScheme.background
             Canvas(Modifier.matchParentSize()) {
@@ -158,6 +240,23 @@ internal fun DrinkCupChart(
                                     size = Size(w, band + 1f)
                                 )
                                 cursor -= band
+                            }
+                            // Foam stays inside the milk band. The line marks the split.
+                            if (milk > 0.0 && share > 0.0) {
+                                val foamHeight = span * (milk / liquid).toFloat() * share.toFloat()
+                                drawRect(
+                                    Color(0xFFFFF4E5),
+                                    topLeft = Offset(0f, cursor),
+                                    size = Size(w, foamHeight)
+                                )
+                                val edge = 1.25.dp.toPx()
+                                if (foamHeight > edge * 2f) {
+                                    drawRect(
+                                        Color(0xFFE6D2BA),
+                                        topLeft = Offset(0f, cursor + foamHeight - edge),
+                                        size = Size(w, edge)
+                                    )
+                                }
                             }
                         }
                     }
@@ -224,7 +323,10 @@ internal fun DrinkCupChart(
         ) {
             CupLegend(CupCoffee, "Café", "${output.pretty()} g")
             CupLegend(CupWater, "Agua", "${water.pretty()} ml")
-            CupLegend(CupMilk, "Leche", "${milk.pretty()} ml")
+            CupLegend(CupMilk, "Leche", "${liquidMilkMl.pretty()} ml")
+            if (foamRelation != null) {
+                CupLegend(Color(0xFFFFF4E5), "Espuma", "≈ ${foamMl.pretty()} ml", outlined = true)
+            }
         }
         Text(
             "El café de la taza sale de ${dose.pretty()} g de dosis.",
@@ -250,9 +352,24 @@ internal fun DrinkCupChart(
 }
 
 @Composable
-private fun CupLegend(color: Color, label: String, value: String) {
+private fun CupLegend(
+    color: Color,
+    label: String,
+    value: String,
+    outlined: Boolean = false
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Canvas(Modifier.size(12.dp)) { drawCircle(color) }
+        Canvas(Modifier.size(12.dp)) {
+            drawCircle(color)
+            if (outlined) {
+                val inset = 0.5.dp.toPx()
+                drawCircle(
+                    Color(0xFFE6D2BA),
+                    radius = size.minDimension / 2f - inset,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+        }
         Text(label, style = MaterialTheme.typography.labelSmall)
         Text(value, style = MaterialTheme.typography.bodySmall)
     }
@@ -266,6 +383,68 @@ private fun DrinkCupChartNoCapacityPreview() {
     }
 }
 
+@Preview(name = "Taza chica (100 cm³)", showBackground = true, widthDp = 360)
+@Composable
+private fun DrinkCupChartSmallPreview() {
+    MaterialTheme {
+        DrinkCupChart(
+            dose = 18.0,
+            output = 36.0,
+            water = 0.0,
+            milk = 36.0,
+            capacityCm3 = CupProfile.SMALL.capacityCm3,
+            milkFoam = MilkFoam.LOW
+        )
+    }
+}
+
+@Preview(name = "Macchiato", showBackground = true, widthDp = 360)
+@Composable
+private fun DrinkCupChartMacchiatoPreview() {
+    MaterialTheme {
+        DrinkCupChart(
+            dose = 18.0,
+            output = 36.0,
+            water = 0.0,
+            milk = 10.8,
+            capacityCm3 = CupProfile.SMALL.capacityCm3,
+            milkFoam = MilkFoam.HIGH,
+            onFoamClick = {},
+            foamNote = "Una cucharada de espuma firme sobre el espresso."
+        )
+    }
+}
+
+@Preview(name = "Taza media (200 cm³)", showBackground = true, widthDp = 360)
+@Composable
+private fun DrinkCupChartMediumPreview() {
+    MaterialTheme {
+        DrinkCupChart(
+            dose = 18.0,
+            output = 36.0,
+            water = 0.0,
+            milk = 108.0,
+            capacityCm3 = CupProfile.MEDIUM.capacityCm3,
+            milkFoam = MilkFoam.HIGH
+        )
+    }
+}
+
+@Preview(name = "Taza grande (300 cm³)", showBackground = true, widthDp = 360)
+@Composable
+private fun DrinkCupChartLargePreview() {
+    MaterialTheme {
+        DrinkCupChart(
+            dose = 18.0,
+            output = 36.0,
+            water = 0.0,
+            milk = 144.0,
+            capacityCm3 = CupProfile.LARGE.capacityCm3,
+            milkFoam = MilkFoam.MEDIUM
+        )
+    }
+}
+
 @Preview(name = "Taza a la mitad", showBackground = true, widthDp = 360)
 @Composable
 private fun DrinkCupChartHalfPreview() {
@@ -275,7 +454,8 @@ private fun DrinkCupChartHalfPreview() {
             output = 40.0,
             water = 20.0,
             milk = 40.0,
-            capacityCm3 = 200.0
+            capacityCm3 = 200.0,
+            milkFoam = MilkFoam.MEDIUM
         )
     }
 }

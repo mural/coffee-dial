@@ -11,7 +11,7 @@ SQLite, el backup JSON y el protocolo se versionan por separado. El protocolo si
 | Capa | Versión | Dónde |
 |---|---|---|
 | SQLite / SQLDelight | 15 | `CoffeeDatabase.Schema.version`. La próxima migración es `15.sqm` |
-| Backup JSON | 14 | `BackupFormat.CURRENT_VERSION`. Cliente y servidor aceptan 1–14 |
+| Backup JSON | 15 | `BackupFormat.CURRENT_VERSION`. Cliente y servidor aceptan 1–15 |
 | Sync | protocolo 2 | Compare-and-swap de la revisión del snapshot |
 
 Backup: 1 base; 2 agua extra y estilo; 3 tazas; 4 archivado; 5 referencia de foto; 6 primera gota; 7 perfil de sabor; 8 dial-in; 9 `machineId` y `cupId`; 10 molinillos (`grinder`, `grinderId`); 11 recetas. Un backup anterior a 10 copia el molinillo del dial-in al shot y vincula el id solo si hay un único molinillo con ese nombre. No crea filas de catálogo a partir del texto. Una receta no se borra ni se edita cuando cambia el shot del que salió. Un campo nuevo que viaje en el backup sube esta versión en el cliente y en `auth-service/src/sync.js` a la vez. Los archivos viejos se leen sin inventar valores. El servidor rechaza escribir una versión anterior a la que ya tiene. Las reglas para hacerlo están en [AGENTS.md](../AGENTS.md).

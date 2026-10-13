@@ -67,6 +67,7 @@ fun RecipesScreen(
                             "${item.beanName} · ${item.dose.pretty()} g -> ${item.output.pretty()} g · 1:${(item.output / item.dose).pretty()}"
                         )
                         Text("Molienda: ${item.grind}")
+                        item.milkFoam?.let { Text("Espuma: ${it.label}") }
                         Button(onClick = {
                             onPrepare(item, true)
                         }, enabled = !saving) { Text("Repetir con timer") }
@@ -120,6 +121,7 @@ private fun RecipeEditor(
     }
     var grind by rememberSaveable(recipe.id) { mutableStateOf(recipe.grind) }
     var milk by rememberSaveable(recipe.id) { mutableStateOf(recipe.milk?.toString().orEmpty()) }
+    var foam by rememberSaveable(recipe.id) { mutableStateOf(recipe.milkFoam?.name) }
     var water by rememberSaveable(recipe.id) {
         mutableStateOf(recipe.extraWater?.toString().orEmpty())
     }
@@ -151,7 +153,8 @@ private fun RecipeEditor(
         output = output.decimal() ?: Double.NaN,
         grind = grind,
         milk = optional(milk),
-        extraWater = optional(water)
+        extraWater = optional(water),
+        milkFoam = foam?.let(com.coffeedial.domain.MilkFoam::valueOf)
     )
     val valid =
         next.isValid() && message == null &&
@@ -173,6 +176,12 @@ private fun RecipeEditor(
         }
         item { Field("Output · g", output, null, saving, true) { change(RatioEdit.OUTPUT, it) } }
         item { GrindSettingField(grind, null, saving) { grind = it } }
+        item {
+            MilkFoamChoices(foam?.let(com.coffeedial.domain.MilkFoam::valueOf), !saving) {
+                foam =
+                    it?.name
+            }
+        }
         item { Text("Agregados independientes del ratio de extracción") }
         item { Field("Agua extra · ml (opcional)", water, null, saving, true) { water = it } }
         item { Field("Leche · ml (opcional)", milk, null, saving, true) { milk = it } }

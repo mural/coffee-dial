@@ -92,7 +92,13 @@ fun CupsScreen(
                                 enabled = !saving,
                                 label = {
                                     Text(
-                                        if (defaultId == cup.id) "Predeterminado" else "Usar por defecto"
+                                        if (defaultId ==
+                                            cup.id
+                                        ) {
+                                            "Predeterminado"
+                                        } else {
+                                            "Usar por defecto"
+                                        }
                                     )
                                 }
                             )

@@ -77,7 +77,8 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
             it.machineId.orEmpty(),
             it.cupId.orEmpty(),
             it.grinder,
-            it.grinderId.orEmpty()
+            it.grinderId.orEmpty(),
+            it.milkFoam?.name.orEmpty()
         )
     },
     restore = {
@@ -97,7 +98,10 @@ private val DraftSaver = Saver<ShotDraft, List<String>>(
             it.getOrNull(17)?.takeIf { value -> value.isNotEmpty() },
             it.getOrNull(18)?.takeIf { value -> value.isNotEmpty() },
             grinder = it.getOrElse(19) { "" },
-            grinderId = it.getOrNull(20)?.takeIf { value -> value.isNotEmpty() }
+            grinderId = it.getOrNull(20)?.takeIf { value -> value.isNotEmpty() },
+            milkFoam = it.getOrNull(21)?.takeIf { value ->
+                value.isNotEmpty()
+            }?.let(com.coffeedial.domain.MilkFoam::valueOf)
         )
     }
 )
@@ -895,6 +899,7 @@ fun App(
                                                     grinder = shot.grinder
                                                         ?: shot.dialIn?.grinder.orEmpty(),
                                                     grinderId = shot.grinderId,
+                                                    milkFoam = shot.milkFoam,
                                                     firstDrop = shot.firstDrop?.pretty().orEmpty(),
                                                     taste = shot.taste,
                                                     dialIn = shot.dialIn
@@ -961,6 +966,38 @@ fun App(
                                             screen = "new"
                                         },
                                         onNewShot = { newShot() },
+                                        onPrepare = { prepared ->
+                                            draft = brewDefaults.newShot(
+                                                beansList,
+                                                machines,
+                                                grinders,
+                                                cupsList
+                                            ).copy(
+                                                dose = prepared.dose.pretty(),
+                                                output = prepared.output.pretty(),
+                                                extraWater = if (prepared.water > 0.0) {
+                                                    prepared.water.pretty()
+                                                } else {
+                                                    ""
+                                                },
+                                                milk = if (prepared.milk > 0.0) {
+                                                    prepared.milk.pretty()
+                                                } else {
+                                                    ""
+                                                },
+                                                style = prepared.style,
+                                                milkFoam = prepared.milkFoam,
+                                                seconds = "",
+                                                firstDrop = "",
+                                                notes = "",
+                                                taste = null,
+                                                dialIn = null
+                                            )
+                                            selectedId = null
+                                            timer.reset()
+                                            saveError = null
+                                            screen = "new"
+                                        },
                                         onSelectShot = {
                                             selectedId = it.id
                                             screen = "detail"

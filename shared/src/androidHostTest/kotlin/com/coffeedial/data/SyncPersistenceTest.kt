@@ -22,15 +22,29 @@ class SyncPersistenceTest {
             repo.save(ShotDraft(beanName = "Brasil", notes = "Original"))
             val before = repo.history.first().single()
             driver.execute(null, "ALTER TABLE shot DROP COLUMN taste_scale", 0)
-            driver.execute(null, """UPDATE shot SET taste = '{"body":7,"acidity":0,"bitterness":10}'""", 0)
-            driver.execute(null, "ALTER TABLE shot ADD COLUMN taste_scale INTEGER NOT NULL DEFAULT 10", 0)
+            driver.execute(
+                null,
+                """UPDATE shot SET taste = '{"body":7,"acidity":0,"bitterness":10}'""",
+                0
+            )
+            driver.execute(
+                null,
+                "ALTER TABLE shot ADD COLUMN taste_scale INTEGER NOT NULL DEFAULT 10",
+                0
+            )
             val migrated = ShotRepository(driver).history.first().single()
             assertEquals(before.id, migrated.id)
             assertEquals(before.createdAt, migrated.createdAt)
             assertEquals(before.notes, migrated.notes)
-            assertEquals(com.coffeedial.domain.TasteProfile(body = 4, acidity = 1, bitterness = 5), migrated.taste)
+            assertEquals(
+                com.coffeedial.domain.TasteProfile(body = 4, acidity = 1, bitterness = 5),
+                migrated.taste
+            )
             assertEquals(migrated, ShotRepository(driver).history.first().single())
-            assertEquals(5L, CoffeeDatabase(driver).coffeeQueries.allShots().executeAsOne().taste_scale)
+            assertEquals(
+                5L,
+                CoffeeDatabase(driver).coffeeQueries.allShots().executeAsOne().taste_scale
+            )
         }
     }
 

@@ -26,12 +26,12 @@ import com.coffeedial.domain.Grinder
 import com.coffeedial.domain.GrinderDraft
 import com.coffeedial.domain.Machine
 import com.coffeedial.domain.MachineDraft
-import com.coffeedial.domain.fromTenPointScale
 import com.coffeedial.domain.Recipe
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.ShotDraft
 import com.coffeedial.domain.TasteProfile
 import com.coffeedial.domain.decimal
+import com.coffeedial.domain.fromTenPointScale
 import com.coffeedial.photos.BeanPhoto
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -50,7 +50,9 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
         runCatching {
             queries.transaction {
                 queries.legacyTasteProfiles().executeAsList().forEach { row ->
-                    val taste = row.taste?.let { Json.decodeFromString<TasteProfile>(it).fromTenPointScale() }
+                    val taste = row.taste?.let {
+                        Json.decodeFromString<TasteProfile>(it).fromTenPointScale()
+                    }
                     queries.migrateTasteProfile(taste?.let { Json.encodeToString(it) }, row.id)
                 }
             }
@@ -83,7 +85,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 machineId = it.machine_id,
                 cupId = it.cup_id,
                 grinder = it.grinder,
-                grinderId = it.grinder_id
+                grinderId = it.grinder_id,
+                milkFoam = it.milk_foam?.let(com.coffeedial.domain.MilkFoam::valueOf)
             )
         }
     }
@@ -228,7 +231,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 machine_id = linked.machineId,
                 cup_id = linked.cupId,
                 grinder = linked.grinder,
-                grinder_id = linked.grinderId
+                grinder_id = linked.grinderId,
+                milk_foam = draft.milkFoam?.name
             )
         }
     }
@@ -275,6 +279,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 linked.cupId,
                 linked.grinder,
                 linked.grinderId,
+                draft.milkFoam?.name,
                 id
             )
         }
@@ -473,7 +478,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 machineId = it.machine_id,
                 cupId = it.cup_id,
                 grinder = it.grinder,
-                grinderId = it.grinder_id
+                grinderId = it.grinder_id,
+                milkFoam = it.milk_foam?.let(com.coffeedial.domain.MilkFoam::valueOf)
             )
         },
         machines = queries.allMachines().executeAsList().map {
@@ -686,7 +692,8 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             machine_id = shot.machineId,
             cup_id = shot.cupId,
             grinder = shot.grinder,
-            grinder_id = shot.grinderId
+            grinder_id = shot.grinderId,
+            milk_foam = shot.milkFoam?.name
         )
     }
 }

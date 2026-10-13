@@ -127,7 +127,7 @@ fun ShotDetail(
             item { ReadOnlyChip(style) }
         }
         item {
-            DrinkCupChart(shot.dose, shot.output, water, milk, cup?.capacity)
+            DrinkCupChart(shot.dose, shot.output, water, milk, cup?.capacity, shot.milkFoam)
         }
         item {
             DetailCard {
@@ -317,7 +317,9 @@ fun ShotDetail(
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (copiedText) "¡Receta copiada al portapapeles! 📋" else "Copiar receta / resumen")
+                    Text(
+                        if (copiedText) "¡Receta copiada al portapapeles! 📋" else "Copiar receta / resumen"
+                    )
                 }
                 onCompare?.let {
                     TextButton(
@@ -534,9 +536,17 @@ internal fun shotShareText(shot: Shot): String = buildString {
     ).joinToString(" · ")
     if (originProcess.isNotBlank()) append(" - ").append(originProcess)
     append("\n")
-    append("⏱️ ").append(shot.dose.pretty()).append(" g in -> ").append(shot.output.pretty()).append(" g out (1:").append(shot.ratio.pretty()).append(")")
+    append(
+        "⏱️ "
+    ).append(
+        shot.dose.pretty()
+    ).append(
+        " g in -> "
+    ).append(shot.output.pretty()).append(" g out (1:").append(shot.ratio.pretty()).append(")")
     append(" en ").append(shot.seconds.pretty()).append("s")
-    shot.firstDrop?.takeIf { it > 0 }?.let { append(" (Pre-infusión: ").append(it.pretty()).append("s)") }
+    shot.firstDrop?.takeIf {
+        it > 0
+    }?.let { append(" (Pre-infusión: ").append(it.pretty()).append("s)") }
     append("\n")
     append("⚙️ Molienda: ").append(shot.grind)
     val machineStr = listOfNotNull(shot.machine, shot.grinder, shot.cup).joinToString(" · ")

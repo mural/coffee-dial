@@ -158,3 +158,19 @@ test('v14 sensory scores use 1–5; old snapshots retain their legacy interpreta
     await assert.rejects(updateSync(storage, request(2, invalid)), /invalid_shot/);
   }
 });
+
+test('v15 foam is optional, enum validated, and protected against downgrade', async () => {
+  const storage = new Store();
+  const value = { ...backup(), schemaVersion: 15 };
+  for (const [index, milkFoam] of ['NONE', 'LOW', 'MEDIUM', 'HIGH'].entries()) {
+    value.shots[0].milkFoam = milkFoam;
+    const result = await updateSync(storage, request(index, structuredClone(value)));
+    assert.equal(result.backup.shots[0].milkFoam, milkFoam);
+  }
+  await assert.rejects(updateSync(storage, request(4, { ...value, schemaVersion: 14 })), /invalid_milk_foam/);
+  value.shots[0].milkFoam = 'INVALID';
+  await assert.rejects(updateSync(storage, request(4, value)), /invalid_milk_foam/);
+  delete value.shots[0].milkFoam;
+  await assert.rejects(updateSync(storage, request(4, { ...value, schemaVersion: 14 })), /backup_upgrade_required/);
+  await updateSync(storage, request(4, value));
+});

@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.coffeedial.domain.PreparedAmounts
 import com.coffeedial.domain.Shot
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -51,6 +52,7 @@ fun HomeScreen(
     onNavigateToAnalysis: () -> Unit,
     onRetry: () -> Unit,
     refreshError: String? = null,
+    onPrepare: (PreparedAmounts) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     when {
@@ -122,6 +124,9 @@ fun HomeScreen(
                     }
                     Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
                         Text("Registrar un shot")
+                    }
+                    if (screen == "home") {
+                        PrepareCoffeeSection(onPrepare)
                     }
                     if (screen == "home") {
                         Text("Timer y recetas para tu próxima extracción.")

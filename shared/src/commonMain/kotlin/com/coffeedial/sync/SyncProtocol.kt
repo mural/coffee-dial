@@ -409,6 +409,7 @@ private val shotFields = listOf(
     FieldSource("Molienda") { it.grind },
     FieldSource("Temperatura") { it.temperature?.toString() },
     FieldSource("Leche") { it.milk?.toString() },
+    FieldSource("Espuma") { it.milkFoam?.label },
     FieldSource("Agua extra") { it.extraWater?.toString() },
     FieldSource("Estilo") { it.style },
     FieldSource("Máquina") { it.machine },
@@ -484,11 +485,12 @@ private fun <T> fields(local: T?, remote: T?, sources: List<FieldSource<T>>): Li
     }.ifEmpty { listOf(ConflictField("Registro", "Distinto", "Distinto")) }
 }
 
-fun checkpoint(text: String?): SyncCheckpoint? =
-    text?.let {
-        val saved = Json.decodeFromString<SyncCheckpoint>(it)
-        saved.copy(document = saved.document.copy(backup = BackupFormat.migrate(saved.document.backup)))
-    }
+fun checkpoint(text: String?): SyncCheckpoint? = text?.let {
+    val saved = Json.decodeFromString<SyncCheckpoint>(it)
+    saved.copy(
+        document = saved.document.copy(backup = BackupFormat.migrate(saved.document.backup))
+    )
+}
 
 private fun defaultLabel(value: BrewDefault?, backup: BackupV1): String {
     val id = value?.selectedId ?: return "Sin predeterminado"

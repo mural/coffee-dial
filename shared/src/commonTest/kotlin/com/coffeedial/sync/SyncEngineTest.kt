@@ -20,28 +20,44 @@ import kotlinx.serialization.json.jsonObject
 class SyncEngineTest {
     @Test fun legacyCheckpointAndRemoteMigrateTogetherWithoutFalseConflicts() = runTest {
         val old = BackupFormat.decode(com.coffeedial.backup.V1_FIXTURE).let { backup ->
-            backup.copy(schemaVersion = 13, shots = listOf(backup.shots.single().copy(
-                taste = com.coffeedial.domain.TasteProfile(body = 9, acidity = 3)
-            )))
+            backup.copy(
+                schemaVersion = 13,
+                shots = listOf(
+                    backup.shots.single().copy(
+                        taste = com.coffeedial.domain.TasteProfile(body = 9, acidity = 3)
+                    )
+                )
+            )
         }
         var remote = SyncDocument(revision = 1, backup = old)
         val saved = Json.encodeToString(SyncCheckpoint("GOOGLE:subject", remote))
         val store = Store()
-        store.value = """{"storageVersion":2,"backup":${BackupFormat.encode(old)},"checkpoint":${Json.encodeToString(saved)}}"""
+        store.value =
+            """{"storageVersion":2,"backup":${BackupFormat.encode(
+                old
+            )},"checkpoint":${Json.encodeToString(saved)}}"""
         val repo = SnapshotRepository.open(store)
-        val engine = SyncEngine(repo, Auth(), get = { _, _ -> Json.encodeToString(remote) }, post = { _, text, _ ->
-            val request = Json.decodeFromString<SyncUpload>(text)
-            remote = remote.copy(revision = remote.revision + 1, backup = request.backup)
-            Json.encodeToString(remote)
-        })
+        val engine =
+            SyncEngine(repo, Auth(), get = { _, _ ->
+                Json.encodeToString(remote)
+            }, post = { _, text, _ ->
+                val request = Json.decodeFromString<SyncUpload>(text)
+                remote = remote.copy(revision = remote.revision + 1, backup = request.backup)
+                Json.encodeToString(remote)
+            })
         assertTrue(engine.performSync().isSuccess)
         assertEquals(5, repo.history.value.single().taste?.body)
         assertEquals(2, repo.history.value.single().taste?.acidity)
         val shot = repo.history.value.single()
-        repo.update(shot.id, com.coffeedial.domain.ShotDraft(beanName = shot.bean.name,
-            taste = com.coffeedial.domain.TasteProfile(body = 3, acidity = 2)))
+        repo.update(
+            shot.id,
+            com.coffeedial.domain.ShotDraft(
+                beanName = shot.bean.name,
+                taste = com.coffeedial.domain.TasteProfile(body = 3, acidity = 2)
+            )
+        )
         assertTrue(engine.performSync().isSuccess)
-        assertEquals(14, remote.backup.schemaVersion)
+        assertEquals(BackupFormat.CURRENT_VERSION, remote.backup.schemaVersion)
         assertEquals(3, remote.backup.shots.single().taste?.body)
         assertTrue(engine.performSync().isSuccess)
         assertEquals(3, repo.history.value.single().taste?.body)
@@ -143,6 +159,7 @@ class SyncEngineTest {
                 grind = "12",
                 firstDrop = "6.5",
                 taste = com.coffeedial.domain.TasteProfile(body = 4, acidity = 1),
+                milkFoam = com.coffeedial.domain.MilkFoam.LOW,
                 dialIn = com.coffeedial.domain.DialInContext(
                     grinder = "J-Ultra",
                     previousShotId = "previous",
@@ -166,6 +183,7 @@ class SyncEngineTest {
         }
         assertTrue(SyncEngine(repo, Auth(), get = get, post = post).performSync().isSuccess)
         assertEquals(4, remote.backup.shots.single().taste?.body)
+        assertEquals(com.coffeedial.domain.MilkFoam.LOW, remote.backup.shots.single().milkFoam)
         assertEquals(true, remote.backup.shots.single().dialIn?.favorite)
         repo = SnapshotRepository.open(store)
         repo.delete(repo.readSyncLocal().backup.shots.single().id)

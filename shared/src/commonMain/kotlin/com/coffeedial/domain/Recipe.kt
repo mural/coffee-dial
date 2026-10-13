@@ -19,14 +19,15 @@ data class Recipe(
     val machine: String? = null,
     val grinder: String? = null,
     val cup: String? = null,
-    val style: String? = null
+    val style: String? = null,
+    val milkFoam: MilkFoam? = null
 ) {
     fun toDraft() = ShotDraft(
         beanName = beanName, roaster = roaster, dose = dose.toString(), output = output.toString(),
         grind = grind, temperature = temperature?.toString().orEmpty(),
         milk = milk?.toString().orEmpty(), extraWater = extraWater?.toString().orEmpty(),
         machine = machine.orEmpty(), grinder = grinder.orEmpty(), cup = cup.orEmpty(),
-        style = style.orEmpty(), seconds = "", firstDrop = "", notes = "", taste = null, dialIn = null
+        milkFoam = milkFoam, style = style.orEmpty(), seconds = "", firstDrop = "", notes = "", taste = null, dialIn = null
     )
     fun isValid(): Boolean = id.isNotBlank() && id.length <= 200 &&
         name.isNotBlank() && name.length <= 100 &&
@@ -39,7 +40,7 @@ data class Recipe(
 
 fun Shot.asRecipe(id: String, name: String) = Recipe(
     id, name.trim(), bean.name, bean.roaster, dose, output, grind, temperature,
-    milk, extraWater, machine, grinder ?: dialIn?.grinder, cup, style
+    milk, extraWater, machine, grinder ?: dialIn?.grinder, cup, style, milkFoam
 )
 
 enum class RatioEdit { DOSE, RATIO, OUTPUT }

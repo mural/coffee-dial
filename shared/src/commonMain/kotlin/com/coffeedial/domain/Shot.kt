@@ -40,7 +40,10 @@ data class BeanDraft(
         if (name.isBlank()) put("name", "Ingresá el nombre del café")
         if (runCatching { photo?.validate() }.isFailure) put("photo", "La foto no es válida.")
         if (bagWeightGrams.isNotBlank() &&
-            (bagWeightGrams.decimal() == null || !bagWeightGrams.decimal()!!.isFinite() || bagWeightGrams.decimal()!! <= 0)
+            (
+                bagWeightGrams.decimal() == null || !bagWeightGrams.decimal()!!.isFinite() ||
+                    bagWeightGrams.decimal()!! <= 0
+                )
         ) {
             put("bagWeightGrams", "Ingresá un peso de bolsa válido en gramos")
         }
@@ -119,7 +122,8 @@ data class Shot(
     val machineId: String? = null,
     val cupId: String? = null,
     val grinder: String? = null,
-    val grinderId: String? = null
+    val grinderId: String? = null,
+    val milkFoam: MilkFoam? = null
 ) {
     val ratio: Double get() = output / dose
 }
@@ -145,7 +149,8 @@ data class ShotDraft(
     val machineId: String? = null,
     val cupId: String? = null,
     val grinder: String = "",
-    val grinderId: String? = null
+    val grinderId: String? = null,
+    val milkFoam: MilkFoam? = null
 ) {
     fun errors(): Map<String, String> = buildMap {
         if (beanName.isBlank()) put("beanName", "Ingresá el nombre del café")

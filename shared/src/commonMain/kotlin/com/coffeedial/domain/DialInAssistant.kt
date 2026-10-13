@@ -19,7 +19,7 @@ fun Shot.toDraft(): ShotDraft = ShotDraft(
     extraWater = extraWater?.toString().orEmpty(), style = style.orEmpty(),
     cup = cup.orEmpty(), firstDrop = firstDrop?.toString().orEmpty(), taste = taste,
     dialIn = dialIn, machineId = machineId, cupId = cupId,
-    grinder = grinder.orEmpty(), grinderId = grinderId
+    grinder = grinder.orEmpty(), grinderId = grinderId, milkFoam = milkFoam
 )
 
 fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialInAdvice {

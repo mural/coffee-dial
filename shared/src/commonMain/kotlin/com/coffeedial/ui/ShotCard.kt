@@ -153,6 +153,9 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                 )
             }
 
+            shot.milkFoam?.let {
+                Text("Espuma: ${it.label}", style = MaterialTheme.typography.bodySmall)
+            }
             val ratioCategory = when {
                 shot.ratio <= 1.5 -> "ristretto"
                 shot.ratio <= 2.5 -> "espresso"

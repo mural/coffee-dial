@@ -1,8 +1,8 @@
 package com.coffeedial.backup
 
 import com.coffeedial.domain.BrewDefault
-import com.coffeedial.domain.fromTenPointScale
 import com.coffeedial.domain.Recipe
+import com.coffeedial.domain.fromTenPointScale
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
@@ -76,7 +76,8 @@ data class BackupShotV1(
     val machineId: String? = null,
     val cupId: String? = null,
     val grinder: String? = null,
-    val grinderId: String? = null
+    val grinderId: String? = null,
+    val milkFoam: com.coffeedial.domain.MilkFoam? = null
 )
 
 class BackupException(message: String, cause: Throwable? = null) :
@@ -84,7 +85,7 @@ class BackupException(message: String, cause: Throwable? = null) :
 
 object BackupFormat {
     const val MAX_BYTES = 10 * 1024 * 1024
-    const val CURRENT_VERSION = 14
+    const val CURRENT_VERSION = 15
     const val FORMAT = "coffee-dial-backup"
     private val json = Json {
         prettyPrint = true
@@ -146,7 +147,7 @@ object BackupFormat {
                 )
             }
             val rawBackup = when (version) {
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 -> json.decodeFromJsonElement(
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 -> json.decodeFromJsonElement(
                     BackupV1.serializer(),
                     root
                 )
@@ -183,7 +184,9 @@ object BackupFormat {
         validate(backup)
         val scaled = if (backup.schemaVersion < 14) {
             backup.copy(shots = backup.shots.map { it.copy(taste = it.taste?.fromTenPointScale()) })
-        } else backup
+        } else {
+            backup
+        }
         val linked = linkLegacyGrinders(linkLegacyEquipment(scaled)).copy(
             schemaVersion = CURRENT_VERSION
         )
@@ -214,7 +217,12 @@ object BackupFormat {
         valid(backup.recipes.isEmpty() || backup.schemaVersion >= 11)
         valid(backup.recipes.size <= 50_000)
         valid(backup.recipes.map { it.id }.toSet().size == backup.recipes.size)
-        valid(backup.recipes.all { it.isValid() })
+        valid(
+            backup.recipes.all {
+                it.isValid() &&
+                    (it.milkFoam == null || backup.schemaVersion >= 15)
+            }
+        )
         val grinderIds = backup.grinders.map { it.id }.toSet()
         valid(ids.size == backup.beans.size)
         valid(backup.shots.map { it.id }.toSet().size == backup.shots.size)
@@ -229,10 +237,15 @@ object BackupFormat {
             valid(it.roastDate == null || (it.roastDate in 0..253402300799999L))
             valid(it.origin == null || it.origin.length <= 1000)
             valid(it.process == null || it.process.length <= 1000)
-            valid(it.bagWeightGrams == null || (it.bagWeightGrams.isFinite() && it.bagWeightGrams > 0))
+            valid(
+                it.bagWeightGrams == null || (it.bagWeightGrams.isFinite() && it.bagWeightGrams > 0)
+            )
             valid(
                 backup.schemaVersion >= 14 ||
-                    (it.roastDate == null && it.origin == null && it.process == null && it.bagWeightGrams == null)
+                    (
+                        it.roastDate == null && it.origin == null && it.process == null &&
+                            it.bagWeightGrams == null
+                        )
             )
         }
         backup.machines.forEach {
@@ -265,6 +278,7 @@ object BackupFormat {
             )
             valid(it.seconds.isFinite() && it.seconds > 0)
             valid(it.temperature == null || (it.temperature.isFinite() && it.temperature > 0))
+            valid(it.milkFoam == null || backup.schemaVersion >= 15)
             valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..200.0))
             valid(
                 it.extraWater == null || (it.extraWater.isFinite() && it.extraWater in 1.0..1000.0)
@@ -300,9 +314,24 @@ object BackupFormat {
                             it.dialIn.previousShotId != it.id
                         )
             )
-            valid(it.taste == null || (backup.schemaVersion >= 7 &&
-                if (backup.schemaVersion >= 14) it.taste.isValid()
-                else listOf(it.taste.body, it.taste.acidity, it.taste.bitterness).all { value -> value == null || value in 0..10 }))
+            valid(
+                it.taste == null || (
+                    backup.schemaVersion >= 7 &&
+                        if (backup.schemaVersion >= 14) {
+                            it.taste.isValid()
+                        } else {
+                            listOf(
+                                it.taste.body,
+                                it.taste.acidity,
+                                it.taste.bitterness
+                            ).all { value ->
+                                value ==
+                                    null ||
+                                    value in 0..10
+                            }
+                        }
+                    )
+            )
             valid(it.notes.length <= 1_000_000 && it.rating in 1..5)
         }
     }

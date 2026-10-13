@@ -2,7 +2,7 @@
 export const emptyBackup = () => ({ format: 'coffee-dial-backup', schemaVersion: 1, exportedAt: new Date().toISOString(), beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [] });
 export const emptySync = () => ({ protocol: 2, revision: 0, backup: emptyBackup(), deleted: { beans: [], shots: [], machines: [], cups: [], grinders: [], recipes: [], brewDefaults: [] } });
 export function validateBackup(b) {
-  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
+  if (!b || b.format !== 'coffee-dial-backup' || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(b.schemaVersion) || !Number.isFinite(Date.parse(b.exportedAt))) throw new Error('invalid_backup');
   const text = (v, max = 10000) => typeof v === 'string' && v.length <= max;
   const id = v => text(v, 200) && v.trim().length > 0;
   const positive = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
@@ -41,6 +41,9 @@ export function validateBackup(b) {
     (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) ||
     ['machine', 'grinder', 'cup'].some(k => x[k] != null && !text(x[k])) ||
     (x.style != null && !text(x.style, 100)))) throw new Error('invalid_recipe');
+  const foamOptions = ['NONE', 'LOW', 'MEDIUM', 'HIGH'];
+  if ([...b.shots, ...b.recipes].some(x => x.milkFoam != null &&
+    (b.schemaVersion < 15 || !foamOptions.includes(x.milkFoam)))) throw new Error('invalid_milk_foam');
   const beans = new Set(b.beans.map(x => x.id));
   if (b.beans.some(x => !text(x.name) || !x.name.trim() || !text(x.roaster) || (x.roastDate != null && (b.schemaVersion < 14 || !Number.isSafeInteger(x.roastDate) || x.roastDate < 0 || x.roastDate > 253402300799999)) || (x.origin != null && (b.schemaVersion < 14 || !text(x.origin))) || (x.process != null && (b.schemaVersion < 14 || !text(x.process))) || (x.bagWeightGrams != null && (b.schemaVersion < 14 || !positive(x.bagWeightGrams))))) throw new Error('invalid_bean');
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');

@@ -14,9 +14,14 @@ class TasteProfileTest {
     @Test fun migratesAllLegacyValuesOnceAndPreservesMissingValues() {
         for (value in 0..10) {
             val old = BackupFormat.decode(V1_FIXTURE).let { backup ->
-                backup.copy(schemaVersion = 13, shots = listOf(backup.shots.single().copy(
-                    taste = TasteProfile(TasteImpression.BALANCED, value, null, value)
-                )))
+                backup.copy(
+                    schemaVersion = 13,
+                    shots = listOf(
+                        backup.shots.single().copy(
+                            taste = TasteProfile(TasteImpression.BALANCED, value, null, value)
+                        )
+                    )
+                )
             }
             val migrated = BackupFormat.decode(BackupFormat.encode(old))
             val taste = migrated.shots.single().taste!!

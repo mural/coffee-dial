@@ -125,10 +125,19 @@ fun BeansScreen(
                             )
                         }
                         bean.bagWeightGrams?.let {
-                            Text("Bolsa: ${it.pretty()} g", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "Bolsa: ${it.pretty()} g",
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        bean.roastAgeSummary(kotlin.time.Clock.System.now().toEpochMilliseconds())?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        bean.roastAgeSummary(
+                            kotlin.time.Clock.System.now().toEpochMilliseconds()
+                        )?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                         onDefault?.let { choose ->
                             androidx.compose.material3.FilterChip(
@@ -246,7 +255,9 @@ fun BeansScreen(
                     label = { Text("Peso de la bolsa · g (opcional)") },
                     enabled = !saving,
                     singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
                     isError = errors["bagWeightGrams"] != null,
                     supportingText = errors["bagWeightGrams"]?.let { { Text(it) } }
                 )

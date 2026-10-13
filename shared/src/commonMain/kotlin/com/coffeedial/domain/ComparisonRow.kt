@@ -41,7 +41,8 @@ fun compareShots(shots: List<Shot>): List<ComparisonRow> {
             number(it.temperature)
         },
         row("Agua extra · ml") { number(it.extraWater) },
-        row("Leche · ml") { number(it.milk) }, row("Estilo") { text(it.style) },
+        row("Leche · ml") { number(it.milk) },
+        row("Espuma") { it.milkFoam?.label ?: "Sin registrar" }, row("Estilo") { text(it.style) },
         row("Puntuación") { "${it.rating}/5" },
         row("Sabor") {
             when (it.taste?.impression) {

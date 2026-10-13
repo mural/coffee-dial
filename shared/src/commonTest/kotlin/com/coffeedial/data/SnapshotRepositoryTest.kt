@@ -17,13 +17,33 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class SnapshotRepositoryTest {
+    @Test fun foamPersistsAcrossReopenUpdateAndBackup() = runTest {
+        val store = Store()
+        val repo = SnapshotRepository.open(store)
+        repo.save(ShotDraft(milk = "60", milkFoam = com.coffeedial.domain.MilkFoam.MEDIUM))
+        val shot = SnapshotRepository.open(store).history.value.single()
+        assertEquals(com.coffeedial.domain.MilkFoam.MEDIUM, shot.milkFoam)
+        repo.update(shot.id, ShotDraft(milk = "60", milkFoam = com.coffeedial.domain.MilkFoam.NONE))
+        assertEquals(
+            com.coffeedial.domain.MilkFoam.NONE,
+            BackupFormat.decode(repo.exportBackup()).shots.single().milkFoam
+        )
+        repo.update(shot.id, ShotDraft(milk = "60"))
+        assertNull(SnapshotRepository.open(store).history.value.single().milkFoam)
+    }
+
     @Test
     fun legacyTasteScalesOnceOnOpenAndStaysMigratedAfterSave() = runTest {
         val store = Store()
         val old = BackupFormat.decode(com.coffeedial.backup.V1_FIXTURE).let { backup ->
-            backup.copy(schemaVersion = 13, shots = listOf(backup.shots.single().copy(
-                taste = com.coffeedial.domain.TasteProfile(body = 9, bitterness = 3)
-            )))
+            backup.copy(
+                schemaVersion = 13,
+                shots = listOf(
+                    backup.shots.single().copy(
+                        taste = com.coffeedial.domain.TasteProfile(body = 9, bitterness = 3)
+                    )
+                )
+            )
         }
         store.text = BackupFormat.encode(old)
         val repo = SnapshotRepository.open(store)
@@ -32,7 +52,10 @@ class SnapshotRepositoryTest {
         repo.save(com.coffeedial.domain.ShotDraft())
         val reopened = SnapshotRepository.open(store)
         assertEquals(5, reopened.history.value.find { it.id == old.shots.single().id }?.taste?.body)
-        assertEquals(14, BackupFormat.decode(reopened.exportBackup()).schemaVersion)
+        assertEquals(
+            BackupFormat.CURRENT_VERSION,
+            BackupFormat.decode(reopened.exportBackup()).schemaVersion
+        )
     }
 
     @Test

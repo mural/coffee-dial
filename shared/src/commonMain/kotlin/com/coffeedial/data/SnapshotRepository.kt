@@ -144,7 +144,7 @@ class SnapshotRepository private constructor(
                     machineId = it.machineId,
                     cupId = it.cupId,
                     grinder = it.grinder,
-                    grinderId = it.grinderId
+                    grinderId = it.grinderId, milkFoam = it.milkFoam
                 )
             }
         machines.value =
@@ -256,7 +256,10 @@ class SnapshotRepository private constructor(
             },
             draft.cup.trim().ifBlank { null }, draft.firstDrop.decimal(), draft.taste, draft.dialIn,
             machineId = draft.machineId, cupId = draft.cupId,
-            grinder = draft.grinder.trim().ifBlank { null }, grinderId = draft.grinderId
+            grinder = draft.grinder.trim().ifBlank {
+                null
+            },
+            grinderId = draft.grinderId, milkFoam = draft.milkFoam
         ).let { shot ->
             val linked = resolveEquipment(
                 shot.machineId,

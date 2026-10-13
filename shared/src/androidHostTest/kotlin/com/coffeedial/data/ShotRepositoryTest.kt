@@ -14,6 +14,28 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class ShotRepositoryTest {
+    @Test fun foamPersistsAcrossReopenUpdateAndBackup() = runBlocking {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            CoffeeDatabase.Schema.create(driver)
+            val repo = ShotRepository(driver)
+            repo.save(ShotDraft(milk = "60", milkFoam = com.coffeedial.domain.MilkFoam.HIGH))
+            val shot = ShotRepository(driver).history.first().single()
+            assertEquals(com.coffeedial.domain.MilkFoam.HIGH, shot.milkFoam)
+            repo.update(
+                shot.id,
+                ShotDraft(milk = "60", milkFoam = com.coffeedial.domain.MilkFoam.NONE)
+            )
+            assertEquals(
+                com.coffeedial.domain.MilkFoam.NONE,
+                com.coffeedial.backup.BackupFormat.decode(
+                    repo.exportBackup()
+                ).shots.single().milkFoam
+            )
+            repo.update(shot.id, ShotDraft(milk = "60"))
+            assertEquals(null, repo.history.first().single().milkFoam)
+        }
+    }
+
     @Test
     fun defaultsPersistAndSyncDoesNotLoseThem() = runBlocking {
         JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
