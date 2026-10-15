@@ -273,6 +273,16 @@ fun ShotFormContent(
                 onChange(draft.copy(milk = it))
             }
             MilkFoamChoices(draft.milkFoam, !saving) { onChange(draft.copy(milkFoam = it)) }
+            val selectedCup = cups.firstOrNull { it.name == draft.cup }
+            DrinkCupChart(
+                dose = draft.dose.decimal() ?: 0.0,
+                output = draft.output.decimal() ?: 0.0,
+                water = draft.extraWater.decimal() ?: 0.0,
+                milk = draft.milk.decimal() ?: 0.0,
+                capacityCm3 = selectedCup?.capacity,
+                milkFoam = draft.milkFoam,
+                canUseGenericFill = true
+            )
         }
 
         CoffeeSection(strings.equipmentAndGrind) {

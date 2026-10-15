@@ -2,6 +2,7 @@ package com.coffeedial.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,11 +13,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import com.coffeedial.ui.CoffeeTextButton as TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -130,12 +136,15 @@ internal fun DrinkCupChart(
     capacityCm3: Double? = null,
     milkFoam: MilkFoam? = null,
     onFoamClick: (() -> Unit)? = null,
-    foamNote: String? = null
+    foamNote: String? = null,
+    canUseGenericFill: Boolean = false
 ) {
     val strings = LocalStrings.current
     val layers = drinkLayers(output, water, milk)
     val total = drinkTotal(output, water, milk)
     val capacity = capacityCm3?.takeIf { it.isFinite() && it > 0.0 }
+    var genericFill by rememberSaveable { mutableStateOf(false) }
+    val shownCapacity = if (canUseGenericFill && genericFill) null else capacity
     val relation = coffeeRelation(output, water, milk)
     val share = foamShare(milkFoam)
     val foamRelation = if (milk > 0.0) foamMilkRelation(share) else null
@@ -152,7 +161,7 @@ internal fun DrinkCupChart(
         )
         milkFoam?.let { append(strings.foamSpoken(it.label(strings))) }
         foamRelation?.let { append(strings.foamRatioSpoken(it)) }
-        if (capacity != null) append(strings.capacitySpoken(capacity.pretty()))
+        shownCapacity?.let { append(strings.capacitySpoken(it.pretty())) }
     }
     Column(
         Modifier.fillMaxWidth().semantics { contentDescription = description },
@@ -187,7 +196,20 @@ internal fun DrinkCupChart(
             }
         }
         Text(strings.inTheCup, style = MaterialTheme.typography.titleMedium)
-        val draw = cupDrawSize(capacity)
+        if (canUseGenericFill && capacity != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = genericFill,
+                    onCheckedChange = { genericFill = it }
+                )
+                Text(
+                    strings.genericCupFill,
+                    Modifier.clickable { genericFill = !genericFill },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+        val draw = cupDrawSize(shownCapacity)
         Box(
             Modifier.width(draw.width.dp).height(draw.height.dp),
             contentAlignment = Alignment.TopCenter
@@ -227,7 +249,7 @@ internal fun DrinkCupChart(
                     clipPath(cup) {
                         drawRect(page)
                         val liquid = layers.sumOf { it.amount }
-                        val span = (bottom - top) * cupFillFraction(total, capacity).toFloat()
+                        val span = (bottom - top) * cupFillFraction(total, shownCapacity).toFloat()
                         if (liquid > 0.0 && span > 0f) {
                             drawRect(
                                 drinkColor(layers.first().label),
@@ -355,15 +377,15 @@ internal fun DrinkCupChart(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        if (capacity != null) {
+        if (shownCapacity != null) {
             Text(
-                if (total > capacity) {
-                    strings.exceedsCapacityText(capacity.pretty())
+                if (total > shownCapacity) {
+                    strings.exceedsCapacityText(shownCapacity.pretty())
                 } else {
-                    strings.cupCapacityText(capacity.pretty())
+                    strings.cupCapacityText(shownCapacity.pretty())
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (total > capacity) {
+                color = if (total > shownCapacity) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant

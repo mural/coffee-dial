@@ -128,7 +128,15 @@ fun ShotDetail(
             item { ReadOnlyChip(strings.knownDrinkName(style)) }
         }
         item {
-            DrinkCupChart(shot.dose, shot.output, water, milk, cup?.capacity, shot.milkFoam)
+            DrinkCupChart(
+                shot.dose,
+                shot.output,
+                water,
+                milk,
+                cup?.capacity,
+                shot.milkFoam,
+                canUseGenericFill = true
+            )
         }
         item {
             DetailCard {

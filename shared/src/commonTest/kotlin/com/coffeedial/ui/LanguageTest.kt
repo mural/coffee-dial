@@ -43,6 +43,7 @@ class LanguageTest {
         assertEquals("Brew again", strings.actionRepeat)
         assertEquals("Brew coffee", strings.homeBrewCoffee)
         assertEquals("In the cup", strings.inTheCup)
+        assertEquals("Generic view: the drink fills the cup", strings.genericCupFill)
         assertEquals("Coffee : water : milk", strings.coffeeWaterMilkRatio)
         assertEquals("Tips and styles", strings.tipsTitle)
         assertEquals("Long espresso", strings.knownDrinkName("Espresso largo"))
@@ -76,6 +77,10 @@ class LanguageTest {
         assertEquals("Molienda más gruesa", strings.grindCoarser)
         assertEquals("Repetir shot", strings.actionRepeat)
         assertEquals("Tips y estilos", strings.tipsTitle)
+        assertEquals(
+            "Vista genérica: el contenido llena la taza",
+            strings.genericCupFill
+        )
         assertEquals("Espresso largo", strings.knownDrinkName("Espresso largo"))
         assertEquals("Ingresá el nombre del café", strings.errBeanName)
 

@@ -291,6 +291,7 @@ interface AppStrings : RemainingCopy {
     fun coffeeFromDoseText(doseGrams: String): String
     fun exceedsCapacityText(capacityCm3: String): String
     fun cupCapacityText(capacityCm3: String): String
+    val genericCupFill: String
 
     // PrepareCoffee
     val prepareTitle: String
@@ -594,6 +595,8 @@ object SpanishStrings : AppStrings {
 
     override fun cupCapacityText(capacityCm3: String) =
         "Taza de $capacityCm3 cm³."
+
+    override val genericCupFill = "Vista genérica: el contenido llena la taza"
 
     override val prepareTitle = "Preparar un café"
 
@@ -1653,6 +1656,8 @@ object EnglishStrings : AppStrings {
 
     override fun cupCapacityText(capacityCm3: String) =
         "$capacityCm3 cm³ cup."
+
+    override val genericCupFill = "Generic view: the drink fills the cup"
 
     override val prepareTitle = "Brew a coffee"
 
