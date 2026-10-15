@@ -2,12 +2,31 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-    <key>GIDClientID</key><string>$(COFFEE_GOOGLE_IOS_CLIENT_ID)</string>
-    <key>CFBundleURLTypes</key><array><dict>
-        <key>CFBundleURLSchemes</key><array><string>$(COFFEE_GOOGLE_REVERSED_CLIENT_ID)</string></array>
-    </dict></array>
-    <key>CoffeeDialAppleSignInEnabled</key><string>$(COFFEE_APPLE_SIGN_IN_ENABLED)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(COFFEE_GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
+	<key>CoffeeDialAppleSignInEnabled</key>
+	<string>$(COFFEE_APPLE_SIGN_IN_ENABLED)</string>
+	<key>GIDClientID</key>
+	<string>$(COFFEE_GOOGLE_IOS_CLIENT_ID)</string>
 </dict>
 </plist>

@@ -30,17 +30,6 @@
 		};
 /* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXResourcesBuildPhase section */
-		A00000000000000000000020 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A00000000000000000000018 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
 /* Begin PBXGroup section */
 		A00000000000000000000004 = {
 			isa = PBXGroup;
@@ -114,6 +103,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000020 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000018 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXShellScriptBuildPhase section */
 		A00000000000000000000008 /* Build shared Kotlin framework */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -131,7 +131,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n    exit 0\nfi\ncd \"$SRCROOT/..\"\nJAVA_HOME=\"$(/usr/libexec/java_home 2>/dev/null || echo \"/usr/bin\")\" ./gradlew :shared:embedAndSignAppleFrameworkForXcode -Pandroid.overridePathCheck=true || true\n";
+			shellScript = "if [ \"$ACTION\" = \"indexbuild\" ]; then\n    exit 0\nfi\ncd \"$SRCROOT/..\"\nJAVA_HOME=\"$(/usr/libexec/java_home 2>/dev/null || echo \"/usr/bin\")\" ./gradlew :shared:embedAndSignAppleFrameworkForXcode -Pandroid.overridePathCheck=true\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -152,6 +152,8 @@
 			baseConfigurationReference = B00000000000000000000004 /* Auth.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				MARKETING_VERSION = 0.1.0;
+				CURRENT_PROJECT_VERSION = 3;
 				CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YBVEPU8A54;
@@ -188,6 +190,8 @@
 			baseConfigurationReference = B00000000000000000000004 /* Auth.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				MARKETING_VERSION = 0.1.0;
+				CURRENT_PROJECT_VERSION = 3;
 				CODE_SIGN_ENTITLEMENTS = "$(COFFEE_APPLE_ENTITLEMENTS)";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = YBVEPU8A54;
@@ -253,13 +257,13 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
-/* Begin CSCSwiftPackageProductDependency section */
+/* Begin XCSwiftPackageProductDependency section */
 		B00000000000000000000002 /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B00000000000000000000003 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignIn;
 		};
-/* End CSCSwiftPackageProductDependency section */
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000006 /* Project object */;
 }
