@@ -49,13 +49,13 @@ class AdminClient(
     private val get: suspend (String, Map<String, String>) -> String = ::httpGetText
 ) {
     private suspend fun request(path: String): String {
-        val identity = auth.state.value as? AuthState.LoggedIn ?: error("Iniciá sesión con Google.")
-        val token = auth.syncCredential() ?: error("Volvé a iniciar sesión con Google.")
+        val identity = auth.state.value as? AuthState.LoggedIn ?: error("i18n.sign_in_google")
+        val token = auth.syncCredential() ?: error("i18n.sign_in_google_again")
         val result = get(
             "https://auth-coffee.muralooo.win/api/admin/$path",
             mapOf("Authorization" to "Bearer $token")
         )
-        check(auth.state.value == identity) { "La cuenta cambió. Volvé a abrir Admin." }
+        check(auth.state.value == identity) { "i18n.account_changed_admin" }
         return result
     }
     suspend fun allowed(): Boolean = Json.decodeFromString<AdminAccess>(request("access")).allowed

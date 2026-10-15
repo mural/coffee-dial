@@ -181,7 +181,7 @@ fun mergeSync(
     revived: Set<String> = emptySet()
 ): MergeResult {
     require(remote.protocol == 2 && remote.revision >= 0) {
-        "Actualizá Coffee Dial para sincronizar."
+        "i18n.upgrade_sync"
     }
     val conflicts = mutableListOf<RecordConflict>()
     fun <T> merge(

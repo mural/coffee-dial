@@ -6,37 +6,34 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import com.coffeedial.ui.CoffeeTextButton as TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.MilkFoam
+import com.coffeedial.ui.CoffeeTextButton as TextButton
 
 @Composable
 internal fun MilkFoamChoices(value: MilkFoam?, enabled: Boolean, onChange: (MilkFoam?) -> Unit) {
+    val strings = LocalStrings.current
     Column {
-        Text("Espuma de leche (opcional)", style = MaterialTheme.typography.titleSmall)
+        Text(strings.milkFoamOptional, style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MilkFoam.entries.forEach { option ->
                 FilterChip(
                     selected = value == option,
                     onClick = { onChange(option) },
                     enabled = enabled,
-                    label = { Text(option.label) }
+                    label = { Text(option.label(strings)) }
                 )
             }
-            if (value !=
-                null
-            ) {
-                TextButton(onClick = { onChange(null) }, enabled = enabled) { Text("Quitar") }
+            if (value != null) {
+                TextButton(onClick = { onChange(null) }, enabled = enabled) { Text(strings.actionRemove) }
             }
         }
         Text(
-            if (value ==
-                null
-            ) {
-                "Sin registrar"
+            if (value == null) {
+                strings.notRecorded
             } else {
-                "Describe la textura; no suma volumen al total."
+                strings.milkFoamNote
             },
             style = MaterialTheme.typography.bodySmall
         )

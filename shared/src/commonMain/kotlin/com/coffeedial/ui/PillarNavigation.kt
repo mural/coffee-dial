@@ -60,6 +60,7 @@ private val AccountIcon = ImageVector.Builder("Account", 24.dp, 24.dp, 24f, 24f)
 
 @Composable
 fun PillarNavigation(selected: String, enabled: Boolean, onSelect: (String) -> Unit) {
+    val strings = LocalStrings.current
     val shape = RoundedCornerShape(28.dp)
     Box(
         Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 3.dp)
@@ -69,8 +70,8 @@ fun PillarNavigation(selected: String, enabled: Boolean, onSelect: (String) -> U
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color(0xFF526360).copy(alpha = 0.88f),
-                            Color(0xFF263C38).copy(alpha = 0.93f)
+                            Color(0xFF526360),
+                            Color(0xFF263C38)
                         )
                     )
                 )
@@ -86,10 +87,10 @@ fun PillarNavigation(selected: String, enabled: Boolean, onSelect: (String) -> U
             tonalElevation = 0.dp
         ) {
             listOf(
-                Triple("home", "Preparar", CoffeeCup),
-                Triple("track", "Registrar", BeanIcon),
-                Triple("improve", "Mejorar", ProgressIcon),
-                Triple("account", "Cuenta", AccountIcon)
+                Triple("home", strings.navBrew, CoffeeCup),
+                Triple("track", strings.navShots, BeanIcon),
+                Triple("improve", strings.navAnalysis, ProgressIcon),
+                Triple("account", strings.navAccount, AccountIcon)
             ).forEach { (route, label, icon) ->
                 NavigationBarItem(
                     selected = selected == route,
@@ -114,6 +115,7 @@ fun PillarNavigation(selected: String, enabled: Boolean, onSelect: (String) -> U
 
 @Composable
 fun PillarScreen(title: String, description: String, actions: List<Pair<String, () -> Unit>>) {
+    val strings = LocalStrings.current
     Column(
         Modifier.verticalScroll(
             rememberScrollState()
@@ -122,7 +124,7 @@ fun PillarScreen(title: String, description: String, actions: List<Pair<String, 
     ) {
         Text(title, style = MaterialTheme.typography.headlineLarge)
         Text(description)
-        CoffeeSection(if (title == "Registrar") "Tus registros" else "Explorá tus resultados") {
+        CoffeeSection(if (title == strings.navShots) strings.yourRecords else strings.exploreResults) {
             actions.forEachIndexed { index, (label, action) ->
                 if (index == 0) {
                     Button(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(label) }

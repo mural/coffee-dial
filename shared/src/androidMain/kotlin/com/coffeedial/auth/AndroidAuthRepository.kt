@@ -47,7 +47,7 @@ class AndroidAuthRepository(
         if (rejected != null && current != null && current != rejected) return
         syncToken = null
         prefs.edit().remove("sync_token").remove("sync_token_encrypted").apply()
-        fail("Volvé a continuar con Google para renovar el acceso. Tus datos se conservan.")
+        fail("i18n.renew_google_keep")
     }
 
     fun attach(activity: Activity) {
@@ -60,7 +60,7 @@ class AndroidAuthRepository(
 
     fun onResume() {
         if (mutableState.value !is AuthState.LoggedIn && web.pending && web.expire()) {
-            fail("El intento de acceso venció. Volvé a intentarlo.")
+            fail("i18n.sign_in_expired")
         }
     }
 
@@ -106,7 +106,7 @@ class AndroidAuthRepository(
         }
         if (!googleServerClientId.endsWith(".apps.googleusercontent.com")) {
             return@withContext fail(
-                "Google todavía no está configurado para esta versión de Coffee Dial."
+                "i18n.google_not_configured"
             )
         }
         val host = activity.get() ?: return@withContext
@@ -181,7 +181,7 @@ class AndroidAuthRepository(
         } catch (_: Exception) {
             if (generation != attemptGeneration) return@withContext
             fail(
-                "No se pudo iniciar sesión con Google. Revisá la conexión y la configuración de acceso de la app."
+                "i18n.could_not_sign_in_google"
             )
         }
     }
@@ -196,7 +196,7 @@ class AndroidAuthRepository(
         try {
             web.start(host)
         } catch (_: Exception) {
-            fail("No se pudo abrir el navegador. Instalá o habilitá uno e intentá nuevamente.")
+            fail("i18n.could_not_open_browser")
         }
     }
 
@@ -218,14 +218,14 @@ class AndroidAuthRepository(
         } catch (_: Exception) {
             if (generation != callbackGeneration) return
             web.clear()
-            fail("No se pudo completar el acceso web. Volvé a intentarlo.")
+            fail("i18n.could_not_complete_web")
         } finally {
             completing = false
         }
     }
 
     override suspend fun signInWithApple(): Unit = fail(
-        "Apple en Android estará disponible cuando configuremos el servicio de acceso web. Podés seguir usando la app sin cuenta."
+        "i18n.apple_android_later"
     )
 
     private fun fail(message: String) {

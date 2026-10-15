@@ -37,6 +37,7 @@ fun RecipesScreen(
     onPrepare: (Recipe, Boolean) -> Unit,
     onHistory: () -> Unit
 ) {
+    val strings = LocalStrings.current
     var editing by rememberSaveable(initial) { mutableStateOf(initial) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     val recipe = editing?.let { Json.decodeFromString<Recipe>(it) }
@@ -51,14 +52,15 @@ fun RecipesScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
         ) {
             item {
-                Text("Mis recetas", style = MaterialTheme.typography.headlineLarge)
-                Text("Guardá la receta de un shot desde su detalle y repetila cuando quieras.")
+                Text(strings.navRecipes, style = MaterialTheme.typography.headlineLarge)
                 TextButton(onClick = onHistory, enabled = !saving) {
-                    Text("Elegir un shot del historial")
+                    Text(strings.homeViewAllShots)
                 }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                error?.let {
+                    Text(strings.userMessage(it), color = MaterialTheme.colorScheme.error)
+                }
             }
-            if (recipes.isEmpty()) item { Text("Todavía no tenés recetas guardadas.") }
+            if (recipes.isEmpty()) item { Text(strings.homeNoShotsYet) }
             items(recipes, key = { it.id }) { item ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(
@@ -69,18 +71,18 @@ fun RecipesScreen(
                         Text(
                             "${item.beanName} · ${item.dose.pretty()} g -> ${item.output.pretty()} g · 1:${(item.output / item.dose).pretty()}"
                         )
-                        Text("Molienda: ${item.grind}")
-                        item.milkFoam?.let { Text("Espuma: ${it.label}") }
+                        Text("${strings.grind}: ${strings.grindLevelLabel(item.grind)}")
+                        item.milkFoam?.let { Text(strings.foamLabelText(it.label(strings))) }
                         Button(onClick = {
                             onPrepare(item, true)
-                        }, enabled = !saving) { Text("Repetir con timer") }
+                        }, enabled = !saving) { Text(strings.repeatWithTimer) }
                         Row {
                             TextButton(onClick = {
                                 editing = Json.encodeToString(item)
-                            }, enabled = !saving) { Text("Ver / ajustar") }
+                            }, enabled = !saving) { Text(strings.viewOrAdjust) }
                             TextButton(onClick = {
                                 deleting = item.id
-                            }, enabled = !saving) { Text("Eliminar") }
+                            }, enabled = !saving) { Text(strings.actionDelete) }
                         }
                     }
                 }
@@ -91,17 +93,17 @@ fun RecipesScreen(
         AlertDialog(
             onDismissRequest = { if (!saving) deleting = null },
             title = {
-                Text("¿Eliminar receta?")
+                Text(strings.deleteRecipeQuestion)
             },
-            text = { Text("Los shots registrados se conservan.") },
+            text = { Text(strings.shotsPreservedNote) },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete(id)
                     deleting = null
-                }, enabled = !saving) { Text("Eliminar") }
+                }, enabled = !saving) { Text(strings.actionDelete) }
             },
             dismissButton = {
-                TextButton(onClick = { deleting = null }, enabled = !saving) { Text("Cancelar") }
+                TextButton(onClick = { deleting = null }, enabled = !saving) { Text(strings.actionCancel) }
             }
         )
     }
@@ -116,6 +118,7 @@ private fun RecipeEditor(
     onPrepare: (Recipe, Boolean) -> Unit,
     onCancel: () -> Unit
 ) {
+    val strings = LocalStrings.current
     var name by rememberSaveable(recipe.id) { mutableStateOf(recipe.name) }
     var dose by rememberSaveable(recipe.id) { mutableStateOf(recipe.dose.toString()) }
     var output by rememberSaveable(recipe.id) { mutableStateOf(recipe.output.toString()) }
@@ -142,7 +145,7 @@ private fun RecipeEditor(
                     text
         }
         val next = text.decimal()?.let { current.change(field, it) }
-        message = if (next == null) "Usá dosis de 0,1 a 100 g y output de 0,1 a 1000 g." else null
+        message = if (next == null) strings.recipeAmountHint else null
         if (next != null) {
             if (field != RatioEdit.DOSE) dose = next.dose.toString()
             if (field != RatioEdit.OUTPUT) output = next.output.toString()
@@ -166,33 +169,32 @@ private fun RecipeEditor(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
     ) {
-        item { Text("Receta", style = MaterialTheme.typography.headlineLarge) }
+        item { Text(strings.recipeTitle, style = MaterialTheme.typography.headlineLarge) }
         item {
-            CoffeeSection("Tu receta") {
-                Field("Nombre", name, null, saving) { name = it.take(100) }
+            CoffeeSection(strings.yourRecipe) {
+                Field(strings.nameField, name, null, saving) { name = it.take(100) }
                 Text(recipe.beanName, style = MaterialTheme.typography.titleMedium)
                 Text(listOfNotNull(recipe.machine, recipe.grinder, recipe.cup).joinToString(" · "))
-                recipe.temperature?.let { Text("Temperatura: ${it.pretty()} °C") }
-                Text(
-                    "Al cambiar dosis se conserva el ratio; " +
-                        "al cambiar output se recalcula el ratio."
-                )
+                recipe.temperature?.let { Text(strings.temperatureLine(it.pretty())) }
+                Text(strings.doseKeepsRatio)
             }
         }
         item {
-            CoffeeSection("Extracción") {
-                Field("Dosis · g", dose, null, saving, true) { change(RatioEdit.DOSE, it) }
-                Field("Ratio de extracción · 1:", ratio, null, saving, true) {
+            CoffeeSection(strings.extractionSection) {
+                Field(strings.doseFieldG, dose, null, saving, true) { change(RatioEdit.DOSE, it) }
+                Field(strings.extractionRatioField, ratio, null, saving, true) {
                     change(RatioEdit.RATIO, it)
                 }
-                Field("Output · g", output, null, saving, true) { change(RatioEdit.OUTPUT, it) }
+                Field(strings.outputFieldG, output, null, saving, true) {
+                    change(RatioEdit.OUTPUT, it)
+                }
                 GrindSettingField(grind, null, saving) { grind = it }
             }
         }
         item {
-            CoffeeSection("Agregados") {
-                Field("Agua extra · ml (opcional)", water, null, saving, true) { water = it }
-                Field("Leche · ml (opcional)", milk, null, saving, true) { milk = it }
+            CoffeeSection(strings.additionsHeading) {
+                Field(strings.extraWaterOptional, water, null, saving, true) { water = it }
+                Field(strings.milkOptionalMl, milk, null, saving, true) { milk = it }
                 MilkFoamChoices(foam?.let(com.coffeedial.domain.MilkFoam::valueOf), !saving) {
                     foam =
                         it?.name
@@ -200,27 +202,26 @@ private fun RecipeEditor(
             }
         }
         item {
-            CoffeeSection("Guardar o preparar") {
-                Text("El tiempo, la primera gota y el sabor se registran de nuevo al preparar.")
-                (message ?: error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            CoffeeSection(strings.saveOrBrew) {
+                Text(strings.timeLoggedAgain)
+                (message ?: error)?.let {
+                    Text(strings.userMessage(it), color = MaterialTheme.colorScheme.error)
+                }
                 if (!valid &&
                     message == null
                 ) {
-                    Text(
-                        "Revisá nombre, molienda y cantidades.",
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text(strings.checkRecipeFields, color = MaterialTheme.colorScheme.error)
                 }
                 Button(onClick = {
                     onSave(next)
-                }, enabled = !saving && valid) { Text("Guardar receta") }
+                }, enabled = !saving && valid) { Text(strings.saveRecipe) }
                 TextButton(onClick = {
                     onPrepare(next, true)
-                }, enabled = !saving && valid) { Text("Preparar con estos valores") }
+                }, enabled = !saving && valid) { Text(strings.myRecipesRepeat) }
                 TextButton(onClick = {
                     onPrepare(next, false)
-                }, enabled = !saving && valid) { Text("Registrar sin timer") }
-                TextButton(onClick = onCancel, enabled = !saving) { Text("Cancelar") }
+                }, enabled = !saving && valid) { Text(strings.logAShot) }
+                TextButton(onClick = onCancel, enabled = !saving) { Text(strings.actionCancel) }
             }
         }
     }

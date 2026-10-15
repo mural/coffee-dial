@@ -29,7 +29,7 @@
             signal: AbortSignal.timeout(10000)
           });
           if (response.status === 401) { this.clear(); return ''; }
-          if (!response.ok) throw new Error('No se pudo validar la sesión');
+          if (!response.ok) throw new Error('i18n.could_not_verify_access');
           const verified = await response.json();
           if (verified.id !== user.id) { this.clear(); return ''; }
           const value = JSON.stringify({ ...verified, syncToken: user.syncToken });
@@ -45,17 +45,17 @@
       history.replaceState(null, '', location.pathname + location.search);
       const pending = JSON.parse(sessionStorage.getItem(key) || 'null');
       sessionStorage.removeItem(key);
-      if (!pending || pending.state !== params.get('state') || Date.now() - pending.created < 0 || Date.now() - pending.created > 300000) throw new Error('Intento vencido');
-      if (params.has('error')) throw new Error('No se completó el acceso');
+      if (!pending || pending.state !== params.get('state') || Date.now() - pending.created < 0 || Date.now() - pending.created > 300000) throw new Error('i18n.sign_in_expired');
+      if (params.has('error')) throw new Error('i18n.could_not_complete_web');
       const attempt = params.get('attempt'), ticket = params.get('code');
-      if (!proof(attempt) || !proof(ticket) || !proof(pending.verifier)) throw new Error('Retorno inválido');
+      if (!proof(attempt) || !proof(ticket) || !proof(pending.verifier)) throw new Error('i18n.could_not_verify_access');
       const response = await fetch(origin + '/exchange', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attempt, ticket, verifier: pending.verifier, appState: pending.state })
       });
-      if (!response.ok) throw new Error('No se pudo verificar el acceso');
+      if (!response.ok) throw new Error('i18n.could_not_verify_access');
       const user = await response.json();
-      if (typeof user.id !== 'string' || !user.id) throw new Error('Identidad inválida');
+      if (typeof user.id !== 'string' || !user.id) throw new Error('i18n.provider_identity');
       const value = JSON.stringify(user);
       localStorage.setItem(userKey, value);
       sessionStorage.removeItem(userKey);

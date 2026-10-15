@@ -55,6 +55,7 @@ fun HomeScreen(
     onPrepare: (PreparedAmounts) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     when {
         loadError -> {
             Column(
@@ -63,8 +64,8 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("No pudimos leer tu historial.")
-                Button(onClick = onRetry) { Text("Reintentar") }
+                Text(strings.couldNotReadHistory)
+                Button(onClick = onRetry) { Text(strings.actionRetry) }
             }
         }
 
@@ -92,7 +93,7 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                "¡Hola, $userName!",
+                                strings.greeting(userName),
                                 style = MaterialTheme.typography.titleLarge
                             )
                             Icon(
@@ -104,19 +105,19 @@ fun HomeScreen(
                     }
                     Text(
                         if (screen == "home") {
-                            "Preparar"
+                            strings.navBrew
                         } else {
-                            "Historial (${shots.size})"
+                            strings.historyHeader(shots.size)
                         },
                         style = MaterialTheme.typography.headlineSmall
                     )
                     Text(
-                        "${shots.size} shots · guardados en este dispositivo",
+                        strings.shotsSavedOnDevice(shots.size),
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                     if (screen == "home" && !refreshError.isNullOrBlank()) {
                         Text(
-                            refreshError,
+                            strings.userMessage(refreshError),
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(bottom = 12.dp)
@@ -124,7 +125,7 @@ fun HomeScreen(
                     }
                     if (screen != "home") {
                         Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
-                            Text("Registrar un shot")
+                            Text(strings.logAShot)
                         }
                     }
                 }
@@ -132,15 +133,15 @@ fun HomeScreen(
                     item {
                         CoffeeSection {
                             Text(
-                                "Tu próxima extracción",
+                                strings.nextExtraction,
                                 style = MaterialTheme.typography.titleLarge
                             )
                             Text(
-                                "Registrá las medidas y el sabor de tu café.",
+                                strings.logShotAndFlavor,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Button(onClick = onNewShot, modifier = Modifier.fillMaxWidth()) {
-                                Text("Registrar un shot")
+                                Text(strings.logAShot)
                             }
                         }
                     }
@@ -149,25 +150,25 @@ fun HomeScreen(
                     }
                     item {
                         CoffeeSection {
-                            Text("A tu manera", style = MaterialTheme.typography.titleLarge)
+                            Text(strings.yourWay, style = MaterialTheme.typography.titleLarge)
                             Text(
-                                "Repetí una receta o medí una nueva extracción.",
+                                strings.repeatOrNew,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             CoffeeOutlinedButton(
                                 onClick = onRecipes,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Mis recetas · repetir café")
+                                Text(strings.myRecipesRepeat)
                             }
                             CoffeeOutlinedButton(
                                 onClick = onOpenTimer,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Iniciar Shot Timer")
+                                Text(strings.startShotTimer)
                             }
                             TextButton(onClick = onNavigateToTips) {
-                                Text("Ratios y estilos de café")
+                                Text(strings.ratiosAndStyles)
                             }
                         }
                     }
@@ -176,9 +177,9 @@ fun HomeScreen(
                             Modifier.padding(top = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("Últimos shots", style = MaterialTheme.typography.titleLarge)
+                            Text(strings.homeRecentShots, style = MaterialTheme.typography.titleLarge)
                             TextButton(onClick = onNavigateToHistory) {
-                                Text("Ver historial (${shots.size})")
+                                Text(strings.viewHistoryCount(shots.size))
                             }
                         }
                     }
@@ -186,28 +187,36 @@ fun HomeScreen(
 
                 if (screen == "history" && shots.isNotEmpty()) {
                     item {
-                        Text("Estilo", style = MaterialTheme.typography.titleMedium)
+                        Text(strings.styleLabel, style = MaterialTheme.typography.titleMedium)
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
                                 selected = selectedStyle == null,
                                 onClick = { onSelectStyle(null) },
-                                label = { Text("Todos") }
+                                label = { Text(strings.filterAll) }
                             )
                             styleOptions.forEach { option ->
                                 FilterChip(
                                     selected = selectedStyle == option.lowercase(),
                                     onClick = { onSelectStyle(option.lowercase()) },
-                                    label = { Text(option.ifBlank { "Sin estilo" }) }
+                                    label = {
+                                        Text(
+                                            if (option.isBlank()) {
+                                                strings.filterNoStyle
+                                            } else {
+                                                strings.knownDrinkName(option)
+                                            }
+                                        )
+                                    }
                                 )
                             }
                         }
-                        Text("${filteredShots.size} de ${shots.size} shots")
+                        Text(strings.shotsFilterCount(filteredShots.size, shots.size))
                     }
                     if (filteredShots.isEmpty()) {
                         item {
-                            Text("No hay shots con este estilo.")
+                            Text(strings.noShotsWithStyle)
                         }
                     }
                 }
@@ -215,7 +224,7 @@ fun HomeScreen(
                 if (shots.isEmpty()) {
                     item {
                         Text(
-                            "Todavía no hay shots. Registrá tu receta y empezá a encontrar tu punto ideal."
+                            strings.homeNoShotsYet
                         )
                     }
                 }

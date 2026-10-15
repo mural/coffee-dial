@@ -24,24 +24,25 @@ import com.coffeedial.domain.TasteProfile
 import com.coffeedial.ui.CoffeeTextButton as TextButton
 import kotlin.math.roundToInt
 
-internal fun TasteImpression.label(): String = when (this) {
-    TasteImpression.TOO_SOUR -> "Demasiado ácido"
-    TasteImpression.TOO_BITTER -> "Demasiado amargo"
-    TasteImpression.WEAK -> "Débil"
-    TasteImpression.BALANCED -> "Equilibrado"
-    TasteImpression.TOO_STRONG -> "Demasiado intenso"
+internal fun TasteImpression.label(strings: AppStrings): String = when (this) {
+    TasteImpression.TOO_SOUR -> strings.impressionTooSour
+    TasteImpression.TOO_BITTER -> strings.impressionTooBitter
+    TasteImpression.WEAK -> strings.impressionWeak
+    TasteImpression.BALANCED -> strings.impressionBalanced
+    TasteImpression.TOO_STRONG -> strings.impressionTooStrong
 }
 
 @Composable
 fun TasteProfileEditor(value: TasteProfile?, enabled: Boolean, onChange: (TasteProfile?) -> Unit) {
+    val strings = LocalStrings.current
     val profile = value ?: TasteProfile()
     fun update(next: TasteProfile) {
         onChange(next.takeUnless { it.isEmpty() })
     }
     CoffeeSection {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Perfil de sabor", style = MaterialTheme.typography.titleMedium)
-            Text("Opcional · ¿Cómo lo sentiste?", style = MaterialTheme.typography.bodyMedium)
+            Text(strings.flavorProfile, style = MaterialTheme.typography.titleMedium)
+            Text(strings.tasteOptionalNote, style = MaterialTheme.typography.bodyMedium)
             Column(Modifier.selectableGroup()) {
                 TasteImpression.entries.forEach { impression ->
                     Row(
@@ -59,26 +60,26 @@ fun TasteProfileEditor(value: TasteProfile?, enabled: Boolean, onChange: (TasteP
                             onClick = null,
                             enabled = enabled
                         )
-                        Text(impression.label())
+                        Text(impression.label(strings))
                     }
                 }
             }
             if (profile.impression != null) {
                 TextButton(enabled = enabled, onClick = {
                     update(profile.copy(impression = null))
-                }) { Text("Quitar valoración de sabor") }
+                }) { Text(strings.removeTasteRating) }
             }
-            TasteSlider("Cuerpo", "Ligero", "Con mucho cuerpo", profile.body, enabled) {
+            TasteSlider(strings.body, strings.bodyLight, strings.bodyFull, profile.body, enabled) {
                 update(profile.copy(body = it))
             }
-            TasteSlider("Acidez", "Baja", "Alta", profile.acidity, enabled) {
+            TasteSlider(strings.acidity, strings.levelLow, strings.levelHigh, profile.acidity, enabled) {
                 update(profile.copy(acidity = it))
             }
-            TasteSlider("Amargor", "Bajo", "Alto", profile.bitterness, enabled) {
+            TasteSlider(strings.bitterness, strings.levelLowMasculine, strings.levelHighMasculine, profile.bitterness, enabled) {
                 update(profile.copy(bitterness = it))
             }
             Text(
-                "1 a 5 · Mové solo los controles que quieras registrar.",
+                strings.tasteScaleNote,
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -94,6 +95,7 @@ private fun TasteSlider(
     enabled: Boolean,
     onChange: (Int?) -> Unit
 ) {
+    val strings = LocalStrings.current
     Column {
         Row(
             Modifier.fillMaxWidth(),
@@ -103,18 +105,14 @@ private fun TasteSlider(
             Text(
                 "$title · ${value?.let {
                     "$it/5"
-                } ?: "Sin registrar"}",
+                } ?: strings.notRecorded}",
                 style = MaterialTheme.typography.titleSmall
             )
-            if (value ==
-                null
-            ) {
-                TextButton(enabled = enabled, onClick = { onChange(3) }) { Text("Registrar") }
+            if (value == null) {
+                TextButton(enabled = enabled, onClick = { onChange(3) }) { Text(strings.actionRegister) }
             }
-            if (value !=
-                null
-            ) {
-                TextButton(enabled = enabled, onClick = { onChange(null) }) { Text("Quitar") }
+            if (value != null) {
+                TextButton(enabled = enabled, onClick = { onChange(null) }) { Text(strings.actionRemove) }
             }
         }
         Slider(
@@ -125,7 +123,7 @@ private fun TasteSlider(
             enabled = enabled,
             modifier = Modifier.fillMaxWidth().semantics {
                 contentDescription = title
-                stateDescription = value?.let { "$it de 5" } ?: "Sin registrar"
+                stateDescription = value?.let { "$it / 5" } ?: strings.notRecorded
             }
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -137,12 +135,13 @@ private fun TasteSlider(
 
 @Composable
 fun TasteProfileSummary(profile: TasteProfile) {
+    val strings = LocalStrings.current
     if (profile.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Perfil de sabor", style = MaterialTheme.typography.titleMedium)
-        profile.impression?.let { Text(it.label()) }
-        profile.body?.let { Text("Cuerpo: $it/5") }
-        profile.acidity?.let { Text("Acidez: $it/5") }
-        profile.bitterness?.let { Text("Amargor: $it/5") }
+        Text(strings.flavorProfile, style = MaterialTheme.typography.titleMedium)
+        profile.impression?.let { Text(it.label(strings)) }
+        profile.body?.let { Text("${strings.body}: $it/5") }
+        profile.acidity?.let { Text("${strings.acidity}: $it/5") }
+        profile.bitterness?.let { Text("${strings.bitterness}: $it/5") }
     }
 }

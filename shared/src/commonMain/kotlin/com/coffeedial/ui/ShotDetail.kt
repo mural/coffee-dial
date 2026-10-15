@@ -66,6 +66,7 @@ fun ShotDetail(
     grinders: List<Grinder> = emptyList(),
     cups: List<Cup> = emptyList()
 ) {
+    val strings = LocalStrings.current
     var showConfirm by remember { mutableStateOf(false) }
     var enlarged by remember { mutableStateOf<BeanPhoto?>(null) }
     var copiedText by remember { mutableStateOf(false) }
@@ -113,35 +114,35 @@ fun ShotDetail(
                         )
                     }
                     Text(
-                        timestamp(shot.createdAt),
+                        timestamp(shot.createdAt, strings = strings),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (shot.dialIn?.favorite == true) {
-                        Text("Favorito", color = MaterialTheme.colorScheme.primary)
+                        Text(strings.favoriteLabel, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
         }
         shot.style?.takeIf { it.isNotBlank() }?.let { style ->
-            item { ReadOnlyChip(style) }
+            item { ReadOnlyChip(strings.knownDrinkName(style)) }
         }
         item {
             DrinkCupChart(shot.dose, shot.output, water, milk, cup?.capacity, shot.milkFoam)
         }
         item {
             DetailCard {
-                Text("Extracción", style = MaterialTheme.typography.titleMedium)
+                Text(strings.detailExtraction, style = MaterialTheme.typography.titleMedium)
                 MetricRow {
                     ShotMetric(
                         BeanIcon,
-                        "Dosis de entrada",
+                        strings.doseIn,
                         "${shot.dose.pretty()} g",
                         Modifier.weight(1f)
                     )
                     ShotMetric(
                         CoffeeCup,
-                        "Output",
+                        strings.outputField,
                         "${shot.output.pretty()} g",
                         Modifier.weight(1f)
                     )
@@ -151,7 +152,7 @@ fun ShotDetail(
                         if (shot.extraWater != null) {
                             ShotMetric(
                                 WaterIcon,
-                                "Agua extra",
+                                strings.addedWater,
                                 "${shot.extraWater.pretty()} ml",
                                 Modifier.weight(1f)
                             )
@@ -159,7 +160,7 @@ fun ShotDetail(
                         if (shot.milk != null) {
                             ShotMetric(
                                 MilkIcon,
-                                "Leche",
+                                strings.milk,
                                 "${shot.milk.pretty()} ml",
                                 Modifier.weight(1f)
                             )
@@ -169,13 +170,13 @@ fun ShotDetail(
                 MetricRow {
                     ShotMetric(
                         MugIcon,
-                        "Total",
+                        strings.totalLabel,
                         "≈ ${drinkTotal(shot.output, water, milk).pretty()}",
                         Modifier.weight(1f)
                     )
                     ShotMetric(
                         TimerIcon,
-                        "Tiempo",
+                        strings.time,
                         "${shot.seconds.pretty()} s",
                         Modifier.weight(1f)
                     )
@@ -184,17 +185,18 @@ fun ShotDetail(
                     val extraction = (shot.seconds - drop).coerceAtLeast(0.0)
                     ShotMetric(
                         TimerIcon,
-                        "Fase de extracción",
-                        "Pre-infusión: ${drop.pretty()} s · Extracción: ${extraction.pretty()} s",
+                        strings.extractionPhase,
+                        strings.preInfusion(drop.pretty(), extraction.pretty()),
                         Modifier.fillMaxWidth()
                     )
                 }
                 Text(
-                    "Ratio output 1:${shot.ratio.pretty()} · ${extractionStyle(shot.ratio)}",
+                    "Ratio ${strings.yield.lowercase()} 1:${shot.ratio.pretty()} · " +
+                        extractionStyle(shot.ratio, strings),
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Text(
-                    "El agua y la leche no cambian el ratio de extracción.",
+                    strings.waterMilkDoNotChangeRatio,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -202,44 +204,51 @@ fun ShotDetail(
         }
         item {
             DetailCard {
-                Text("Molienda", style = MaterialTheme.typography.titleMedium)
+                Text(strings.grind, style = MaterialTheme.typography.titleMedium)
+                val grindCanonical = grindLevels.firstOrNull { canonical ->
+                    canonical.equals(shot.grind.trim(), ignoreCase = true) ||
+                        strings.grindLevelLabel(canonical)
+                            .equals(shot.grind.trim(), ignoreCase = true)
+                }
                 Text(
-                    shot.grind,
+                    grindCanonical?.let { strings.grindLevelLabel(it) } ?: shot.grind,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                grindLevels.firstOrNull { it.equals(shot.grind.trim(), ignoreCase = true) }
-                    ?.let {
-                        Text(
-                            "Ajuste del molino · $it",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                grindCanonical?.let {
+                    Text(
+                        strings.grindAdjustment(strings.grindLevelLabel(it)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 shot.temperature?.let {
-                    LabeledValue("Temperatura · °C", "${it.pretty()} °C")
+                    LabeledValue(strings.temperatureC, "${it.pretty()} °C")
                 }
             }
         }
         if (machineName(shot) != null || grinderName != null || cupName(shot) != null) {
             item {
                 DetailCard {
-                    Text("Equipo", style = MaterialTheme.typography.titleMedium)
+                    Text(strings.navEquipment, style = MaterialTheme.typography.titleMedium)
                     machineName(shot)?.let { name ->
                         LabeledValue(
-                            "Máquina",
+                            strings.machine,
                             name,
                             listOfNotNull(
-                                machine?.type?.takeIf { it.isNotBlank() },
+                                machine?.type?.takeIf { it.isNotBlank() }
+                                    ?.let { strings.machineTypeLabel(it) },
                                 machine?.year?.takeIf { it.isNotBlank() }
                             ).joinToString(" · ")
                         )
                     }
                     grinderName?.let { name ->
                         LabeledValue(
-                            "Molinillo",
+                            strings.grinder,
                             name,
-                            grinder?.type?.takeIf { it.isNotBlank() }.orEmpty()
+                            grinder?.type?.takeIf { it.isNotBlank() }
+                                ?.let { strings.grinderTypeLabel(it) }
+                                .orEmpty()
                         )
                     }
                     cupName(shot)?.let { name ->
@@ -248,7 +257,7 @@ fun ShotDetail(
                             cup?.capacity?.let { "${it.pretty()} cm³" }
                         ).joinToString(" · ")
                         LabeledValue(
-                            "Taza",
+                            strings.cup,
                             name,
                             cupDetails
                         )
@@ -258,12 +267,12 @@ fun ShotDetail(
         }
         item {
             DetailCard {
-                Text("¿Qué tal salió?", style = MaterialTheme.typography.titleMedium)
+                Text(strings.rating, style = MaterialTheme.typography.titleMedium)
                 CoffeeRating(shot.rating)
                 shot.taste?.let { TasteProfileSummary(it) }
-                Text("Notas", style = MaterialTheme.typography.titleSmall)
+                Text(strings.notes, style = MaterialTheme.typography.titleSmall)
                 Text(
-                    shot.notes.ifBlank { "Sin notas" },
+                    shot.notes.ifBlank { strings.notRecorded },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (shot.notes.isBlank()) {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -277,18 +286,18 @@ fun ShotDetail(
             item {
                 DetailCard {
                     Text(
-                        "Contexto para ajustar espresso",
+                        strings.dialContext,
                         style = MaterialTheme.typography.titleMedium
                     )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        dial.method?.let { ReadOnlyChip("Preparación · ${it.label()}") }
-                        dial.roast?.let { ReadOnlyChip("Tueste · ${it.label()}") }
-                        dial.goal?.let { ReadOnlyChip(it.label()) }
-                        dial.tasteBasis?.let { ReadOnlyChip(it.label()) }
+                        dial.method?.let { ReadOnlyChip(strings.prepLabel(it.label(strings))) }
+                        dial.roast?.let { ReadOnlyChip(strings.roastLabel(it.label(strings))) }
+                        dial.goal?.let { ReadOnlyChip(it.label(strings)) }
+                        dial.tasteBasis?.let { ReadOnlyChip(it.label(strings)) }
                     }
                     if (dial.previousShotId != null) {
                         Text(
-                            "Nuevo intento vinculado a una extracción anterior.",
+                            strings.linkedAttempt,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -300,11 +309,13 @@ fun ShotDetail(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                error?.let {
+                    Text(strings.userMessage(it), color = MaterialTheme.colorScheme.error)
+                }
                 TextButton(
                     onClick = {
                         clipboardManager.setText(
-                            androidx.compose.ui.text.AnnotatedString(shotShareText(shot))
+                            androidx.compose.ui.text.AnnotatedString(shotShareText(shot, strings))
                         )
                         copiedText = true
                     },
@@ -312,7 +323,7 @@ fun ShotDetail(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        if (copiedText) "¡Receta copiada al portapapeles! 📋" else "Copiar receta / resumen"
+                        if (copiedText) strings.recipeCopied else strings.copyRecipe
                     )
                 }
                 onCompare?.let {
@@ -321,7 +332,7 @@ fun ShotDetail(
                         enabled = !saving,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Comparar con otros intentos")
+                        Text(strings.compareWithOthers)
                     }
                 }
                 onSaveRecipe?.let {
@@ -330,7 +341,7 @@ fun ShotDetail(
                         enabled = !saving,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Guardar como receta")
+                        Text(strings.saveAsRecipe)
                     }
                 }
                 onDialIn?.let {
@@ -339,7 +350,7 @@ fun ShotDetail(
                         enabled = !saving,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Ajustar próxima extracción")
+                        Text(strings.adjustNextExtraction)
                     }
                 }
                 onFavorite?.let {
@@ -350,18 +361,18 @@ fun ShotDetail(
                     ) {
                         Text(
                             if (shot.dialIn?.favorite == true) {
-                                "Quitar favorito"
+                                strings.removeFavorite
                             } else {
-                                "Marcar favorito"
+                                strings.markFavorite
                             }
                         )
                     }
                 }
                 Button(onClick = onEdit, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                    Text("Editar shot")
+                    Text(strings.editShot)
                 }
                 if (showConfirm) {
-                    Text("¿Querés eliminar este shot?", color = MaterialTheme.colorScheme.error)
+                    Text(strings.deleteShotQuestion, color = MaterialTheme.colorScheme.error)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = onDelete,
@@ -370,12 +381,12 @@ fun ShotDetail(
                                 containerColor = MaterialTheme.colorScheme.error
                             ),
                             modifier = Modifier.weight(1f)
-                        ) { Text("Sí, eliminar") }
+                        ) { Text(strings.yesDelete) }
                         OutlinedButton(
                             onClick = { showConfirm = false },
                             enabled = !saving,
                             modifier = Modifier.weight(1f)
-                        ) { Text("Cancelar") }
+                        ) { Text(strings.actionCancel) }
                     }
                 } else {
                     TextButton(
@@ -383,7 +394,7 @@ fun ShotDetail(
                         enabled = !saving,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Eliminar shot", color = MaterialTheme.colorScheme.error)
+                        Text(strings.deleteShot, color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -394,7 +405,7 @@ fun ShotDetail(
             Card {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     BeanThumbnail(image, 280.dp)
-                    TextButton(onClick = { enlarged = null }) { Text("Cerrar") }
+                    TextButton(onClick = { enlarged = null }) { Text(strings.actionClose) }
                 }
             }
         }
@@ -473,6 +484,7 @@ private fun ReadOnlyChip(text: String) {
 
 @Composable
 private fun BeanThumbnail(photo: BeanPhoto, size: Dp, onClick: (() -> Unit)? = null) {
+    val strings = LocalStrings.current
     val bitmap = remember(photo.id, photo.jpeg) {
         runCatching {
             photo.validate()
@@ -481,7 +493,7 @@ private fun BeanThumbnail(photo: BeanPhoto, size: Dp, onClick: (() -> Unit)? = n
     } ?: return
     Image(
         bitmap,
-        contentDescription = "Foto del café",
+        contentDescription = strings.beanPhoto,
         modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).then(
             if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
         ),
@@ -521,7 +533,7 @@ private fun ShotDetailPreview() {
     }
 }
 
-internal fun shotShareText(shot: Shot): String = buildString {
+internal fun shotShareText(shot: Shot, strings: AppStrings = SpanishStrings): String = buildString {
     append("☕ ").append(shot.bean.name)
     if (shot.bean.roaster.isNotBlank()) append(" (").append(shot.bean.roaster).append(")")
     val originProcess = listOfNotNull(
@@ -537,16 +549,17 @@ internal fun shotShareText(shot: Shot): String = buildString {
     ).append(
         " g in -> "
     ).append(shot.output.pretty()).append(" g out (1:").append(shot.ratio.pretty()).append(")")
-    append(" en ").append(shot.seconds.pretty()).append("s")
+    append(" in ").append(shot.seconds.pretty()).append("s")
     shot.firstDrop?.takeIf {
         it > 0
-    }?.let { append(" (Pre-infusión: ").append(it.pretty()).append("s)") }
+    }?.let { append(" (").append(strings.preinfusionText(it.pretty(), (shot.seconds - it).pretty())).append(")") }
     append("\n")
-    append("⚙️ Molienda: ").append(shot.grind)
+    append("⚙️ ").append(strings.grind).append(": ")
+        .append(strings.grindLevelLabel(shot.grind))
     val machineStr = listOfNotNull(shot.machine, shot.grinder, shot.cup).joinToString(" · ")
     if (machineStr.isNotBlank()) append(" · ").append(machineStr)
     append("\n")
-    append("⭐ Rating: ").append(shot.rating).append("/5")
-    shot.taste?.impression?.let { append(" (").append(it.label()).append(")") }
+    append("⭐ ").append(strings.rating).append(": ").append(shot.rating).append("/5")
+    shot.taste?.impression?.let { append(" (").append(it.label(strings)).append(")") }
     if (shot.notes.isNotBlank()) append("\n📝 ").append(shot.notes)
 }

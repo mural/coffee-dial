@@ -23,21 +23,48 @@ internal val drinkRatioTips = listOf(
 )
 
 /** Same buckets as the extraction cards: the boundary belongs to the shorter style. */
-internal fun extractionStyle(ratio: Double): String = when {
-    !ratio.isFinite() || ratio <= 1.5 -> "Ristretto"
-    ratio <= 2.5 -> "Espresso"
-    ratio <= 3.0 -> "Espresso largo"
-    else -> "Lungo"
+internal fun extractionStyle(ratio: Double, strings: AppStrings = SpanishStrings): String {
+    val name = when {
+        !ratio.isFinite() || ratio <= 1.5 -> "Ristretto"
+        ratio <= 2.5 -> "Espresso"
+        ratio <= 3.0 -> "Espresso largo"
+        else -> "Lungo"
+    }
+    return strings.knownDrinkName(name)
 }
 
-internal fun similarDrink(water: Double, milk: Double): String {
-    if (water == 0.0 && milk == 0.0) return "Sin agregados"
-    if (water == 0.0 && milk in 0.25..0.5) return "Macchiato"
-    val candidate = drinkRatioTips.filter {
-        (it.water > 0) == (water > 0) && (it.milk > 0) == (milk > 0)
-    }.minByOrNull { abs(it.water - water) + abs(it.milk - milk) }
-    return candidate?.takeIf {
-        abs(it.water - water) <= maxOf(0.1, it.water * 0.25) &&
-            abs(it.milk - milk) <= maxOf(0.1, it.milk * 0.25)
-    }?.name ?: "Mezcla personal"
+internal fun similarDrink(
+    water: Double,
+    milk: Double,
+    strings: AppStrings = SpanishStrings
+): String {
+    val name = when {
+        water == 0.0 && milk == 0.0 -> "Sin agregados"
+        water == 0.0 && milk in 0.25..0.5 -> "Macchiato"
+        else -> {
+            val candidate = drinkRatioTips.filter {
+                (it.water > 0) == (water > 0) && (it.milk > 0) == (milk > 0)
+            }.minByOrNull { abs(it.water - water) + abs(it.milk - milk) }
+            candidate?.takeIf {
+                abs(it.water - water) <= maxOf(0.1, it.water * 0.25) &&
+                    abs(it.milk - milk) <= maxOf(0.1, it.milk * 0.25)
+            }?.name ?: "Mezcla personal"
+        }
+    }
+    return strings.knownDrinkName(name)
+}
+
+/** Keeps the stored style id when the field shows its translated name. */
+internal fun styleToStore(typed: String, strings: AppStrings = SpanishStrings): String {
+    val known = listOf(
+        "Ristretto",
+        "Espresso",
+        "Espresso largo",
+        "Lungo",
+        "Sin agregados",
+        "Mezcla personal"
+    ) + drinkRatioTips.map { it.name }
+    return known.firstOrNull { name ->
+        name == typed || strings.knownDrinkName(name) == typed
+    } ?: typed
 }

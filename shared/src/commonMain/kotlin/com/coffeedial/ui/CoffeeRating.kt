@@ -43,9 +43,10 @@ internal val CoffeeCup = ImageVector.Builder("Coffee", 24.dp, 24.dp, 24f, 24f).a
 
 @Composable
 internal fun CoffeeRating(rating: Int, onChange: ((Int) -> Unit)? = null, enabled: Boolean = true) {
+    val strings = LocalStrings.current
     val modifier = if (onChange == null) {
         Modifier.clearAndSetSemantics {
-            contentDescription = "Puntuación: $rating de 5"
+            contentDescription = strings.ratingOfFive(rating)
         }
     } else {
         Modifier
@@ -64,7 +65,7 @@ internal fun CoffeeRating(rating: Int, onChange: ((Int) -> Unit)? = null, enable
                     onClick = { onChange(value) },
                     enabled = enabled,
                     modifier = Modifier.semantics {
-                        contentDescription = "Puntuar con $value de 5 cafés"
+                        contentDescription = strings.rateWithCups(value)
                         selected = value == rating
                     }
                 ) {

@@ -7,33 +7,15 @@ import kotlinx.serialization.json.jsonPrimitive
 class SyncHttpException(val status: Int, val code: String?) :
     Exception(
         when {
-            status == 401 ->
-                "Necesitamos renovar tu acceso. " +
-                    "Entrá a Cuenta y continuá con tu proveedor."
-
-            status == 403 -> "Esta cuenta no tiene acceso a la sincronización."
-
-            status == 409 ->
-                "Otro dispositivo guardó cambios. " +
-                    "Volvé a sincronizar; tus datos se conservan."
-
-            status == 426 || code == "backup_upgrade_required" ->
-                "Actualizá esta app: la nube contiene datos de una versión más nueva."
-
-            status == 413 ->
-                "El historial supera el límite de sync. " +
-                    "Exportá un backup para conservarlo."
-
-            status == 422 -> "No se pudieron validar los datos ($code). Se conservan sin cambios."
-
-            status == 429 ->
-                "Hubo demasiados intentos. Esperá un momento y volvé a sincronizar."
-
-            status >= 500 ->
-                "El servicio no está disponible ahora. " +
-                    "Reintentá; no hace falta cerrar sesión."
-
-            else -> "No se pudo completar el sync ($status${code?.let { ": $it" }.orEmpty()})."
+            status == 401 -> "i18n.renew"
+            status == 403 -> "i18n.forbidden"
+            status == 409 -> "i18n.stale"
+            status == 426 || code == "backup_upgrade_required" -> "i18n.upgrade_app"
+            status == 413 -> "i18n.too_big"
+            status == 422 -> "i18n.invalid:${code.orEmpty()}"
+            status == 429 -> "i18n.rate"
+            status >= 500 -> "i18n.unavailable"
+            else -> "i18n.sync_status:$status${code?.let { ":$it" }.orEmpty()}"
         }
     )
 

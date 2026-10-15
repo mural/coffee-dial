@@ -42,8 +42,8 @@ struct CoffeeDialApp: App {
                     defaultFilename: backup.filename
                 ) { result in
                     switch result {
-                    case .success: backup.files.finish(result: "Backup exportado.")
-                    case .failure: backup.files.finish(result: "No se pudo guardar el backup.")
+                    case .success: backup.files.finish(result: "i18n.backup_exported")
+                    case .failure: backup.files.finish(result: "i18n.could_not_save_file")
                     }
                     backup.document = nil
                 }
@@ -91,7 +91,7 @@ private final class BackupCoordinator: ObservableObject {
 
     func read(_ result: Result<URL, Error>) {
         guard case .success(let url) = result else {
-            files.finish(result: "No se pudo abrir el archivo.")
+            files.finish(result: "i18n.could_not_open_files")
             return
         }
         reading = true
@@ -118,7 +118,7 @@ private final class BackupCoordinator: ObservableObject {
             } catch {
                 DispatchQueue.main.async {
                     self?.reading = false
-                    self?.files.finish(result: "No se pudo leer el archivo. Elegí un backup UTF-8 de hasta 10 MB.")
+                    self?.files.finish(result: "i18n.could_not_read_backup")
                 }
             }
         }
@@ -289,7 +289,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         generation += 1
         let attempt = generation
         guard googleConfigured else {
-            repository.failed(message: "Google todavía no está configurado para esta versión de Coffee Dial.")
+            repository.failed(message: "i18n.google_not_configured")
             return
         }
         guard let presenter else { repository.cancelled(); return }
@@ -297,7 +297,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
             guard let self, self.generation == attempt else { return }
             if let user = result?.user { self.acceptGoogle(user) }
             else if (error as NSError?)?.code == GIDSignInError.canceled.rawValue { self.repository.cancelled() }
-            else { self.repository.failed(message: "No se pudo iniciar sesión con Google. Intentá nuevamente.") }
+            else { self.repository.failed(message: "i18n.could_not_sign_in_google") }
         }
     }
 
@@ -316,7 +316,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         generation += 1
         appleGeneration = generation
         guard appleConfigured else {
-            repository.failed(message: "Apple todavía no está configurado para esta versión de Coffee Dial.")
+            repository.failed(message: "i18n.apple_not_configured")
             return
         }
         guard window != nil else { repository.cancelled(); return }
@@ -336,7 +336,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         guard self.controller === controller, generation == appleGeneration else { return }
         defer { self.controller = nil }
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            repository.failed(message: "Apple no devolvió una credencial válida.")
+            repository.failed(message: "i18n.apple_invalid_credential")
             return
         }
         let name = credential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
@@ -367,7 +367,7 @@ private final class AccountCoordinator: NSObject, ObservableObject,
         guard self.controller === controller, generation == appleGeneration else { return }
         self.controller = nil
         if (error as NSError).code == ASAuthorizationError.canceled.rawValue { repository.cancelled() }
-        else { repository.failed(message: "No se pudo iniciar sesión con Apple. Revisá la cuenta del dispositivo y volvé a intentar.") }
+        else { repository.failed(message: "i18n.could_not_sign_in_apple") }
     }
 }
 
@@ -417,7 +417,7 @@ private struct BeanPhotoPicker: UIViewControllerRepresentable {
                     }
                     throw CocoaError(.fileReadTooLarge)
                 } catch {
-                    DispatchQueue.main.async { files.photos.finish(jpeg: "", message: "No se pudo preparar la foto. Elegí otra imagen.") }
+                    DispatchQueue.main.async { files.photos.finish(jpeg: "", message: "i18n.could_not_prepare_photo") }
                 }
             }
         }

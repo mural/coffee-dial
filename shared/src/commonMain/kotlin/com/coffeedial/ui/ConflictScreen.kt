@@ -25,13 +25,11 @@ fun ConflictScreen(
     busy: Boolean,
     onResolve: (RecordConflict, Boolean) -> Unit
 ) {
+    val strings = LocalStrings.current
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Text("Conflictos", style = MaterialTheme.typography.headlineSmall)
-            Text(
-                "Dos dispositivos cambiaron el mismo registro. Las dos copias siguen guardadas " +
-                    "hasta que elijas una. La otra no se borra en silencio."
-            )
+            Text(strings.conflictsTitle, style = MaterialTheme.typography.headlineSmall)
+            Text(strings.conflictsBody)
         }
         items(state.conflicts, key = { "${it.kind}:${it.id}" }) { conflict ->
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -39,25 +37,31 @@ fun ConflictScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(conflictTitle(conflict), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        strings.conflictLabel(conflictTitle(conflict)),
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     conflictFields(conflict).forEach { field ->
-                        Text(field.label, style = MaterialTheme.typography.labelLarge)
-                        Text("Este dispositivo: ${field.local}")
-                        Text("El otro dispositivo: ${field.remote}")
+                        Text(
+                            strings.conflictLabel(field.label),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Text(strings.thisDeviceValue(strings.conflictLabel(field.local)))
+                        Text(strings.otherDeviceValue(strings.conflictLabel(field.remote)))
                     }
                     Button(
                         onClick = { onResolve(conflict, true) },
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Quedarme con esta copia")
+                        Text(strings.keepThisCopy)
                     }
                     OutlinedButton(
                         onClick = { onResolve(conflict, false) },
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Quedarme con la otra")
+                        Text(strings.keepOtherCopy)
                     }
                 }
             }

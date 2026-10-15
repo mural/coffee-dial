@@ -17,7 +17,7 @@ class PhotoPicker {
         busy = true
         error = null
         completion = done
-        action?.invoke() ?: finish("", "No se pudo abrir el selector de fotos.")
+        action?.invoke() ?: finish("", "i18n.could_not_open_photos")
     }
     fun finish(jpeg: String, message: String?) {
         val done = completion
@@ -32,7 +32,7 @@ class PhotoPicker {
             } catch (
                 _: Exception
             ) {
-                error = "No se pudo preparar la foto. Elegí otra imagen."
+                error = "i18n.could_not_prepare_photo"
             }
         }
     }

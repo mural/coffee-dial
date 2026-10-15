@@ -1,5 +1,7 @@
 package com.coffeedial.domain
 
+import com.coffeedial.ui.AppStrings
+import com.coffeedial.ui.SpanishStrings
 import kotlin.math.abs
 import kotlin.math.round
 
@@ -22,43 +24,48 @@ fun Shot.toDraft(): ShotDraft = ShotDraft(
     grinder = grinder.orEmpty(), grinderId = grinderId, milkFoam = milkFoam
 )
 
-fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialInAdvice {
+fun dialInAdvice(
+    shot: Shot,
+    context: DialInContext,
+    history: List<Shot>,
+    strings: AppStrings = SpanishStrings
+): DialInAdvice {
     if (!context.isValid()) {
         return DialInAdvice(
-            "Revisá el contexto",
-            "El nombre del molinillo admite hasta 200 caracteres."
+            strings.adviceCheckContext,
+            strings.adviceCheckContextBody
         )
     }
     if (context.method ==
         null
     ) {
-        return DialInAdvice("Elegí la preparación", "Confirmá cómo preparaste este café.")
+        return DialInAdvice(strings.advicePickMethod, strings.advicePickMethodBody)
     }
     if (context.method !=
         BrewMethod.ESPRESSO
     ) {
         return DialInAdvice(
-            "Por ahora, espresso",
-            "Este asistente ajusta espresso. No aplica estas recetas a filtro o moka."
+            strings.adviceEspressoOnly,
+            strings.adviceEspressoOnlyBody
         )
     }
     if (context.roast ==
         null
     ) {
-        return DialInAdvice("Indicá el tueste", "Si no lo sabés, elegí Desconocido.")
+        return DialInAdvice(strings.advicePickRoast, strings.advicePickRoastBody)
     }
     if (context.goal ==
         null
     ) {
         return DialInAdvice(
-            "Elegí tu objetivo",
-            "Podés buscar más intensidad, más suavidad o mantener el equilibrio."
+            strings.advicePickGoal,
+            strings.advicePickGoalBody
         )
     }
     val impression = shot.taste?.impression
         ?: return DialInAdvice(
-            "Primero, registrá el sabor",
-            "Editá el shot y elegí cómo salió en Perfil de sabor. El tiempo y el ratio solos no alcanzan."
+            strings.adviceLogTaste,
+            strings.adviceLogTasteBody
         )
     val additions = (shot.milk ?: 0.0) > 0 || (shot.extraWater ?: 0.0) > 0 ||
         shot.style?.lowercase() in setOf(
@@ -69,16 +76,16 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
         context.tasteBasis == null
     ) {
         return DialInAdvice(
-            "¿Qué probaste?",
-            "Separá el sabor del espresso solo del de la bebida con agua o leche."
+            strings.adviceWhatTasted,
+            strings.adviceWhatTastedBody
         )
     }
     if (additions && context.tasteBasis == TasteBasis.FINISHED_DRINK && shot.milk == null &&
         shot.extraWater == null
     ) {
         return DialInAdvice(
-            "Registrá agua y leche",
-            "Completá las cantidades agregadas antes de ajustar la bebida final."
+            strings.adviceLogAdditions,
+            strings.adviceLogAdditionsBody
         )
     }
     val basis = context.tasteBasis ?: TasteBasis.ESPRESSO
@@ -149,13 +156,13 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             0.1
         ) {
             return advice(
-                "Repetí y compará",
-                "La receta ya está en el límite de este ajuste. Repetí y evaluá el sabor antes de cambiar otra variable."
+                strings.adviceRepeatCompare,
+                strings.adviceAtLimit
             )
         }
         return advice(
-            "Probar ${rounded(output)} g de espresso",
-            reason + " Mantené dosis, molienda y temperatura; medí el nuevo tiempo.",
+            strings.adviceTryYield(rounded(output)),
+            reason + " " + strings.adviceKeepDose,
             draft.copy(output = rounded(output))
         )
     }
@@ -163,8 +170,8 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
         (impression == TasteImpression.TOO_STRONG && context.goal == StrengthGoal.STRONGER)
     ) {
         return DialInAdvice(
-            "Revisá sabor y objetivo",
-            "La valoración y la intensidad buscada apuntan en direcciones opuestas. Confirmalas antes de cambiar la receta."
+            strings.adviceGoalClash,
+            strings.adviceGoalClashBody
         )
     }
     if (additions && basis == TasteBasis.FINISHED_DRINK) {
@@ -173,8 +180,8 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
         val decrease = impression == TasteImpression.WEAK || context.goal == StrengthGoal.STRONGER
         if (impression == TasteImpression.TOO_SOUR || impression == TasteImpression.TOO_BITTER) {
             return advice(
-                "Probá el espresso solo",
-                "El agua y la leche cambian la percepción. Repetí la receta y evaluá el espresso antes de agregarlos; no hay base para diagnosticar la extracción.",
+                strings.adviceEspressoAlone,
+                strings.adviceEspressoAloneBody,
                 draft.copy(dialIn = nextContext.copy(tasteBasis = TasteBasis.ESPRESSO))
             )
         }
@@ -187,13 +194,13 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
                 0.1
             ) {
                 return advice(
-                    "Repetí y compará",
-                    "La cantidad agregada está en el límite admitido. Probá el espresso solo antes de modificar la extracción."
+                    strings.adviceRepeatCompare,
+                    strings.adviceAdditionLimit
                 )
             }
             return advice(
-                "Probar ${rounded(target)} ml de ${if (water) "agua" else "leche"}",
-                "Para cambiar la intensidad de la bebida final, ajustá primero una sola adición. Conservá la receta del espresso.",
+                strings.adviceTryAddition(rounded(target), water),
+                strings.adviceOneAddition,
                 if (water) {
                     draft.copy(
                         extraWater = rounded(target)
@@ -204,45 +211,40 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             )
         }
         return advice(
-            "Conservá la receta",
-            "La bebida te resultó equilibrada. Repetila para comprobar consistencia y marcala como favorita si la preferís."
+            strings.adviceKeepRecipe,
+            strings.adviceBalancedDrink
         )
     }
     if ((shot.taste.acidity ?: 0) >= 4 && (shot.taste.bitterness ?: 0) >= 4) {
         return advice(
-            "Revisá la consistencia",
-            "Acidez y amargor altos pueden tener varias causas. Repetí con distribución pareja del café antes de cambiar la receta; no podemos concluir subextracción o sobreextracción."
+            strings.adviceCheckConsistency,
+            strings.adviceHighAcidityBitter
         )
     }
-    val roastNote = when (context.roast) {
-        RoastLevel.LIGHT -> "En tuestes claros puede haber acidez propia del café. "
-        RoastLevel.DARK -> "En tuestes oscuros puede haber amargor propio del tueste. "
-        RoastLevel.UNKNOWN -> "Sin conocer el tueste, este es un ensayo conservador. "
-        else -> ""
-    }
+    val roastNote = strings.roastNote(context.roast)
     if (impression == TasteImpression.TOO_SOUR) {
         if (shot.ratio >= 3.5 &&
             !grinderKnown
         ) {
             return DialInAdvice(
-                "Confirmá el molinillo",
-                "Con un yield largo y sabor ácido, conviene revisar distribución y molienda. Indicá tu molinillo antes de probar un ajuste."
+                strings.adviceConfirmGrinder,
+                strings.adviceLongSour
             )
         }
         if (shot.ratio >=
             3.5
         ) {
             return advice(
-                "Probar un ajuste apenas más fino",
+                strings.adviceSlightlyFiner,
                 roastNote +
-                    "Ya usás un yield largo. Si tu molinillo permite regularlo, cambiá un paso pequeño hacia fino y mantené dosis y yield. Registrá el ajuste real; no hay un número universal de clicks.",
+                    strings.adviceAlreadyLong,
                 draft.copy(grind = "")
             )
         }
         return yieldChange(
             shot.output * if (context.roast == RoastLevel.LIGHT) 1.15 else 1.1,
             roastNote +
-                "Como el sabor fue demasiado ácido, probá un poco más de yield. También puede bajar la intensidad: priorizá evaluar el sabor en este intento."
+                strings.adviceMoreYieldSour
         )
     }
     if (impression == TasteImpression.TOO_BITTER) {
@@ -250,24 +252,24 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             !grinderKnown
         ) {
             return DialInAdvice(
-                "Confirmá el molinillo",
-                "Con un yield ya corto, revisá molienda y distribución. Indicá tu molinillo antes de intentar cambiarlo."
+                strings.adviceConfirmGrinder,
+                strings.adviceShortBitter
             )
         }
         if (shot.ratio <=
             1.2
         ) {
             return advice(
-                "Probar un ajuste apenas más grueso",
+                strings.adviceSlightlyCoarser,
                 roastNote +
-                    "El yield ya es corto. Si podés regular la molienda, probá un paso pequeño hacia grueso manteniendo dosis y yield; compará el sabor.",
+                    strings.adviceAlreadyShort,
                 draft.copy(grind = "")
             )
         }
         return yieldChange(
             shot.output * if (context.roast == RoastLevel.DARK) 0.95 else 0.9,
             roastNote +
-                "Probá un yield algo menor y compará el amargor. Esto puede aumentar la concentración; no demuestra sobreextracción."
+                strings.adviceLessYieldBitter
         )
     }
     val stronger = impression == TasteImpression.WEAK || context.goal == StrengthGoal.STRONGER
@@ -291,9 +293,9 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             if (personal !=
                 null
             ) {
-                "Uso el ratio central de ${references.size} recetas comparables que preferiste como referencia, sin cambiar todo a la vez."
+                strings.advicePersonalStronger(references.size)
             } else {
-                "Para buscar más intensidad, probá menos yield con la misma dosis. Compará también si aparece acidez."
+                strings.adviceStrongerYield
             }
         )
     }
@@ -303,15 +305,15 @@ fun dialInAdvice(shot: Shot, context: DialInContext, history: List<Shot>): DialI
             if (personal !=
                 null
             ) {
-                "Tus recetas preferidas comparables sirven como referencia para un yield mayor."
+                strings.advicePersonalMilder
             } else {
-                "Para un espresso más suave, probá algo más de yield y compará si aumenta el amargor."
+                strings.adviceMilderYield
             }
         )
     }
     return advice(
-        "Conservá la receta",
-        "Lo registraste equilibrado y querés mantenerlo. Repetilo para comprobar consistencia y marcá tu preferido como favorito."
+        strings.adviceKeepRecipe,
+        strings.adviceKeepBalanced
     )
 }
 

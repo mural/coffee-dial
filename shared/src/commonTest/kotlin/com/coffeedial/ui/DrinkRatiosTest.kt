@@ -22,6 +22,12 @@ class DrinkRatiosTest {
         }
     }
 
+    @Test fun styleFieldKeepsTheStoredIdWhenTheLabelIsTranslated() {
+        assertEquals("Espresso largo", styleToStore("Long espresso", EnglishStrings))
+        assertEquals("Café con leche", styleToStore("Café con leche", EnglishStrings))
+        assertEquals("Casa", styleToStore("Casa", EnglishStrings))
+    }
+
     @Test fun extractionStyleKeepsTheBoundaryOnTheShorterCup() {
         assertEquals("Ristretto", extractionStyle(1.5))
         assertEquals("Espresso", extractionStyle(1.51))

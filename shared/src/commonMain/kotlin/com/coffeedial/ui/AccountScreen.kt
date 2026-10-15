@@ -29,6 +29,7 @@ import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
 import com.coffeedial.auth.InMemoryAuthRepository
 import com.coffeedial.auth.User
+import com.coffeedial.domain.AppLanguage
 import com.coffeedial.domain.ThemeMode
 import com.coffeedial.sync.SyncEngine
 import com.coffeedial.sync.SyncState
@@ -43,8 +44,11 @@ fun AccountScreen(
     onBackup: (() -> Unit)? = null,
     onConflicts: () -> Unit = {},
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    onThemeMode: (ThemeMode) -> Unit = {}
+    onThemeMode: (ThemeMode) -> Unit = {},
+    appLanguage: AppLanguage = AppLanguage.SYSTEM,
+    onAppLanguage: (AppLanguage) -> Unit = {}
 ) {
+    val strings = LocalStrings.current
     val state by authRepository.state.collectAsState()
     val scope = rememberCoroutineScope()
     val adminAllowed = remember(state) { mutableStateOf(false) }
@@ -69,12 +73,12 @@ fun AccountScreen(
         if (onBackup != null) {
             item {
                 CoffeeTextButton(onClick = onBackup) {
-                    Text("Backup: exportar / importar")
+                    Text(strings.backupExportImportText)
                 }
             }
         }
         item {
-            Text("Mi Cuenta", style = MaterialTheme.typography.headlineSmall)
+            Text(strings.myAccount, style = MaterialTheme.typography.headlineSmall)
         }
 
         when (val current = state) {
@@ -85,15 +89,17 @@ fun AccountScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("Acceso opcional", style = MaterialTheme.typography.titleMedium)
+                            Text(strings.optionalAccessTitle, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Tus cafés siguen guardados en este dispositivo. Iniciar sesión " +
-                                    "te permite sincronizar en la nube.",
+                                strings.optionalAccessDesc,
                                 style = MaterialTheme.typography.bodyMedium
                             )
 
                             if (current is AuthState.Error) {
-                                Text(current.message, color = MaterialTheme.colorScheme.error)
+                                Text(
+                                    strings.userMessage(current.message),
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             }
 
                             if (authRepository.isWebPlatform) {
@@ -103,7 +109,7 @@ fun AccountScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Continuar con Google")
+                                    Text(strings.signInGoogle)
                                 }
                             } else {
                                 Button(
@@ -112,14 +118,14 @@ fun AccountScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Continuar con Google")
+                                    Text(strings.signInGoogle)
                                 }
 
                                 if (authRepository.supportsBrowserSignIn) {
                                     OutlinedButton(onClick = {
                                         scope.launch { authRepository.signInWithBrowser() }
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("Continuar con Google en el navegador")
+                                        Text(strings.continueWithGoogleBrowser)
                                     }
                                 }
 
@@ -129,7 +135,7 @@ fun AccountScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Continuar con Apple")
+                                    Text(strings.signInApple)
                                 }
                             }
                         }
@@ -146,12 +152,12 @@ fun AccountScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             CircularProgressIndicator()
-                            Text("Iniciando sesión…", style = MaterialTheme.typography.titleMedium)
+                            Text(strings.signingInTitle, style = MaterialTheme.typography.titleMedium)
                             if (authRepository.supportsBrowserSignIn) {
                                 OutlinedButton(onClick = {
                                     scope.launch { authRepository.signOut() }
                                 }) {
-                                    Text("Cancelar")
+                                    Text(strings.actionCancel)
                                 }
                             }
                         }
@@ -164,7 +170,7 @@ fun AccountScreen(
                 if (adminAllowed.value) {
                     item {
                         OutlinedButton(onClick = onAdmin, modifier = Modifier.fillMaxWidth()) {
-                            Text("Panel Admin")
+                            Text(strings.adminPanelButton)
                         }
                     }
                 }
@@ -174,21 +180,21 @@ fun AccountScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text("Sesión Iniciada", style = MaterialTheme.typography.titleMedium)
+                            Text(strings.sessionStartedTitle, style = MaterialTheme.typography.titleMedium)
                             if (!user.displayName.isNullOrBlank()) {
                                 Text(
-                                    "Nombre: ${user.displayName}",
+                                    strings.userNameText(user.displayName),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
                             if (!user.email.isNullOrBlank()) {
                                 Text(
-                                    "Email: ${user.email}",
+                                    strings.userEmailText(user.email),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
                             Text(
-                                "Proveedor: ${if (user.provider == AuthProvider.GOOGLE) "Google" else "Apple"}",
+                                strings.userProviderText(if (user.provider == AuthProvider.GOOGLE) "Google" else "Apple"),
                                 style = MaterialTheme.typography.bodySmall
                             )
 
@@ -201,7 +207,7 @@ fun AccountScreen(
                                 ),
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                             ) {
-                                Text("Cerrar sesión")
+                                Text(strings.signOut)
                             }
                         }
                     }
@@ -218,20 +224,18 @@ fun AccountScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                "Sincronización en la Nube",
+                                strings.cloudSyncTitle,
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                "Sincronizá con Google sin reemplazar cambios pendientes. " +
-                                    "Recuperar combina los datos; si hay un conflicto, ambas " +
-                                    "versiones se conservan.",
+                                strings.cloudSyncDesc,
                                 style = MaterialTheme.typography.bodyMedium
                             )
 
                             when (val sync = syncState) {
                                 is SyncState.Idle -> {
                                     Text(
-                                        "Estado: Listo para sincronizar",
+                                        strings.syncReadyState,
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
@@ -243,7 +247,7 @@ fun AccountScreen(
                                     ) {
                                         CircularProgressIndicator()
                                         Text(
-                                            "Sincronizando con la nube…",
+                                            strings.syncingState,
                                             style = MaterialTheme.typography.bodyMedium
                                         )
                                     }
@@ -251,8 +255,7 @@ fun AccountScreen(
 
                                 is SyncState.Success -> {
                                     Text(
-                                        "Última sincronización exitosa (${sync.shotsCount} " +
-                                            "shots sincronizados)",
+                                        strings.syncSuccessState(sync.shotsCount),
                                         color = MaterialTheme.colorScheme.primary,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
@@ -260,7 +263,7 @@ fun AccountScreen(
 
                                 is SyncState.Error -> {
                                     Text(
-                                        "Error al sincronizar: ${sync.message}",
+                                        strings.syncErrorState(sync.message),
                                         color = MaterialTheme.colorScheme.error,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
@@ -268,9 +271,7 @@ fun AccountScreen(
 
                                 is SyncState.Conflict -> {
                                     Text(
-                                        "Hay ${sync.conflicts.size} registros con cambios " +
-                                            "distintos. Elegí qué copia conservar. " +
-                                            "No se reemplazó ninguna.",
+                                        strings.syncConflictState(sync.conflicts.size),
                                         color = MaterialTheme.colorScheme.error,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
@@ -278,7 +279,7 @@ fun AccountScreen(
                                         onClick = onConflicts,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Text("Revisar conflictos")
+                                        Text(strings.reviewConflictsButton)
                                     }
                                 }
                             }
@@ -296,9 +297,9 @@ fun AccountScreen(
                                 ) {
                                     Text(
                                         if (syncState is SyncState.Syncing) {
-                                            "Sincronizando…"
+                                            strings.syncingState
                                         } else {
-                                            "Sincronizar"
+                                            strings.syncNow
                                         }
                                     )
                                 }
@@ -310,7 +311,7 @@ fun AccountScreen(
                                     enabled = syncEngine != null && syncState !is SyncState.Syncing,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("Recuperar y combinar")
+                                    Text(strings.restoreAndMerge)
                                 }
                             }
 
@@ -321,7 +322,7 @@ fun AccountScreen(
                                 enabled = syncEngine != null && syncState !is SyncState.Syncing,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Importar y sobreescribir desde la nube")
+                                Text(strings.importAndOverwriteCloudButton)
                             }
 
                             if (syncState is SyncState.Error) {
@@ -332,7 +333,7 @@ fun AccountScreen(
                                     enabled = syncEngine != null && syncState !is SyncState.Syncing,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Sobreescribir datos en la nube")
+                                    Text(strings.overwriteCloudButton)
                                 }
                             }
                         }
@@ -341,38 +342,72 @@ fun AccountScreen(
             }
         }
         item { AppearanceChoices(themeMode, onThemeMode) }
+        item { LanguageChoices(appLanguage, onAppLanguage) }
     }
 }
 
 @Composable
 private fun AppearanceChoices(themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
+    val strings = LocalStrings.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Apariencia", style = MaterialTheme.typography.titleMedium)
+            Text(strings.appearance, style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThemeMode.entries.forEach { mode ->
                     FilterChip(
                         selected = themeMode == mode,
                         onClick = { onThemeMode(mode) },
-                        label = { Text(mode.appearanceLabel()) }
+                        label = { Text(mode.appearanceLabel(strings)) }
                     )
                 }
             }
             Text(
-                "Se guarda solo en este dispositivo.",
+                strings.savedOnDeviceOnly,
                 style = MaterialTheme.typography.bodyMedium
             )
         }
     }
 }
 
-private fun ThemeMode.appearanceLabel(): String = when (this) {
-    ThemeMode.LIGHT -> "Claro"
-    ThemeMode.DARK -> "Oscuro"
-    ThemeMode.SYSTEM -> "Sistema"
+@Composable
+private fun LanguageChoices(appLanguage: AppLanguage, onAppLanguage: (AppLanguage) -> Unit) {
+    val strings = LocalStrings.current
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(strings.language, style = MaterialTheme.typography.titleMedium)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppLanguage.entries.forEach { lang ->
+                    FilterChip(
+                        selected = appLanguage == lang,
+                        onClick = { onAppLanguage(lang) },
+                        label = { Text(lang.label(strings)) }
+                    )
+                }
+            }
+            Text(
+                strings.savedOnDeviceOnly,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+private fun ThemeMode.appearanceLabel(strings: AppStrings): String = when (this) {
+    ThemeMode.LIGHT -> strings.themeLight
+    ThemeMode.DARK -> strings.themeDark
+    ThemeMode.SYSTEM -> strings.themeSystem
+}
+
+private fun AppLanguage.label(strings: AppStrings): String = when (this) {
+    AppLanguage.SYSTEM -> strings.languageSystem
+    AppLanguage.SPANISH -> strings.languageSpanish
+    AppLanguage.ENGLISH -> strings.languageEnglish
 }
 
 @Preview(name = "Cuenta - Sin Sesión", showBackground = true)

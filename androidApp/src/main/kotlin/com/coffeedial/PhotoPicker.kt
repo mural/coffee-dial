@@ -153,7 +153,7 @@ fun PhotoPickerHost(picker: PhotoPicker) {
                 } catch (
                     _: Exception
                 ) {
-                    picker.finish("", "No se pudo preparar la foto. Elegí otra imagen.")
+                    picker.finish("", "i18n.could_not_prepare_photo")
                 }
             }
         }

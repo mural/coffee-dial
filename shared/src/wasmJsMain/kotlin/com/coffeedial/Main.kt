@@ -41,9 +41,9 @@ fun main() {
             files.exportAction = {
                 try {
                     CoffeeBrowser.download(requireNotNull(files.pendingExport))
-                    files.finish("Backup preparado para descargar.")
+                    files.finish("i18n.backup_download_ready")
                 } catch (_: Exception) {
-                    files.finish("No se pudo descargar el backup.")
+                    files.finish("i18n.could_not_download")
                 }
             }
             files.importAction = {

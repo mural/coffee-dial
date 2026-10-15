@@ -37,6 +37,7 @@ internal fun BackupScreen(
     processing: Boolean,
     setProcessing: (Boolean) -> Unit
 ) {
+    val strings = LocalStrings.current
     var preview by remember { mutableStateOf<PreparedImport?>(null) }
     var lastImportText by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -51,9 +52,9 @@ internal fun BackupScreen(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: BackupException) {
-            message = error.message
+            message = strings.userMessage(error.message)
         } catch (_: Exception) {
-            message = "No pudimos completar la operación. Tus datos locales se conservan."
+            message = strings.backupFailed
         } finally {
             setProcessing(false)
         }
@@ -72,9 +73,9 @@ internal fun BackupScreen(
         Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Backup", style = MaterialTheme.typography.headlineSmall)
-        Text("Guardá una copia de tus cafés y shots, o recuperalos desde un archivo.")
-        Text("El archivo incluye tus notas y no está cifrado. Elegí dónde guardarlo.")
+        Text(strings.backupTitle, style = MaterialTheme.typography.headlineSmall)
+        Text(strings.backupIntro)
+        Text(strings.backupPrivacy)
         Button(
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
@@ -84,7 +85,7 @@ internal fun BackupScreen(
                 files.finish(null)
                 scope.launch { perform { files.requestExport(repository.exportBackup()) } }
             }
-        ) { Text("Exportar backup") }
+        ) { Text(strings.exportBackup) }
         OutlinedButton(
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
@@ -94,20 +95,26 @@ internal fun BackupScreen(
                 message = null
                 files.requestImport()
             }
-        ) { Text("Importar backup") }
+        ) { Text(strings.importBackup) }
         if (busy) CircularProgressIndicator()
-        files.message?.let { Text(it) }
+        files.message?.let { Text(strings.userMessage(it)) }
         message?.let { Text(it) }
         preview?.let { prepared ->
             val summary = prepared.summary
-            Text("Revisá antes de importar", style = MaterialTheme.typography.titleLarge)
+            Text(strings.reviewBeforeImport, style = MaterialTheme.typography.titleLarge)
             Text(
-                "${summary.newBeans} cafés · ${summary.newShots} shots · " +
-                    "${summary.newMachines} máquinas · ${summary.newGrinders} molinillos · " +
-                    "${summary.newCups} tazas · ${summary.newRecipes} recetas nuevas · ${summary.newDefaults} predeterminados"
+                strings.backupNewCounts(
+                    summary.newBeans,
+                    summary.newShots,
+                    summary.newMachines,
+                    summary.newGrinders,
+                    summary.newCups,
+                    summary.newRecipes,
+                    summary.newDefaults
+                )
             )
             if (summary.duplicates > 0) {
-                Text("${summary.duplicates} shots ya existentes.")
+                Text(strings.backupDuplicates(summary.duplicates))
             }
 
             Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
@@ -120,12 +127,16 @@ internal fun BackupScreen(
                         }
                         preview = null
                         lastImportText = null
-                        message = "Importación completa: ${result.newBeans} cafés, " +
-                            "${result.newShots} shots, ${result.newGrinders} molinillos y " +
-                            "${result.newCups} tazas y ${result.newRecipes} recetas procesados."
+                        message = strings.backupImported(
+                            result.newBeans,
+                            result.newShots,
+                            result.newGrinders,
+                            result.newCups,
+                            result.newRecipes
+                        )
                     }
                 }
-            }) { Text("Combinar datos del backup") }
+            }) { Text(strings.mergeBackup) }
 
             if (!lastImportText.isNullOrBlank()) {
                 OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
@@ -134,19 +145,23 @@ internal fun BackupScreen(
                             val result = repository.replaceWithBackup(lastImportText!!)
                             preview = null
                             lastImportText = null
-                            message = "Reemplazo completo: ${result.newBeans} cafés, " +
-                                "${result.newShots} shots, ${result.newMachines} máquinas, " +
-                                "${result.newGrinders} molinillos, ${result.newCups} tazas y ${result.newRecipes} recetas " +
-                                "cargados desde el backup."
+                            message = strings.backupReplaced(
+                                result.newBeans,
+                                result.newShots,
+                                result.newMachines,
+                                result.newGrinders,
+                                result.newCups,
+                                result.newRecipes
+                            )
                         }
                     }
-                }) { Text("Reemplazar todo con este backup") }
+                }) { Text(strings.replaceAllBackup) }
             }
 
             TextButton(enabled = !busy, onClick = {
                 preview = null
                 lastImportText = null
-            }) { Text("Cancelar") }
+            }) { Text(strings.actionCancel) }
         }
     }
 }

@@ -23,7 +23,7 @@ class BackupFiles {
         pendingExport = text
         busy = true
         message = null
-        exportAction?.invoke() ?: finish("No se pudo abrir el selector de archivos.")
+        exportAction?.invoke() ?: finish("i18n.could_not_open_files")
     }
 
     fun requestImport() {
@@ -31,7 +31,7 @@ class BackupFiles {
         busy = true
         message = null
         importedText = null
-        importAction?.invoke() ?: finish("No se pudo abrir el selector de archivos.")
+        importAction?.invoke() ?: finish("i18n.could_not_open_files")
     }
 
     fun receiveImport(text: String) {

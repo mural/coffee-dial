@@ -38,6 +38,7 @@ fun MachinesScreen(
     defaultId: String? = null,
     onDefault: ((String?) -> Unit)? = null
 ) {
+    val strings = LocalStrings.current
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -50,7 +51,7 @@ fun MachinesScreen(
         editorOpen = false
     }
     val draft = MachineDraft(name, type, year)
-    val errors = if (submitted) draft.errors() else emptyMap()
+    val errors = if (submitted) draft.errors(strings) else emptyMap()
 
     fun open(machine: Machine?) {
         editingId = machine?.id
@@ -68,11 +69,11 @@ fun MachinesScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Máquinas de café", style = MaterialTheme.typography.headlineSmall)
-                    Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar máquina") }
+                    Text(strings.savedMachines, style = MaterialTheme.typography.headlineSmall)
+                    Button(onClick = { open(null) }, enabled = !saving) { Text(strings.addMachine) }
                 }
             }
-            if (machines.isEmpty()) item { Text("Todavía no agregaste ninguna máquina.") }
+            if (machines.isEmpty()) item { Text(strings.noMachinesYet) }
             items(machines, key = { it.id }) { machine ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(
@@ -81,7 +82,7 @@ fun MachinesScreen(
                     ) {
                         Text(machine.name, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            listOf(machine.type, machine.year).filter {
+                            listOf(strings.machineTypeLabel(machine.type), machine.year).filter {
                                 it.isNotBlank()
                             }.joinToString(" · ")
                         )
@@ -105,9 +106,9 @@ fun MachinesScreen(
                                         if (defaultId ==
                                             machine.id
                                         ) {
-                                            "Predeterminado"
+                                            strings.defaultLabel
                                         } else {
-                                            "Usar por defecto"
+                                            strings.useByDefault
                                         }
                                     )
                                 }
@@ -116,11 +117,11 @@ fun MachinesScreen(
                         FlowRow {
                             TextButton(onClick = {
                                 open(machine)
-                            }, enabled = !saving) { Text("Editar") }
+                            }, enabled = !saving) { Text(strings.actionEdit) }
                             TextButton(onClick = {
                                 onDeleteMachine(machine.id)
                             }, enabled = !saving) {
-                                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                Text(strings.actionDelete, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -128,7 +129,7 @@ fun MachinesScreen(
             }
             if (saveError != null && !editorOpen) {
                 item {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -139,27 +140,20 @@ fun MachinesScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                if (editingId ==
-                    null
-                ) {
-                    "Nueva máquina"
-                } else {
-                    "Editar máquina"
-                },
+                if (editingId == null) strings.addMachine else strings.editMachine,
                 style = MaterialTheme.typography.headlineSmall
             )
             CoffeeSection {
                 OutlinedTextField(
                     name,
                     { name = it },
-                    label = { Text("Nombre") },
+                    label = { Text(strings.nameField) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["name"] != null,
                     supportingText = errors["name"]?.let { { Text(it) } }
                 )
-                Text("Tipo de máquina")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (listOf("Espresso", "Cápsulas", "Filtro", "Prensa") + type)
                         .distinct().forEach { option ->
@@ -167,37 +161,32 @@ fun MachinesScreen(
                                 selected = type == option,
                                 onClick = { type = option },
                                 enabled = !saving,
-                                label = { Text(option) }
+                                label = { Text(strings.machineTypeLabel(option)) }
                             )
                         }
                 }
                 OutlinedTextField(
                     year,
                     { year = it },
-                    label = { Text("Año (opcional)") },
+                    label = { Text(strings.yearField) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["year"] != null,
                     supportingText = errors["year"]?.let { { Text(it) } }
                 )
-                if (editingId !=
-                    null
-                ) {
-                    Text("Los shots anteriores conservan el nombre que tenían al registrarlos.")
-                }
                 if (submitted &&
                     saveError != null
                 ) {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = !saving, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveMachine(editingId, draft) { closeEditor() }
-                }) { Text(if (saving) "Guardando…" else "Guardar") }
-                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text("Cancelar") }
+                }) { Text(strings.actionSave) }
+                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text(strings.actionCancel) }
             }
         }
     }

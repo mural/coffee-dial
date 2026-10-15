@@ -29,6 +29,7 @@ import kotlin.math.roundToInt
 
 @Composable
 internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
+    val strings = LocalStrings.current
     var selectedName by rememberSaveable { mutableStateOf<String?>(null) }
     var size by rememberSaveable { mutableFloatStateOf(1f) }
     var foamName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -44,13 +45,13 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
     } ?: drink?.milkFoam
     val amounts = drink?.amounts(current, foam = foam)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Text("Preparar un café", style = MaterialTheme.typography.titleMedium)
+        Text(strings.prepareTitle, style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             prepareDrinks.forEach { option ->
                 FilterChip(
                     selected = option.name == selectedName,
                     onClick = { selectedName = option.name },
-                    label = { Text(option.name) }
+                    label = { Text(strings.knownDrinkName(option.name)) }
                 )
             }
         }
@@ -61,7 +62,7 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
                     FilterChip(
                         selected = option == profile,
                         onClick = {},
-                        label = { Text("${option.label} · ${option.capacityCm3.pretty()} cm³") }
+                        label = { Text("${option.label(strings)} · ${option.capacityCm3.pretty()} cm³") }
                     )
                 }
             }
@@ -72,7 +73,7 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
                 milk = amounts.milk,
                 capacityCm3 = profile.capacityCm3,
                 milkFoam = amounts.milkFoam,
-                foamNote = amounts.milkFoam?.let { foamHowTo(drink.name, it) },
+                foamNote = amounts.milkFoam?.let { strings.foamHowToText(drink.name, it) },
                 onFoamClick = if (amounts.milk > 0.0) {
                     {
                         val order = MilkFoam.entries
@@ -83,7 +84,7 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
                     null
                 }
             )
-            Text("Tamaño ${current.pretty()}×", style = MaterialTheme.typography.labelMedium)
+            Text(strings.sizeLabel(current.pretty()), style = MaterialTheme.typography.labelMedium)
             Slider(
                 value = current.toFloat(),
                 onValueChange = { size = (it * 10).roundToInt() / 10f },
@@ -92,7 +93,7 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
             )
             if (maxSize < 2.0) {
                 Text(
-                    "El tamaño máximo para este café es ${maxSize.pretty()}×.",
+                    strings.maxSizeNotice(maxSize.pretty()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -101,27 +102,17 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
                 onClick = { onPrepare(amounts) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Registrar con estas medidas")
+                Text(strings.logWithMeasurements)
             }
         }
     }
 }
 
-internal fun foamHowTo(drink: String, foam: MilkFoam): String = when {
-    drink == "Macchiato" && foam == MilkFoam.HIGH ->
-        "Una cucharada de espuma firme sobre el espresso."
-
-    foam == MilkFoam.HIGH ->
-        "Estirá la leche hasta una capa gruesa, de 1 a 2 cm."
-
-    foam == MilkFoam.MEDIUM ->
-        "Estirá hasta una capa fina, de 0,5 a 1 cm, e integrala al verter."
-
-    foam == MilkFoam.LOW ->
-        "Vapor breve: leche sedosa, casi sin capa arriba."
-
-    else -> "Calentá la leche sin estirar el vapor."
-}
+internal fun foamHowTo(
+    drink: String,
+    foam: MilkFoam,
+    strings: AppStrings = SpanishStrings
+): String = strings.foamHowToText(drink, foam)
 
 private fun sizeSteps(maxSize: Double): Int {
     val spans = ((maxSize - 0.5) / 0.1).roundToInt() - 1

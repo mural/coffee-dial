@@ -38,6 +38,7 @@ fun GrindersScreen(
     defaultId: String? = null,
     onDefault: ((String?) -> Unit)? = null
 ) {
+    val strings = LocalStrings.current
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -49,7 +50,7 @@ fun GrindersScreen(
         editorOpen = false
     }
     val draft = GrinderDraft(name, type)
-    val errors = if (submitted) draft.errors() else emptyMap()
+    val errors = if (submitted) draft.errors(strings) else emptyMap()
 
     fun open(grinder: Grinder?) {
         editingId = grinder?.id
@@ -66,13 +67,13 @@ fun GrindersScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Molinillos", style = MaterialTheme.typography.headlineSmall)
+                    Text(strings.savedGrinders, style = MaterialTheme.typography.headlineSmall)
                     Button(onClick = {
                         open(null)
-                    }, enabled = !saving) { Text("Agregar molinillo") }
+                    }, enabled = !saving) { Text(strings.addGrinder) }
                 }
             }
-            if (grinders.isEmpty()) item { Text("Todavía no agregaste ningún molinillo.") }
+            if (grinders.isEmpty()) item { Text(strings.noGrindersYet) }
             items(grinders, key = { it.id }) { grinder ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(
@@ -80,7 +81,7 @@ fun GrindersScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(grinder.name, style = MaterialTheme.typography.titleMedium)
-                        Text(grinder.type)
+                        Text(strings.grinderTypeLabel(grinder.type))
                         onDefault?.let { choose ->
                             androidx.compose.material3.FilterChip(
                                 selected = defaultId == grinder.id,
@@ -101,9 +102,9 @@ fun GrindersScreen(
                                         if (defaultId ==
                                             grinder.id
                                         ) {
-                                            "Predeterminado"
+                                            strings.defaultLabel
                                         } else {
-                                            "Usar por defecto"
+                                            strings.useByDefault
                                         }
                                     )
                                 }
@@ -111,19 +112,21 @@ fun GrindersScreen(
                         }
                         FlowRow {
                             TextButton(onClick = { open(grinder) }, enabled = !saving) {
-                                Text("Editar")
+                                Text(strings.actionEdit)
                             }
                             TextButton(onClick = {
                                 onDeleteGrinder(grinder.id)
                             }, enabled = !saving) {
-                                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                Text(strings.actionDelete, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
                 }
             }
             if (saveError != null && !editorOpen) {
-                item { Text(saveError, color = MaterialTheme.colorScheme.error) }
+                item {
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -133,47 +136,40 @@ fun GrindersScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                if (editingId == null) "Nuevo molinillo" else "Editar molinillo",
+                if (editingId == null) strings.addGrinder else strings.editGrinder,
                 style = MaterialTheme.typography.headlineSmall
             )
             CoffeeSection {
                 OutlinedTextField(
                     name,
                     { name = it },
-                    label = { Text("Nombre") },
+                    label = { Text(strings.nameField) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     isError = errors["name"] != null,
                     supportingText = errors["name"]?.let { { Text(it) } }
                 )
-                Text("Tipo de molinillo")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("Eléctrico", "Manual").forEach { option ->
                         FilterChip(
                             selected = type == option,
                             onClick = { type = option },
                             enabled = !saving,
-                            label = { Text(option) }
+                            label = { Text(strings.grinderTypeLabel(option)) }
                         )
                     }
                 }
-                if (editingId != null) {
-                    Text(
-                        "Si cambiás el nombre, los shots vinculados muestran el nuevo. " +
-                            "Si lo eliminás, el shot conserva el último nombre."
-                    )
-                }
                 if (submitted && saveError != null) {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = !saving, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveGrinder(editingId, draft) { closeEditor() }
-                }) { Text(if (saving) "Guardando…" else "Guardar") }
-                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text("Cancelar") }
+                }) { Text(strings.actionSave) }
+                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text(strings.actionCancel) }
             }
         }
     }

@@ -45,13 +45,13 @@ class SyncEngine(
         try {
             mutex.withLock {
                 val user = (authRepository.state.value as? AuthState.LoggedIn)?.user
-                    ?: error("Entrá a Cuenta para resolver el conflicto.")
+                    ?: error("i18n.resolve_sign_in")
                 val account = accountKey(user)
                 val local = shotRepository.readSyncLocal()
                 val saved = checkpoint(local.checkpoint)
                 if (saved != null) {
                     check(acceptsAccount(saved.account, user, account)) {
-                        "Los datos locales pertenecen a otra cuenta."
+                        "i18n.other_account"
                     }
                 }
                 val planned = planResolution(
@@ -72,7 +72,7 @@ class SyncEngine(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
-            val message = error.message ?: "No se pudo resolver el conflicto."
+            val message = error.message ?: "i18n.resolve_failed"
             mutableState.value = SyncState.Error(message)
             return Result.failure(IllegalStateException(message, error))
         }
@@ -90,14 +90,14 @@ class SyncEngine(
     private fun checkUser(user: User) {
         val current = (authRepository.state.value as? AuthState.LoggedIn)?.user
         check(current?.id == user.id && current.provider == user.provider) {
-            "La cuenta cambió. Volvé a sincronizar; no se reemplazaron tus datos locales."
+            "i18n.account_changed"
         }
     }
 
     private fun document(text: String): SyncDocument {
         val result = json.decodeFromString<SyncDocument>(text)
         check(result.protocol == 2 && result.revision >= 0) {
-            "Actualizá Coffee Dial: el formato de sincronización no es compatible."
+            "i18n.incompatible"
         }
         BackupFormat.validate(result.backup)
         return result.copy(backup = BackupFormat.migrate(result.backup))
@@ -108,7 +108,7 @@ class SyncEngine(
         val initialUser = (authRepository.state.value as? AuthState.LoggedIn)?.user
         try {
             val user = initialUser
-                ?: error("Entrá a Cuenta para iniciar sesión y sincronizar.")
+                ?: error("i18n.sign_in")
             var token = authRepository.syncCredential()
             checkUser(user)
             if (token == null) {
@@ -156,8 +156,7 @@ class SyncEngine(
             val saved = checkpoint(local.checkpoint)
             if (mode != Mode.DOWNLOAD) {
                 check(saved == null || acceptsAccount(saved.account, user, account)) {
-                    "Los datos locales pertenecen a otra cuenta. Volvé a esa cuenta para " +
-                        "sincronizar, o exportá un backup antes de cambiar de cuenta."
+                    "i18n.other_account_long"
                 }
             }
             val photoCache = (local.backup.beans + (saved?.document?.backup?.beans ?: emptyList()))
@@ -199,10 +198,7 @@ class SyncEngine(
             if (merged != null && merged.conflicts.isNotEmpty()) {
                 mutableState.value = SyncState.Conflict(merged.conflicts, remote)
                 return Result.failure(
-                    IllegalStateException(
-                        "Hay cambios distintos en ${merged.conflicts.size} registros. " +
-                            "Elegí qué copia conservar."
-                    )
+                    IllegalStateException("i18n.conflict_count:${merged.conflicts.size}")
                 )
             }
             val next = when (mode) {
@@ -217,7 +213,7 @@ class SyncEngine(
                 for (photo in next.beans.mapNotNull { it.photo }.distinctBy { it.id }) {
                     if (photo.id !in known) {
                         check(photo.jpeg != null) {
-                            "Falta una foto local. Volvé a sincronizar antes de exportar."
+                            "i18n.missing_photo"
                         }
                         request(json.encodeToString(photo), "/api/photos/${photo.id}")
                     }
@@ -245,7 +241,7 @@ class SyncEngine(
                     )
                 )
             }
-            check(sameData(acknowledged.backup, next)) { "Respuesta de sync incompatible." }
+            check(sameData(acknowledged.backup, next)) { "i18n.response" }
             checkUser(user)
             // One atomic CAS also protects explicit restore from edits made during the download.
             shotRepository.commitSync(
@@ -277,8 +273,8 @@ class SyncEngine(
             val message = when (error) {
                 is SyncHttpException -> error.message.orEmpty()
                 is BackupException -> error.message.orEmpty()
-                is IllegalStateException -> error.message ?: "No se pudo sincronizar."
-                else -> "No se pudo conectar. Tus datos siguen guardados; probá nuevamente."
+                is IllegalStateException -> error.message ?: "i18n.sync_failed"
+                else -> "i18n.offline"
             }
             mutableState.value = SyncState.Error(message)
             Result.failure(IllegalStateException(message, error))

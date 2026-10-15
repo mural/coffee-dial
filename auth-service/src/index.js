@@ -22,7 +22,28 @@ const headers = {
 };
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...headers, 'Content-Type': 'application/json' } });
-const html = (body, status = 200, extra = {}) => new Response(`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Coffee Dial</title><body><h1>Coffee Dial</h1>${body}</body></html>`, { status, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8', ...extra } });
+const html = (body, status = 200, extra = {}, lang = 'es') => new Response(`<!doctype html><html lang="${lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Coffee Dial</title><body><h1>Coffee Dial</h1>${body}</body></html>`, { status, headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8', ...extra } });
+const pageCopy = request => {
+  const first = (request.headers.get('Accept-Language') || '').split(',')[0].trim().toLowerCase();
+  const en = first.startsWith('en');
+  return en ? {
+    lang: 'en',
+    home: 'Coffee Dial sign-in. Sign in from the app.',
+    unconfigured: 'Web sign-in is not set up yet. Go back to the app.',
+    confirmed: 'Access confirmed.',
+    incomplete: 'Sign-in was not completed.',
+    back: 'Back to Coffee Dial',
+    expired: 'This attempt expired or is not valid. Go back to Coffee Dial and sign in again.'
+  } : {
+    lang: 'es',
+    home: 'Servicio de acceso de Coffee Dial. Iniciá sesión desde la app.',
+    unconfigured: 'El acceso web todavía no está configurado. Volvé a la app.',
+    confirmed: 'Acceso confirmado.',
+    incomplete: 'No se completó el acceso.',
+    back: 'Volver a Coffee Dial',
+    expired: 'Este intento venció o no es válido. Volvé a Coffee Dial e iniciá sesión nuevamente.'
+  };
+};
 const cookieName = state => `__Host-coffee-${state}`;
 const cookie = (state, value, maxAge) => `${cookieName(state)}=${value}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
 
@@ -105,7 +126,10 @@ export default {
     const url = new URL(request.url);
     if (url.origin !== env.PUBLIC_ORIGIN) return json({ error: 'wrong_origin' }, 400);
     if (url.pathname === '/health' && request.method === 'GET') return json({ status: env.GOOGLE_CLIENT_SECRET ? 'ready' : 'not_configured' });
-    if (url.pathname === '/' && request.method === 'GET') return html('<p>Servicio de acceso de Coffee Dial. Iniciá sesión desde la app.</p>');
+    if (url.pathname === '/' && request.method === 'GET') {
+      const copy = pageCopy(request);
+      return html(`<p>${copy.home}</p>`, 200, {}, copy.lang);
+    }
     if (url.pathname === '/api/session' || url.pathname === '/api/sync' || url.pathname === '/api/logout' || url.pathname.startsWith('/api/admin/') || url.pathname.startsWith('/api/photos/')) {
       const bearer = request.headers.get('Authorization') || '';
       if (!bearer.startsWith('Bearer ') || bearer.length > 16384) return json({ error: 'unauthorized' }, 401);
@@ -230,7 +254,10 @@ export default {
       }
     }
 
-    if (!env.GOOGLE_CLIENT_SECRET) return html('<p>El acceso web todavía no está configurado. Volvé a la app.</p>', 503);
+    if (!env.GOOGLE_CLIENT_SECRET) {
+      const copy = pageCopy(request);
+      return html(`<p>${copy.unconfigured}</p>`, 503, {}, copy.lang);
+    }
 
     try {
       const ip = request.headers.get('CF-Connecting-IP') || 'local';
@@ -260,7 +287,9 @@ export default {
         }
         const link = destination.location.replaceAll('&', '&amp;');
         const label = destination.platform === 'ios' ? 'iOS' : 'Android';
-        return html(`<p>${result.ticket ? 'Acceso confirmado.' : 'No se completó el acceso.'}</p><p><a href="${link}">Volver a Coffee Dial (${label})</a></p>`, 200, extra);
+        const copy = pageCopy(request);
+        const statusText = result.ticket ? copy.confirmed : copy.incomplete;
+        return html(`<p>${statusText}</p><p><a href="${link}">${copy.back} (${label})</a></p>`, 200, extra, copy.lang);
       }
       if (url.pathname === '/exchange' && request.method === 'POST') {
         const input = await boundedJson(request);
@@ -271,6 +300,9 @@ export default {
         return json({ ...user, syncToken });
       }
       return json({ error: 'not_found' }, 404);
-    } catch { return html('<p>Este intento venció o no es válido. Volvé a Coffee Dial e iniciá sesión nuevamente.</p>', 400); }
+    } catch {
+      const copy = pageCopy(request);
+      return html(`<p>${copy.expired}</p>`, 400, {}, copy.lang);
+    }
   },
 };

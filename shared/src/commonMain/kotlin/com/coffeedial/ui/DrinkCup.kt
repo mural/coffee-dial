@@ -132,6 +132,7 @@ internal fun DrinkCupChart(
     onFoamClick: (() -> Unit)? = null,
     foamNote: String? = null
 ) {
+    val strings = LocalStrings.current
     val layers = drinkLayers(output, water, milk)
     val total = drinkTotal(output, water, milk)
     val capacity = capacityCm3?.takeIf { it.isFinite() && it > 0.0 }
@@ -141,11 +142,17 @@ internal fun DrinkCupChart(
     val foamMl = if (foamRelation == null) 0.0 else milk * share
     val liquidMilkMl = if (foamRelation == null) milk else milk - foamMl
     val description = buildString {
-        append("Taza con total ${total.pretty()}. ")
-        append("Dosis ${dose.pretty()} g, agua ${water.pretty()} ml, leche ${milk.pretty()} ml.")
-        milkFoam?.let { append(" Espuma: ${it.label}.") }
-        foamRelation?.let { append(" Espuma : leche ≈ $it.") }
-        if (capacity != null) append(" Capacidad ${capacity.pretty()} cm³.")
+        append(
+            strings.cupTotalDescription(
+                total.pretty(),
+                dose.pretty(),
+                water.pretty(),
+                milk.pretty()
+            )
+        )
+        milkFoam?.let { append(strings.foamSpoken(it.label(strings))) }
+        foamRelation?.let { append(strings.foamRatioSpoken(it)) }
+        if (capacity != null) append(strings.capacitySpoken(capacity.pretty()))
     }
     Column(
         Modifier.fillMaxWidth().semantics { contentDescription = description },
@@ -153,11 +160,7 @@ internal fun DrinkCupChart(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         milkFoam?.let { foam ->
-            val foamText = if (onFoamClick == null) {
-                "Espuma: ${foam.label} · textura ilustrativa"
-            } else {
-                "Espuma: ${foam.label}"
-            }
+            val foamText = strings.foamIllustrativeText(foam.label(strings), onFoamClick != null)
             if (onFoamClick != null) {
                 TextButton(onClick = onFoamClick) { Text(foamText) }
             } else {
@@ -172,19 +175,18 @@ internal fun DrinkCupChart(
             }
             foamRelation?.let { ratio ->
                 Text(
-                    "Espuma : leche ≈ $ratio",
+                    strings.foamMilkRatioText(ratio),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "De la leche, unos ${foamMl.pretty()} ml son espuma " +
-                        "y ${liquidMilkMl.pretty()} ml quedan líquidos.",
+                    strings.foamBreakdownText(foamMl.pretty(), liquidMilkMl.pretty()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-        Text("En la taza", style = MaterialTheme.typography.titleMedium)
+        Text(strings.inTheCup, style = MaterialTheme.typography.titleMedium)
         val draw = cupDrawSize(capacity)
         Box(
             Modifier.width(draw.width.dp).height(draw.height.dp),
@@ -327,7 +329,7 @@ internal fun DrinkCupChart(
         }
         relation?.let {
             Text(
-                "Café : agua : leche",
+                strings.coffeeWaterMilkRatio,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -341,24 +343,24 @@ internal fun DrinkCupChart(
             Modifier.offset(y = (-4).dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CupLegend(CupCoffee, "Café", "${output.pretty()} g")
-            CupLegend(CupWater, "Agua", "${water.pretty()} ml")
-            CupLegend(CupMilk, "Leche", "${liquidMilkMl.pretty()} ml")
+            CupLegend(CupCoffee, strings.legendCoffee, "${output.pretty()} g")
+            CupLegend(CupWater, strings.legendWater, "${water.pretty()} ml")
+            CupLegend(CupMilk, strings.legendMilk, "${liquidMilkMl.pretty()} ml")
             if (foamRelation != null) {
-                CupLegend(Color(0xFFFFF4E5), "Espuma", "≈ ${foamMl.pretty()} ml", outlined = true)
+                CupLegend(Color(0xFFFFF4E5), strings.legendFoam, "≈ ${foamMl.pretty()} ml", outlined = true)
             }
         }
         Text(
-            "El café de la taza sale de ${dose.pretty()} g de dosis.",
+            strings.coffeeFromDoseText(dose.pretty()),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (capacity != null) {
             Text(
                 if (total > capacity) {
-                    "Supera los ${capacity.pretty()} cm³ de la taza."
+                    strings.exceedsCapacityText(capacity.pretty())
                 } else {
-                    "Taza de ${capacity.pretty()} cm³."
+                    strings.cupCapacityText(capacity.pretty())
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = if (total > capacity) {

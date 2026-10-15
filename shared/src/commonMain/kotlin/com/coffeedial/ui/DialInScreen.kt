@@ -38,72 +38,72 @@ private val ContextSaver = Saver<DialInContext, String>(
     restore = { Json.decodeFromString(it) }
 )
 
-internal fun RoastLevel.label(): String = when (this) {
-    RoastLevel.LIGHT -> "Claro"
-    RoastLevel.MEDIUM -> "Medio"
-    RoastLevel.DARK -> "Oscuro"
-    RoastLevel.UNKNOWN -> "Desconocido"
+internal fun RoastLevel.label(strings: AppStrings): String = when (this) {
+    RoastLevel.LIGHT -> strings.roastLight
+    RoastLevel.MEDIUM -> strings.roastMedium
+    RoastLevel.DARK -> strings.roastDark
+    RoastLevel.UNKNOWN -> strings.roastUnknown
 }
-internal fun BrewMethod.label(): String = when (this) {
+internal fun BrewMethod.label(strings: AppStrings): String = when (this) {
     BrewMethod.ESPRESSO -> "Espresso"
-    BrewMethod.FILTER -> "Filtro"
-    BrewMethod.MOKA -> "Moka"
-    BrewMethod.OTHER -> "Otro"
+    BrewMethod.FILTER -> strings.methodFilter
+    BrewMethod.MOKA -> strings.methodMoka
+    BrewMethod.OTHER -> strings.methodOther
 }
-internal fun StrengthGoal.label(): String = when (this) {
-    StrengthGoal.STRONGER -> "Más intenso"
-    StrengthGoal.BALANCED -> "Mantener equilibrio"
-    StrengthGoal.MILDER -> "Más suave"
+internal fun StrengthGoal.label(strings: AppStrings): String = when (this) {
+    StrengthGoal.STRONGER -> strings.goalStronger
+    StrengthGoal.BALANCED -> strings.goalBalanced
+    StrengthGoal.MILDER -> strings.goalMilder
 }
-internal fun TasteBasis.label(): String = when (this) {
-    TasteBasis.ESPRESSO -> "Espresso solo"
-    TasteBasis.FINISHED_DRINK -> "Bebida con agua/leche"
+internal fun TasteBasis.label(strings: AppStrings): String = when (this) {
+    TasteBasis.ESPRESSO -> strings.basisEspresso
+    TasteBasis.FINISHED_DRINK -> strings.basisFinishedDrink
 }
 
 @Composable
 fun DialInContextEditor(value: DialInContext, enabled: Boolean, onChange: (DialInContext) -> Unit) {
+    val strings = LocalStrings.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Preparación", style = MaterialTheme.typography.titleSmall)
+        Text(strings.navBrew, style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BrewMethod.entries.forEach { item ->
                 FilterChip(value.method == item, {
                     onChange(value.copy(method = item))
-                }, enabled = enabled, label = { Text(item.label()) })
+                }, enabled = enabled, label = { Text(item.label(strings)) })
             }
         }
-        Text("Tueste", style = MaterialTheme.typography.titleSmall)
+        Text(strings.roastLevel, style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RoastLevel.entries.forEach { item ->
                 FilterChip(value.roast == item, {
                     onChange(value.copy(roast = item))
-                }, enabled = enabled, label = { Text(item.label()) })
+                }, enabled = enabled, label = { Text(item.label(strings)) })
             }
         }
         OutlinedTextField(
             value.grinder,
             { onChange(value.copy(grinder = it.take(200))) },
             label = {
-                Text("Molinillo (opcional)")
+                Text(strings.grinder)
             },
-            supportingText = { Text("Ej.: 1Zpresso J-Ultra o molido de fábrica") },
             enabled = enabled,
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-        Text("Intensidad buscada", style = MaterialTheme.typography.titleSmall)
+        Text(strings.strengthGoal, style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StrengthGoal.entries.forEach { item ->
                 FilterChip(value.goal == item, {
                     onChange(value.copy(goal = item))
-                }, enabled = enabled, label = { Text(item.label()) })
+                }, enabled = enabled, label = { Text(item.label(strings)) })
             }
         }
-        Text("El sabor registrado corresponde a", style = MaterialTheme.typography.titleSmall)
+        Text(strings.flavorProfile, style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TasteBasis.entries.forEach { item ->
                 FilterChip(value.tasteBasis == item, {
                     onChange(value.copy(tasteBasis = item))
-                }, enabled = enabled, label = { Text(item.label()) })
+                }, enabled = enabled, label = { Text(item.label(strings)) })
             }
         }
     }
@@ -111,16 +111,17 @@ fun DialInContextEditor(value: DialInContext, enabled: Boolean, onChange: (DialI
 
 @Composable
 fun DialInFormContext(value: DialInContext?, enabled: Boolean, onChange: (DialInContext?) -> Unit) {
+    val strings = LocalStrings.current
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column {
         if (value?.previousShotId !=
             null
         ) {
-            Text("Nuevo intento vinculado a una extracción anterior.")
+            Text(strings.linkedAttempt)
         }
         TextButton(onClick = { expanded = !expanded }, enabled = enabled) {
             Text(
-                if (expanded) "Ocultar contexto de ajuste" else "Contexto para ajustar espresso (opcional)"
+                if (expanded) strings.hideDialContext else strings.showDialContext
             )
         }
         if (expanded) DialInContextEditor(value ?: DialInContext(), enabled) { onChange(it) }
@@ -138,6 +139,7 @@ fun DialInScreen(
     onSelect: (Shot) -> Unit,
     onNext: (ShotDraft, DialInContext) -> Unit
 ) {
+    val strings = LocalStrings.current
     var context by rememberSaveable(shot.id, shot.dialIn, shot.grinder, stateSaver = ContextSaver) {
         val stored = shot.dialIn ?: DialInContext()
         mutableStateOf(
@@ -148,92 +150,115 @@ fun DialInScreen(
             }
         )
     }
-    val advice = dialInAdvice(shot, context, history)
+    val advice = dialInAdvice(shot, context, history, strings)
     Column(
         Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Ajustar espresso", style = MaterialTheme.typography.headlineLarge)
+        Text(strings.adjustEspresso, style = MaterialTheme.typography.headlineLarge)
         Text(shot.bean.name, style = MaterialTheme.typography.titleLarge)
         Text(
             "${shot.dose.pretty()} g -> ${shot.output.pretty()} g · ${shot.seconds.pretty()} s · 1:${shot.ratio.pretty()}"
         )
-        Text("Máquina: ${shot.machine ?: "Sin registrar"} · Molienda: ${shot.grind}")
-        Text("Sabor: ${shot.taste?.impression?.label() ?: "Sin evaluar"}")
-        TextButton(onClick = onEdit, enabled = !saving) { Text("Editar shot / evaluar sabor") }
+        Text(
+            "${strings.machine}: ${shot.machine ?: strings.notRecorded} · " +
+                "${strings.grind}: ${strings.grindLevelLabel(shot.grind)}"
+        )
+        Text(
+            "${strings.flavorProfile}: " +
+                (shot.taste?.impression?.label(strings) ?: strings.notRated)
+        )
+        TextButton(onClick = onEdit, enabled = !saving) { Text(strings.editShotTaste) }
         DialInContextEditor(context, !saving) { context = it }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Próxima extracción", style = MaterialTheme.typography.titleMedium)
+                Text(strings.nextExtractionTitle, style = MaterialTheme.typography.titleMedium)
                 Text(advice.title, style = MaterialTheme.typography.titleLarge)
                 Text(advice.explanation)
                 advice.next?.let { next ->
-                    Text("Dosis: ${next.dose} g · Yield: ${next.output} g")
-                    if (next.milk.isNotBlank()) Text("Leche: ${next.milk} ml")
-                    if (next.extraWater.isNotBlank()) Text("Agua extra: ${next.extraWater} ml")
+                    Text(strings.doseYieldLine(next.dose, next.output))
+                    if (next.milk.isNotBlank()) Text(strings.milkLine(next.milk))
+                    if (next.extraWater.isNotBlank()) Text(strings.waterLine(next.extraWater))
                     if (next.grind.isBlank()) {
                         Text(
-                            "Anotá el nuevo ajuste de molienda en el formulario."
+                            strings.noteGrindInForm
                         )
                     }
-                    Text("Medí el tiempo y registrá cómo salió este nuevo intento.")
+                    Text(strings.measureAndLogAttempt)
                     Button(onClick = {
                         onNext(next, context)
-                    }, enabled = !saving) { Text("Preparar próximo intento") }
+                    }, enabled = !saving) { Text(strings.prepareNextAttempt) }
                 }
             }
         }
         Text(
-            "Para comparar tiempos, medí desde la activación de la bomba.",
+            strings.compareFromPump,
             style = MaterialTheme.typography.bodySmall
         )
         Text(
-            "Compará el sabor con el intento anterior. El tiempo y el ratio no diagnostican por sí solos la extracción.",
+            strings.tasteNotTime,
             style = MaterialTheme.typography.bodySmall
         )
         TextButton(onClick = { onFavorite(context) }, enabled = !saving) {
-            Text(if (shot.dialIn?.favorite == true) "Quitar favorito" else "Marcar como favorito")
+            Text(
+                if (shot.dialIn?.favorite == true) {
+                    strings.removeFavorite
+                } else {
+                    strings.markFavorite
+                }
+            )
         }
         if (advice.references.isNotEmpty()) {
             Text(
-                "Tus referencias comparables (${advice.references.size})",
+                strings.referencesCount(advice.references.size),
                 style = MaterialTheme.typography.titleMedium
             )
             advice.references.forEach { reference ->
                 TextButton(onClick = { onSelect(reference) }, enabled = !saving) {
                     Text(
-                        "${reference.dose.pretty()} -> ${reference.output.pretty()} g · ${reference.rating}/5${if (reference.dialIn?.favorite == true) " · Favorito" else ""}"
+                        "${reference.dose.pretty()} -> ${reference.output.pretty()} g · " +
+                            "${reference.rating}/5" +
+                            if (reference.dialIn?.favorite == true) {
+                                " · ${strings.favoriteLabel}"
+                            } else {
+                                ""
+                            }
                     )
                 }
             }
         } else {
             Text(
-                "Las recetas favoritas o equilibradas con puntaje alto serán referencias cuando coincidan café, equipo y contexto."
+                strings.refsWillAppear
             )
         }
-        Text("Evolución", style = MaterialTheme.typography.titleMedium)
+        Text(strings.evolution, style = MaterialTheme.typography.titleMedium)
         val lineage = dialInLineage(shot, history)
         if (lineage.firstOrNull()?.dialIn?.previousShotId !=
             null
         ) {
-            Text("El intento anterior ya no está disponible.")
+            Text(strings.previousAttemptGone)
         }
         lineage.forEachIndexed { index, item ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
                     Text(
-                        "Intento ${index + 1}${if (item.dialIn?.favorite == true) " · Favorito" else ""}"
+                        strings.attemptNumber(index + 1, item.dialIn?.favorite == true)
                     )
                     Text(
                         "${item.dose.pretty()} g -> ${item.output.pretty()} g -> ${item.seconds.pretty()} s"
                     )
-                    Text("${item.taste?.impression?.label() ?: "Sin evaluar"} · ${item.rating}/5")
+                    Text(
+                        strings.tasteRating(
+                            item.taste?.impression?.label(strings) ?: strings.notRated,
+                            item.rating
+                        )
+                    )
                     if (item.id !=
                         shot.id
                     ) {
                         TextButton(onClick = {
                             onSelect(item)
-                        }, enabled = !saving) { Text("Ver intento") }
+                        }, enabled = !saving) { Text(strings.viewAttempt) }
                     }
                 }
             }
@@ -242,9 +267,9 @@ fun DialInScreen(
             it.dialIn?.previousShotId == shot.id
         }.sortedBy { it.createdAt }.forEach { child ->
             TextButton(onClick = { onSelect(child) }, enabled = !saving) {
-                Text("Siguiente intento: ${child.output.pretty()} g · ${child.seconds.pretty()} s")
+                Text(strings.nextAttemptLine(child.output.pretty(), child.seconds.pretty()))
             }
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        error?.let { Text(strings.userMessage(it), color = MaterialTheme.colorScheme.error) }
     }
 }

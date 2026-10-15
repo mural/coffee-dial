@@ -56,8 +56,8 @@
       input.onchange = async () => {
         const file = input.files?.[0];
         if (!file) return finish('', '');
-        if (file.size > 10 * 1024 * 1024) return finish('', 'El backup supera el límite de 10 MB.');
-        try { finish(await file.text(), ''); } catch { finish('', 'No se pudo leer el archivo.'); }
+        if (file.size > 10 * 1024 * 1024) return finish('', 'i18n.backup_size');
+        try { finish(await file.text(), ''); } catch { finish('', 'i18n.could_not_read_backup'); }
       };
       input.click();
     },
@@ -70,7 +70,7 @@
       input.onchange = async () => {
         const file = input.files?.[0];
         if (!file) return finish();
-        if (file.size > 20 * 1024 * 1024) return finish('', 'Elegí una imagen de hasta 20 MB.');
+        if (file.size > 20 * 1024 * 1024) return finish('', 'i18n.photo_pick_limit');
         let image;
         try {
           image = await createImageBitmap(file);
@@ -84,15 +84,23 @@
             data = canvas.toDataURL('image/jpeg', quality).split(',')[1];
             if (data.length <= 136532) return finish(data);
           }
-          finish('', 'No se pudo reducir la foto. Elegí otra imagen.');
-        } catch { finish('', 'No se pudo leer la foto. Probá con JPEG o PNG.'); }
+          finish('', 'i18n.could_not_prepare_photo');
+        } catch { finish('', 'i18n.could_not_read_photo'); }
         finally { image?.close(); }
       };
       input.click();
     },
     ready() { document.getElementById('loading').hidden = true; },
     failed() {
-      document.getElementById('loading').textContent = 'No pudimos abrir tus datos. Probá un navegador actualizado con almacenamiento habilitado. No se borró ningún dato. Recargá para reintentar.';
+      let english = false;
+      try {
+        const stored = localStorage.getItem('coffee_language');
+        const nav = (navigator.language || '').toLowerCase();
+        english = stored === 'ENGLISH' || (stored !== 'SPANISH' && nav.indexOf('en') === 0);
+      } catch (e) {}
+      document.getElementById('loading').textContent = english
+        ? 'Could not open your data. Try an up-to-date browser with storage enabled. Nothing was deleted. Reload to retry.'
+        : 'No pudimos abrir tus datos. Probá un navegador actualizado con almacenamiento habilitado. No se borró ningún dato. Recargá para reintentar.';
     }
   };
 })();

@@ -46,7 +46,7 @@ class WasmAuthRepository : AuthRepository {
         syncToken?.let { CoffeeAuth.rejected(it) }
         syncToken = null
         mutableState.value = AuthState.Error(
-            "Volvé a continuar con Google para renovar el acceso. Tus datos se conservan."
+            "i18n.renew_google_keep"
         )
     }
 
@@ -74,7 +74,7 @@ class WasmAuthRepository : AuthRepository {
             } catch (_: Exception) {
                 if (generation == initialGeneration) {
                     mutableState.value =
-                        AuthState.Error("No se pudo verificar el acceso. Volvé a iniciar sesión.")
+                        AuthState.Error("i18n.could_not_verify_access")
                 }
             }
         }
@@ -88,13 +88,13 @@ class WasmAuthRepository : AuthRepository {
         } catch (_: Exception) {
             mutableState.value =
                 AuthState.Error(
-                    "No se pudo abrir Google. Habilitá el almacenamiento del navegador."
+                    "i18n.could_not_open_google"
                 )
         }
     }
 
     override suspend fun signInWithApple() {
-        mutableState.value = AuthState.Error("Sign in con Apple no está configurado en Web")
+        mutableState.value = AuthState.Error("i18n.apple_web_unavailable")
     }
 
     override suspend fun signOut() {

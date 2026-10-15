@@ -50,7 +50,7 @@ class IosAuthRepository : AuthRepository {
             body["id"]?.jsonPrimitive?.content == user.id &&
                 provider == user.provider.name.lowercase()
         ) {
-            "La sesión guardada pertenece a otra cuenta. Volvé a iniciar sesión."
+            "i18n.saved_session_other"
         }
         return body
     }
@@ -91,7 +91,7 @@ class IosAuthRepository : AuthRepository {
                             }
                         }
                     } ?: throw IllegalStateException(
-                        "No se pudo renovar Google. Revisá la conexión y probá de nuevo."
+                        "i18n.could_not_renew_google"
                     )
                 }
 
@@ -123,7 +123,7 @@ class IosAuthRepository : AuthRepository {
         clearSyncToken()
         appleIdToken = null
         onAuthenticationRequired?.invoke()
-        failed("Volvé a continuar con tu proveedor para renovar el acceso. Tus datos se conservan.")
+        failed("i18n.renew_provider_keep")
     }
 
     var googleAction: (() -> Unit)? = null
@@ -135,7 +135,7 @@ class IosAuthRepository : AuthRepository {
             return
         }
         if (action == null) {
-            failed("El acceso todavía no está disponible.")
+            failed("i18n.access_not_ready")
         } else {
             clearSyncToken()
             mutableState.value = AuthState.Authenticating
@@ -146,7 +146,7 @@ class IosAuthRepository : AuthRepository {
     override suspend fun signInWithApple(): Unit = start(appleAction)
     fun authenticated(user: User) {
         if (user.id.isBlank()) {
-            failed("El proveedor no devolvió una identidad válida.")
+            failed("i18n.provider_identity")
             return
         }
         if (!sameUser(user)) validatedToken = null

@@ -167,7 +167,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                 com.coffeedial.sync.sameData(snapshot(), expected.backup) &&
                     queries.readSyncCheckpoint().executeAsOneOrNull() == expected.checkpoint
             ) {
-                "Los datos cambiaron durante el sync. Tus cambios están guardados; volvé a sincronizar."
+                "i18n.sync_changed"
             }
             queries.clearShots()
             queries.clearBeans()
@@ -247,7 +247,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             val name = draft.beanName.trim()
             val roaster = draft.roaster.trim()
             val previous = queries.beanForShot(id).executeAsOneOrNull()
-            check(previous != null) { "Este shot ya no existe." }
+            check(previous != null) { "i18n.shot_gone" }
             val keepPrevious = previous.name == name && previous.roaster == roaster
             if (!keepPrevious && queries.findBean(name, roaster).executeAsOneOrNull() == null) {
                 queries.insertBean(Uuid.random().toString(), name, roaster, 0L, null, null, null, null, null)
@@ -303,7 +303,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.allMachines().executeAsList().any {
                         it.id == id
                     }
-                ) { "La máquina ya no existe." }
+                ) { "i18n.machine_gone" }
                 queries.insertMachine(id, draft.name.trim(), draft.type.trim(), draft.year.trim())
                 queries.renameShotMachine(draft.name.trim(), id)
             }
@@ -342,7 +342,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.allBeans().executeAsList().any {
                         it.id == id && it.archived == 0L
                     }
-                ) { "El café ya no existe." }
+                ) { "i18n.bean_gone" }
                 queries.updateBean(
                     draft.name.trim(),
                     draft.roaster.trim(),
@@ -381,7 +381,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     queries.allCups().executeAsList().any {
                         it.id == id
                     }
-                ) { "La taza ya no existe." }
+                ) { "i18n.cup_gone" }
                 queries.updateCup(
                     draft.name.trim(),
                     draft.weight.decimal(),
@@ -402,7 +402,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
             require(draft.errors().isEmpty())
             queries.transaction {
                 check(queries.allGrinders().executeAsList().any { it.id == id }) {
-                    "El molinillo ya no existe."
+                    "i18n.grinder_gone"
                 }
                 queries.insertGrinder(id, draft.name.trim(), draft.type.trim())
                 queries.renameShotGrinder(draft.name.trim(), id)
@@ -518,10 +518,7 @@ class SqlShotRepository(driver: SqlDriver) : ShotRepository {
                     current.recipes != prepared.local.recipes ||
                     current.brewDefaults != prepared.local.brewDefaults
                 ) {
-                    throw BackupException(
-                        "El historial cambió. " +
-                            "Volvé a seleccionar el backup para revisarlo."
-                    )
+                    throw BackupException("i18n.history_changed")
                 }
                 prepared.plan.beans.forEach {
                     queries.insertBean(

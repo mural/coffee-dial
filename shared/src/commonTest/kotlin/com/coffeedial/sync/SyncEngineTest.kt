@@ -224,7 +224,9 @@ class SyncEngineTest {
         )
         val guarded = SyncEngine(repo, auth, get = { _, _ -> error("must not send") })
         assertTrue(guarded.performSync().isFailure)
-        assertTrue((guarded.state.value as SyncState.Error).message.contains("otra cuenta"))
+        assertTrue(
+            (guarded.state.value as SyncState.Error).message.contains("i18n.other_account")
+        )
     }
 
     @Test fun unauthorizedRenewsOnceAndRetries() = runTest {

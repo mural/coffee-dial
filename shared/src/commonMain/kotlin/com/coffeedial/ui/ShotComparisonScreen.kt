@@ -39,6 +39,7 @@ fun ShotComparisonScreen(
     error: String?,
     onPrefer: (Shot) -> Unit
 ) {
+    val strings = LocalStrings.current
     var selected by rememberSaveable(initialId) {
         val shot = shots.find { it.id == initialId }
         val parent = shots.find { it.id == shot?.dialIn?.previousShotId }
@@ -58,16 +59,16 @@ fun ShotComparisonScreen(
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            Text("Comparar intentos", style = MaterialTheme.typography.headlineLarge)
-            Text(
-                "Elegí 2 o 3 shots. El primero será la referencia; los cambios aparecen resaltados."
-            )
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Text(strings.compareTitle, style = MaterialTheme.typography.headlineLarge)
+            Text(strings.compareHint)
+            error?.let {
+                Text(strings.userMessage(it), color = MaterialTheme.colorScheme.error)
+            }
         }
         if (chosen.isNotEmpty()) {
             item {
                 Text(
-                    "Seleccionados (${chosen.size}/3)",
+                    strings.selectedCount(chosen.size),
                     style = MaterialTheme.typography.titleMedium
                 )
                 chosen.forEachIndexed { index, shot ->
@@ -81,39 +82,32 @@ fun ShotComparisonScreen(
                                     ).joinToString("|")
                         }, enabled = !saving) {
                             Text(
-                                if (index ==
-                                    0
-                                ) {
-                                    "Referencia: ${shot.bean.name}"
+                                if (index == 0) {
+                                    strings.referenceName(shot.bean.name)
                                 } else {
-                                    "${index + 1}: usar como referencia"
+                                    strings.useAsReference(index + 1)
                                 }
                             )
                         }
                         TextButton(onClick = {
                             selected =
                                 ids.filterNot { it == shot.id }.joinToString("|")
-                        }, enabled = !saving) { Text("Quitar") }
+                        }, enabled = !saving) { Text(strings.actionRemove) }
                     }
-                    Text(timestamp(shot.createdAt), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        timestamp(shot.createdAt, strings = strings),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
         if (chosen.size >= 2) {
             item {
                 if (chosen.map { it.bean.id }.distinct().size > 1) {
-                    Text(
-                        "Son cafés distintos: las diferencias de sabor no dependen solo de los ajustes."
-                    )
+                    Text(strings.differentCoffeesNote)
                 }
-                Text(
-                    "Comparación descriptiva: tiempo y ratio no determinan por sí solos la calidad. Agua y leche también cambian el sabor.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    "Deslizá la tabla hacia los lados para ver todos los intentos.",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(strings.descriptiveCompare, style = MaterialTheme.typography.bodySmall)
+                Text(strings.scrollTable, style = MaterialTheme.typography.bodySmall)
                 Column(Modifier.horizontalScroll(rememberScrollState())) {
                     Row {
                         Text("", Modifier.width(116.dp))
@@ -123,17 +117,15 @@ fun ShotComparisonScreen(
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    if (index ==
-                                        0
-                                    ) {
-                                        "Referencia"
+                                    if (index == 0) {
+                                        strings.referenceHeading
                                     } else {
-                                        "Intento ${index + 1}"
+                                        strings.attemptColumn(index + 1)
                                     },
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
-                                    timestamp(shot.createdAt),
+                                    timestamp(shot.createdAt, strings = strings),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 TextButton(
@@ -142,19 +134,17 @@ fun ShotComparisonScreen(
                                         !saving && shot.dialIn?.favorite != true
                                 ) {
                                     Text(
-                                        if (shot.dialIn?.favorite ==
-                                            true
-                                        ) {
-                                            "Favorito"
+                                        if (shot.dialIn?.favorite == true) {
+                                            strings.favoriteLabel
                                         } else {
-                                            "Prefiero este"
+                                            strings.preferThis
                                         }
                                     )
                                 }
                             }
                         }
                     }
-                    compareShots(chosen).forEach { row ->
+                    compareShots(chosen, strings).forEach { row ->
                         HorizontalDivider()
                         Row(Modifier.height(IntrinsicSize.Min)) {
                             Text(
@@ -200,28 +190,29 @@ fun ShotComparisonScreen(
                         }
                     }
                 }
-                Text(
-                    "“Prefiero este” lo guarda como favorito para futuras referencias del asistente; no modifica los demás favoritos.",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(strings.preferThisNote, style = MaterialTheme.typography.bodySmall)
             }
         }
         item {
-            Text("Agregar shots", style = MaterialTheme.typography.titleMedium)
+            Text(strings.addShots, style = MaterialTheme.typography.titleMedium)
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(beanId == null, { beanId = null }, label = { Text("Todos los cafés") })
+                FilterChip(
+                    beanId == null,
+                    { beanId = null },
+                    label = { Text(strings.allCoffees) }
+                )
                 beans.forEach { bean ->
                     FilterChip(beanId == bean.id, { beanId = bean.id }, label = { Text(bean.name) })
                 }
             }
             FilterChip(onlyFavorites, {
                 onlyFavorites = !onlyFavorites
-            }, label = { Text("Solo favoritos") })
+            }, label = { Text(strings.favoritesOnly) })
         }
-        if (candidates.isEmpty()) item { Text("No hay shots para estos filtros.") }
+        if (candidates.isEmpty()) item { Text(strings.noShotsForFilters) }
         items(candidates, key = { it.id }) { shot ->
             FilterChip(
                 selected = shot.id in ids,
@@ -238,7 +229,10 @@ fun ShotComparisonScreen(
                         Text(
                             "${shot.bean.name} · ${shot.dose.pretty()} -> ${shot.output.pretty()} g · ${shot.rating}/5"
                         )
-                        Text(timestamp(shot.createdAt), style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            timestamp(shot.createdAt, strings = strings),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 },
                 modifier = Modifier.fillMaxWidth()

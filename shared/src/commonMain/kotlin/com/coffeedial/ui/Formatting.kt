@@ -4,23 +4,12 @@ import kotlin.math.round
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
 
 internal fun Double.pretty(): String = (round(this * 10) / 10).toString().removeSuffix(".0")
-
-private fun DayOfWeek.abbreviation(): String = when (this) {
-    DayOfWeek.MONDAY -> "lun"
-    DayOfWeek.TUESDAY -> "mar"
-    DayOfWeek.WEDNESDAY -> "mié"
-    DayOfWeek.THURSDAY -> "jue"
-    DayOfWeek.FRIDAY -> "vie"
-    DayOfWeek.SATURDAY -> "sáb"
-    DayOfWeek.SUNDAY -> "dom"
-}
 
 private fun formatGmtOffset(rawOffset: String): String {
     if (rawOffset == "Z" || rawOffset == "+00:00" || rawOffset == "-00:00" || rawOffset == "+00" ||
@@ -38,7 +27,8 @@ private fun formatGmtOffset(rawOffset: String): String {
 internal fun timestamp(
     epochMillis: Long,
     now: Instant = Clock.System.now(),
-    zone: TimeZone = TimeZone.currentSystemDefault()
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+    strings: AppStrings = SpanishStrings
 ): String {
     val instant = Instant.fromEpochMilliseconds(epochMillis)
     val local = instant.toLocalDateTime(zone)
@@ -56,12 +46,12 @@ internal fun timestamp(
     val yesterdayDate = todayDate.minus(1, DateTimeUnit.DAY)
 
     val dateStr = when (local.date) {
-        todayDate -> "Hoy"
+        todayDate -> strings.today
 
-        yesterdayDate -> "Ayer"
+        yesterdayDate -> strings.yesterday
 
         else -> {
-            val dow = local.dayOfWeek.abbreviation()
+            val dow = strings.weekdayShort(local.dayOfWeek.ordinal)
             val dayNum = local.day.toString().padStart(2, '0')
             val monthNum = (local.month.ordinal + 1).toString().padStart(2, '0')
             if (local.year == nowLocal.year) {

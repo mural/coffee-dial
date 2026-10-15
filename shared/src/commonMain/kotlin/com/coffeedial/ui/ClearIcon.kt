@@ -27,4 +27,7 @@ private val CloseMark = ImageVector.Builder("Clear", 24.dp, 24.dp, 24f, 24f).app
 }.build()
 
 @Composable
-internal fun ClearIcon(label: String) = Icon(CloseMark, contentDescription = "Borrar $label")
+internal fun ClearIcon(label: String) {
+    val strings = LocalStrings.current
+    Icon(CloseMark, contentDescription = strings.clearField(label))
+}

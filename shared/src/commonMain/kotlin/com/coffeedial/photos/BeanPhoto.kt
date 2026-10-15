@@ -7,16 +7,16 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class BeanPhoto(val id: String, val jpeg: String? = null) {
     fun validate() {
-        require(Regex("[a-f0-9-]{36}").matches(id)) { "Foto inválida." }
+        require(Regex("[a-f0-9-]{36}").matches(id)) { "i18n.photo_invalid" }
         jpeg?.let {
-            require(it.length <= 136536) { "La foto supera los 100 KB." }
+            require(it.length <= 136536) { "i18n.photo_too_big" }
             val bytes = Base64.decode(it)
             require(
                 bytes.size in 4..102400 &&
                     bytes[0] == (-1).toByte() && bytes[1] == (-40).toByte() &&
                     bytes[bytes.lastIndex] == (-39).toByte() &&
                     bytes[bytes.lastIndex - 1] == (-1).toByte() && validDimensions(bytes)
-            ) { "Foto JPEG inválida." }
+            ) { "i18n.photo_jpeg" }
         }
     }
 }

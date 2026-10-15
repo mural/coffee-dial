@@ -136,6 +136,10 @@ fun App(
     var beansList by remember { mutableStateOf<List<Bean>>(emptyList()) }
     var cupsList by remember { mutableStateOf<List<Cup>>(emptyList()) }
     var grinders by remember { mutableStateOf<List<Grinder>>(emptyList()) }
+    var themeMode by remember { mutableStateOf(readThemeMode()) }
+    var appLanguage by remember { mutableStateOf(readAppLanguage()) }
+    val resolvedLanguage = appLanguage.resolve()
+    val strings = remember(resolvedLanguage) { AppStrings.forLanguage(resolvedLanguage) }
     var loadError by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var selectedStyle by rememberSaveable { mutableStateOf<String?>(null) }
@@ -181,7 +185,7 @@ fun App(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                saveError = "No pudimos guardar el predeterminado. Intentá otra vez."
+                saveError = strings.couldNotSaveDefault
             } finally {
                 saving = false
             }
@@ -211,7 +215,7 @@ fun App(
             } catch (
                 _: Exception
             ) {
-                saveError = "No pudimos guardar el favorito. Reintentá."
+                saveError = strings.couldNotSaveFavorite
             } finally {
                 saving = false
             }
@@ -267,9 +271,14 @@ fun App(
                     val result = syncEngine.performSync()
                     if (result.isFailure) {
                         refreshError = if (syncEngine.state.value is SyncState.Conflict) {
-                            "Hay cambios en conflicto. Resolvelos en Cuenta."
+                            strings.conflictChanges
                         } else {
-                            result.exceptionOrNull()?.message ?: "No se pudo sincronizar."
+                            val raw = result.exceptionOrNull()?.message
+                            if (raw.isNullOrBlank()) {
+                                strings.couldNotSync
+                            } else {
+                                strings.userMessage(raw)
+                            }
                         }
                     }
                 } else {
@@ -283,7 +292,6 @@ fun App(
             }
         }
     }
-    var themeMode by remember { mutableStateOf(readThemeMode()) }
     val dark = themeMode.isDark(isSystemInDarkTheme())
     MaterialTheme(
         colorScheme = if (dark) coffeeDarkColorScheme() else coffeeLightColorScheme()
@@ -318,6 +326,7 @@ fun App(
         Scaffold { padding ->
             Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
                 CompositionLocalProvider(
+                    LocalStrings provides strings,
                     LocalNavigationSpace provides if (screen in roots) bottomSpace else 0.dp
                 ) {
                     OptionalPullRefresh(
@@ -366,7 +375,7 @@ fun App(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "Coffee Dial",
+                                    strings.appName,
                                     style = MaterialTheme.typography.headlineMedium,
                                     modifier = Modifier.padding(vertical = 16.dp)
                                 )
@@ -375,7 +384,7 @@ fun App(
                                         TextButton(enabled = !saving && !backupFiles.busy, onClick = {
                                             goBack()
                                         }) {
-                                            Text("Volver")
+                                            Text(strings.actionBack)
                                         }
                                     }
                                 }
@@ -402,7 +411,7 @@ fun App(
                                                 throw cancelled
                                             } catch (_: Exception) {
                                                 saveError =
-                                                    "No pudimos guardar la receta. Reintentá."
+                                                    strings.couldNotSaveRecipe
                                             } finally {
                                                 saving = false
                                             }
@@ -421,7 +430,7 @@ fun App(
                                                 throw cancelled
                                             } catch (_: Exception) {
                                                 saveError =
-                                                    "No pudimos eliminar la receta. Reintentá."
+                                                    strings.couldNotDeleteRecipe
                                             } finally {
                                                 saving = false
                                             }
@@ -441,38 +450,38 @@ fun App(
                                 })
 
                                 "track" -> PillarScreen(
-                                    "Registrar",
-                                    "Tu café, tu equipo y cada extracción.",
+                                    strings.navShots,
+                                    strings.trackPillarDesc,
                                     listOf(
-                                        "Registrar un shot" to { newShot() },
-                                        "Historial (${shots.orEmpty().size})" to
+                                        strings.logAShot to { newShot() },
+                                        strings.historyHeader(shots.orEmpty().size) to
                                             { screen = "history" },
-                                        "Cafés" to { screen = "beans" },
-                                        "Máquinas" to { screen = "machines" },
-                                        "Molinillos" to { screen = "grinders" },
-                                        "Tazas" to { screen = "cups" }
+                                        strings.beans to { screen = "beans" },
+                                        strings.savedMachines to { screen = "machines" },
+                                        strings.savedGrinders to { screen = "grinders" },
+                                        strings.savedCups to { screen = "cups" }
                                     )
                                 )
 
                                 "improve" -> PillarScreen(
-                                    "Mejorar",
-                                    "Compará resultados y encontrá tu próxima receta.",
+                                    strings.navAnalysis,
+                                    strings.improvePillarDesc,
                                     listOf(
-                                        "Ajustar espresso" to {
+                                        strings.dialInTitle to {
                                             assistantOrigin = "improve"
                                             selectedId = shots.orEmpty().firstOrNull()?.id
                                             saveError = null
                                             screen = "assistant"
                                         },
-                                        "Análisis de extracciones" to { screen = "analysis" },
-                                        "Comparar intentos y favoritos" to
+                                        strings.navAnalysis to { screen = "analysis" },
+                                        strings.compareAttempts to
                                             {
                                                 comparisonInitial = null
                                                 saveError = null
                                                 screen =
                                                     "compare"
                                             },
-                                        "Tips y estilos" to { screen = "tips" }
+                                        strings.ratiosAndStyles to { screen = "tips" }
                                     )
                                 )
 
@@ -486,6 +495,11 @@ fun App(
                                     onThemeMode = { mode ->
                                         themeMode = mode
                                         writeThemeMode(mode)
+                                    },
+                                    appLanguage = appLanguage,
+                                    onAppLanguage = { lang ->
+                                        appLanguage = lang
+                                        writeAppLanguage(lang)
                                     }
                                 )
 
@@ -494,9 +508,9 @@ fun App(
                                     if (conflict == null) {
                                         Text(
                                             if (syncState is SyncState.Syncing) {
-                                                "Resolviendo el conflicto…"
+                                                strings.resolvingConflict
                                             } else {
-                                                "No hay conflictos pendientes."
+                                                strings.noPendingConflicts
                                             }
                                         )
                                     } else {
@@ -520,13 +534,13 @@ fun App(
                                                     throw cancelled
                                                 } catch (_: Exception) {
                                                     saveError =
-                                                        "No pudimos resolver el conflicto. Tus datos siguen guardados."
+                                                        strings.conflictKept
                                                 } finally {
                                                     saving = false
                                                 }
                                             }
                                         }
-                                        saveError?.let { Text(it) }
+                                        saveError?.let { Text(strings.userMessage(it)) }
                                     }
                                 }
 
@@ -562,7 +576,7 @@ fun App(
                                             } catch (cancelled: CancellationException) {
                                                 throw cancelled
                                             } catch (_: Exception) {
-                                                saveError = "No pudimos guardar la máquina."
+                                                saveError = strings.couldNotSaveMachine
                                             } finally {
                                                 saving = false
                                             }
@@ -607,7 +621,7 @@ fun App(
                                             } catch (cancelled: CancellationException) {
                                                 throw cancelled
                                             } catch (_: Exception) {
-                                                saveError = "No pudimos guardar el café."
+                                                saveError = strings.couldNotSaveBean
                                             } finally {
                                                 saving = false
                                             }
@@ -655,7 +669,7 @@ fun App(
                                             } catch (cancelled: CancellationException) {
                                                 throw cancelled
                                             } catch (_: Exception) {
-                                                saveError = "No pudimos guardar el molinillo."
+                                                saveError = strings.couldNotSaveGrinder
                                             } finally {
                                                 saving = false
                                             }
@@ -698,7 +712,7 @@ fun App(
                                             } catch (cancelled: CancellationException) {
                                                 throw cancelled
                                             } catch (_: Exception) {
-                                                saveError = "No pudimos guardar la taza."
+                                                saveError = strings.couldNotSaveCup
                                             } finally {
                                                 saving = false
                                             }
@@ -734,11 +748,11 @@ fun App(
                                     if (source == null) {
                                         Column {
                                             Text(
-                                                "Registrá un shot y evaluá su sabor para empezar a ajustar."
+                                                strings.logShotToDial
                                             )
                                             TextButton(onClick = {
                                                 screen = "new"
-                                            }) { Text("Registrar shot") }
+                                            }) { Text(strings.logShot) }
                                         }
                                     } else {
                                         DialInScreen(
@@ -774,7 +788,7 @@ fun App(
                                                         throw cancelled
                                                     } catch (_: Exception) {
                                                         saveError =
-                                                            "No pudimos guardar el contexto. Reintentá."
+                                                            strings.couldNotSaveContext
                                                     } finally {
                                                         saving = false
                                                     }
@@ -831,8 +845,7 @@ fun App(
                                             } catch (cancelled: CancellationException) {
                                                 throw cancelled
                                             } catch (_: Exception) {
-                                                saveError = "No pudimos guardar el shot. " +
-                                                    "Tus datos siguen acá; intentá otra vez."
+                                                saveError = strings.couldNotSaveShot
                                             } finally {
                                                 saving = false
                                             }
@@ -843,7 +856,7 @@ fun App(
                                 "detail" -> {
                                     val shot = shots.orEmpty().find { it.id == selectedId }
                                     if (shot == null) {
-                                        Text("No encontramos este shot.")
+                                        Text(strings.shotNotFound)
                                     } else {
                                         ShotDetail(
                                             shot = shot,
@@ -862,9 +875,12 @@ fun App(
                                                     Json.encodeToString(
                                                         shot.asRecipe(
                                                             kotlin.uuid.Uuid.random().toString(),
-                                                            "${shot.bean.name} · ${shot.style ?: "Espresso"}".take(
-                                                                100
-                                                            )
+                                                            (
+                                                                "${shot.bean.name} · " +
+                                                                    strings.knownDrinkName(
+                                                                        shot.style ?: "Espresso"
+                                                                    )
+                                                                ).take(100)
                                                         )
                                                     )
                                                 saveError = null
@@ -1021,14 +1037,18 @@ fun App(
                 if (screen in roots) {
                     Box(
                         Modifier.align(Alignment.BottomCenter).onSizeChanged {
-                            navigationHeight =
-                                it.height
+                            navigationHeight = it.height
                         }
                     ) {
-                        PillarNavigation(pillar, enabled = !saving && !backupFiles.busy) {
-                            pillar = it
-                            screen = it
-                            saveError = null
+                        CompositionLocalProvider(LocalStrings provides strings) {
+                            PillarNavigation(
+                                pillar,
+                                enabled = !saving && !backupFiles.busy
+                            ) {
+                                pillar = it
+                                screen = it
+                                saveError = null
+                            }
                         }
                     }
                 }

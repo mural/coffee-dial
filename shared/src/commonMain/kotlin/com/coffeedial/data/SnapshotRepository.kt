@@ -52,7 +52,7 @@ class SnapshotRepository private constructor(
         readStorage(text)
     } catch (error: Exception) {
         throw BackupException(
-            "Los datos locales tienen un formato incompatible o dañado. No se modificaron.",
+            "i18n.local_damaged",
             error
         )
     }
@@ -179,8 +179,7 @@ class SnapshotRepository private constructor(
         if (!store.compareAndSet(raw, text)) {
             refresh()
             throw BackupException(
-                "Los datos cambiaron en otra pestaña. " +
-                    "Revisalos e intentá otra vez."
+                "i18n.other_tab"
             )
         }
         raw = text
@@ -203,13 +202,13 @@ class SnapshotRepository private constructor(
             com.coffeedial.sync.sameData(data, expected.backup) &&
                 stored.checkpoint == expected.checkpoint
         ) {
-            "Los datos cambiaron durante el sync. Tus cambios están guardados; volvé a sincronizar."
+            "i18n.sync_changed"
         }
         BackupFormat.validate(next)
         val nextStored = StoredSnapshot(backup = next, checkpoint = checkpoint)
         val text = storageJson.encodeToString(nextStored)
         check(store.compareAndSet(raw, text)) {
-            "Otra pestaña cambió los datos. Volvé a sincronizar."
+            "i18n.tab_changed"
         }
         raw = text
         stored = nextStored
@@ -293,7 +292,7 @@ class SnapshotRepository private constructor(
     override suspend fun update(id: String, draft: ShotDraft) = change {
         val old =
             it.shots.find { shot -> shot.id == id }
-                ?: throw BackupException("Este shot ya no existe.")
+                ?: throw BackupException("i18n.shot_gone")
         withShot(it, draft, id, old.createdAt)
     }
     override suspend fun delete(id: String) = change {
@@ -332,7 +331,7 @@ class SnapshotRepository private constructor(
 
     override suspend fun updateBean(id: String, draft: BeanDraft) = change {
         require(draft.errors().isEmpty())
-        check(it.beans.any { b -> b.id == id && !b.archived }) { "El café ya no existe." }
+        check(it.beans.any { b -> b.id == id && !b.archived }) { "i18n.bean_gone" }
         val name = draft.name.trim()
         val roaster = draft.roaster.trim()
         it.copy(
@@ -384,7 +383,7 @@ class SnapshotRepository private constructor(
 
     override suspend fun updateCup(id: String, draft: CupDraft) = change {
         require(draft.errors().isEmpty())
-        check(it.cups.any { c -> c.id == id }) { "La taza ya no existe." }
+        check(it.cups.any { c -> c.id == id }) { "i18n.cup_gone" }
         val name = draft.name.trim()
         val weight = draft.weight.decimal()
         val capacity = draft.capacity.decimal()
@@ -437,7 +436,7 @@ class SnapshotRepository private constructor(
 
     override suspend fun updateGrinder(id: String, draft: GrinderDraft) = change {
         require(draft.errors().isEmpty())
-        check(it.grinders.any { grinder -> grinder.id == id }) { "El molinillo ya no existe." }
+        check(it.grinders.any { grinder -> grinder.id == id }) { "i18n.grinder_gone" }
         val name = draft.name.trim()
         val type = draft.type.trim()
         it.copy(
@@ -478,7 +477,7 @@ class SnapshotRepository private constructor(
     }
     override suspend fun updateMachine(id: String, draft: MachineDraft) = change {
         require(draft.errors().isEmpty())
-        check(it.machines.any { m -> m.id == id }) { "La máquina ya no existe." }
+        check(it.machines.any { m -> m.id == id }) { "i18n.machine_gone" }
         val name = draft.name.trim()
         val type = draft.type.trim()
         val year = draft.year.trim()
@@ -521,7 +520,7 @@ class SnapshotRepository private constructor(
                 it.brewDefaults != prepared.local.brewDefaults
             ) {
                 throw BackupException(
-                    "El historial cambió. Volvé a seleccionar el backup para revisarlo."
+                    "i18n.history_changed"
                 )
             }
             it.copy(

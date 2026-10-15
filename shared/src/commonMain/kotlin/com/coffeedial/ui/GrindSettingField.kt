@@ -30,25 +30,33 @@ import kotlin.math.roundToInt
 
 @Composable
 fun GrindSettingField(grind: String, error: String?, saving: Boolean, onChange: (String) -> Unit) {
-    val selected = grindLevels.indexOfFirst { it.equals(grind.trim(), ignoreCase = true) }
+    val strings = LocalStrings.current
+    val selected = grindLevels.indexOfFirst { canonical ->
+        val trimmed = grind.trim()
+        canonical.equals(trimmed, ignoreCase = true) ||
+            strings.grindLevelLabel(canonical).equals(trimmed, ignoreCase = true)
+    }
     val parsed = ProGrindSetting.parse(grind)
     var expanded by rememberSaveable { mutableStateOf(parsed != null) }
     val enabled = !saving
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Molienda", style = MaterialTheme.typography.titleMedium)
+        Text(strings.grind, style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Fino", "Medio", "Grueso").forEach { level ->
+                val label = strings.grindLevelLabel(level)
                 FilterChip(
-                    selected = level.equals(grind.trim(), ignoreCase = true),
+                    selected = level.equals(grind.trim(), ignoreCase = true) ||
+                        label.equals(grind.trim(), ignoreCase = true),
                     onClick = { onChange(level) },
                     enabled = enabled,
-                    label = { Text(level) }
+                    label = { Text(label) }
                 )
             }
         }
         // A custom numeric adjustment has no universal equivalent on this scale.
         if (selected >= 0) {
-            Text(grindLevels[selected], color = MaterialTheme.colorScheme.primary)
+            val levelLabel = strings.grindLevelLabel(grindLevels[selected])
+            Text(levelLabel, color = MaterialTheme.colorScheme.primary)
             Slider(
                 value = selected.toFloat(),
                 onValueChange = {
@@ -58,42 +66,38 @@ fun GrindSettingField(grind: String, error: String?, saving: Boolean, onChange: 
                 steps = grindLevels.size - 2,
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth().semantics {
-                    contentDescription = "Tipo de molienda"
-                    stateDescription = grindLevels[selected]
+                    contentDescription = strings.grindKind
+                    stateDescription = levelLabel
                 }
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Muy fino", style = MaterialTheme.typography.labelSmall)
-                Text("Muy grueso", style = MaterialTheme.typography.labelSmall)
+                Text(strings.veryFine, style = MaterialTheme.typography.labelSmall)
+                Text(strings.veryCoarse, style = MaterialTheme.typography.labelSmall)
             }
         }
-        Field("Ajuste del molino", grind, error, saving) { onChange(it) }
-        Text(
-            "Elegí un nivel o anotá el ajuste real: 18 clics, 2.3, 1.4.2…",
-            style = MaterialTheme.typography.bodySmall
-        )
+        Field(strings.millAdjustment, grind, error, saving) { onChange(it) }
+        Text(strings.grindHint, style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { expanded = !expanded }, enabled = enabled) {
-            Text(if (expanded) "Ocultar ajustes pro" else "Mostrar ajustes pro")
+            Text(if (expanded) strings.hideProGrind else strings.showProGrind)
         }
         if (expanded) {
             val pro = parsed ?: ProGrindSetting(0, 0, 0)
-            Text("Vueltas · Dial · Clics", style = MaterialTheme.typography.titleSmall)
-            Text(
-                "Usá esta notación si tu molino la admite. Cada escala es propia del equipo; no convierte fino o grueso a clics.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            GrindTuner("Vueltas", pro.rotations, enabled) {
+            Text(strings.proGrindTitle, style = MaterialTheme.typography.titleSmall)
+            Text(strings.proGrindHint, style = MaterialTheme.typography.bodySmall)
+            GrindTuner(strings.rotations, pro.rotations, enabled) {
                 onChange(pro.copy(rotations = it).notation())
             }
-            GrindTuner("Dial", pro.dial, enabled) { onChange(pro.copy(dial = it).notation()) }
-            GrindTuner("Clics", pro.clicks, enabled) { onChange(pro.copy(clicks = it).notation()) }
+            GrindTuner(strings.dial, pro.dial, enabled) {
+                onChange(pro.copy(dial = it).notation())
+            }
+            GrindTuner(strings.clicks, pro.clicks, enabled) {
+                onChange(pro.copy(clicks = it).notation())
+            }
             Text(
-                if (parsed ==
-                    null
-                ) {
-                    "Tocá un control para aplicar el ajuste pro; tu valor actual todavía se conserva."
+                if (parsed == null) {
+                    strings.tapToApplyPro
                 } else {
-                    "Ajuste guardado: $grind"
+                    strings.savedAdjustment(grind)
                 },
                 style = MaterialTheme.typography.bodySmall
             )
@@ -103,6 +107,7 @@ fun GrindSettingField(grind: String, error: String?, saving: Boolean, onChange: 
 
 @Composable
 private fun GrindTuner(label: String, value: Int, enabled: Boolean, onChange: (Int) -> Unit) {
+    val strings = LocalStrings.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -110,7 +115,7 @@ private fun GrindTuner(label: String, value: Int, enabled: Boolean, onChange: (I
         TextButton(
             onClick = { onChange(value - 1) },
             enabled = enabled && value > 0,
-            modifier = Modifier.semantics { contentDescription = "Reducir $label" }
+            modifier = Modifier.semantics { contentDescription = strings.decreaseLabel(label) }
         ) { Text("-") }
         OutlinedTextField(
             value = value.toString(),
@@ -130,7 +135,7 @@ private fun GrindTuner(label: String, value: Int, enabled: Boolean, onChange: (I
         TextButton(
             onClick = { onChange(value + 1) },
             enabled = enabled && value < 9999,
-            modifier = Modifier.semantics { contentDescription = "Aumentar $label" }
+            modifier = Modifier.semantics { contentDescription = strings.increaseLabel(label) }
         ) { Text("+") }
     }
 }

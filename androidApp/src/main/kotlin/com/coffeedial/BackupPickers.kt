@@ -27,7 +27,7 @@ fun BackupPickers(files: BackupFiles) {
             if (uri == null) {
                 files.finish(null)
             } else if (text == null) {
-                files.finish("La exportación se interrumpió. Volvé a intentarlo.")
+                files.finish("i18n.export_interrupted")
             } else {
                 scope.launch {
                     try {
@@ -36,12 +36,12 @@ fun BackupPickers(files: BackupFiles) {
                                 it.write(text.encodeToByteArray())
                             }
                         }
-                        files.finish("Backup exportado.")
+                        files.finish("i18n.backup_exported")
                     } catch (cancelled: CancellationException) {
-                        files.finish("La exportación se interrumpió. Volvé a intentarlo.")
+                        files.finish("i18n.export_interrupted")
                         throw cancelled
                     } catch (_: Exception) {
-                        files.finish("No se pudo guardar el archivo. Volvé a exportarlo.")
+                        files.finish("i18n.could_not_save_file")
                     }
                 }
             }
@@ -68,11 +68,11 @@ fun BackupPickers(files: BackupFiles) {
                         }
                         files.receiveImport(text)
                     } catch (cancelled: CancellationException) {
-                        files.finish("La lectura se interrumpió. Volvé a seleccionar el archivo.")
+                        files.finish("i18n.read_interrupted")
                         throw cancelled
                     } catch (_: Exception) {
                         files.finish(
-                            "No se pudo leer el archivo. Elegí un backup UTF-8 de hasta 10 MB."
+                            "i18n.could_not_read_backup"
                         )
                     }
                 }

@@ -121,19 +121,20 @@ fun ShotFormContent(
     submitted: Boolean = false
 ) {
     var localSubmitted by rememberSaveable { mutableStateOf(false) }
+    val strings = LocalStrings.current
     val activeSubmitted = if (showSaveButton) localSubmitted else submitted
-    val errors = if (activeSubmitted) draft.errors() else emptyMap()
+    val errors = if (activeSubmitted) draft.errors(strings) else emptyMap()
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Text(
-            if (isEditing) "Editar shot" else "Nuevo shot",
+            if (isEditing) strings.editShotTitle else strings.newShotTitle,
             style = MaterialTheme.typography.headlineSmall
         )
 
-        CoffeeSection("El café") {
+        CoffeeSection(strings.beans) {
             if (beans.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     FlowRow(
@@ -141,9 +142,9 @@ fun ShotFormContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Café guardado", style = MaterialTheme.typography.bodyMedium)
+                        Text(strings.beans, style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = onNavigateToBeans, enabled = !saving) {
-                            Text("Gestionar cafés")
+                            Text(strings.manageBeans)
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,27 +172,27 @@ fun ShotFormContent(
                             )
                         }
                     }
-                    Field("Nombre del café", draft.beanName, errors["beanName"], saving) {
+                    Field(strings.beanNameField, draft.beanName, errors["beanName"], saving) {
                         onChange(draft.copy(beanName = it))
                     }
                 }
             } else {
                 Column {
-                    Field("Café", draft.beanName, errors["beanName"], saving) {
+                    Field(strings.beanSection, draft.beanName, errors["beanName"], saving) {
                         onChange(draft.copy(beanName = it))
                     }
                     TextButton(onClick = onNavigateToBeans, enabled = !saving) {
-                        Text("+ Agregar café guardado")
+                        Text(strings.addSavedBean)
                     }
                 }
             }
 
-            Field("Tostador (opcional)", draft.roaster, null, saving) {
+            Field(strings.roasterOptionalField, draft.roaster, null, saving) {
                 onChange(draft.copy(roaster = it))
             }
         }
 
-        CoffeeSection("Extracción", "Dosis, salida y tiempo desde el inicio de la extracción.") {
+        CoffeeSection(strings.extractionSection, strings.extractionHint) {
             DoseSliderField(draft.dose, errors["dose"], saving) {
                 onChange(draft.copy(dose = it))
             }
@@ -201,14 +202,14 @@ fun ShotFormContent(
             }
 
             onOpenTimer?.let { open ->
-                TextButton(onClick = open, enabled = !saving) { Text("Medir con Shot Timer") }
+                TextButton(onClick = open, enabled = !saving) { Text(strings.measureWithTimer) }
             }
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 value = draft.firstDrop,
                 onValueChange = { onChange(draft.copy(firstDrop = it)) },
-                label = { Text("Primera gota · s (opcional)") },
+                label = { Text(strings.firstDropOptional) },
                 enabled = !saving,
                 singleLine = true,
                 isError = errors["firstDrop"] != null,
@@ -219,7 +220,7 @@ fun ShotFormContent(
             }
 
             Field(
-                "Temperatura · °C (opcional)",
+                strings.temperatureOptional,
                 draft.temperature,
                 errors["temperature"],
                 saving,
@@ -229,10 +230,15 @@ fun ShotFormContent(
             }
         }
 
-        CoffeeSection("Tu bebida", "Estilo, agua y leche agregados después de extraer.") {
+        CoffeeSection(strings.yourDrink, strings.drinkHint) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Field("Estilo (opcional)", draft.style, errors["style"], saving) {
-                    onChange(draft.copy(style = it))
+                Field(
+                    strings.styleOptional,
+                    strings.knownDrinkName(draft.style),
+                    errors["style"],
+                    saving
+                ) {
+                    onChange(draft.copy(style = styleToStore(it, strings)))
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     prepareDrinks.forEach { option ->
@@ -247,29 +253,29 @@ fun ShotFormContent(
                                 )
                             },
                             enabled = !saving,
-                            label = { Text(style) }
+                            label = { Text(strings.knownDrinkName(style)) }
                         )
                     }
                 }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                MlSliderField("Agua extra", draft.extraWater, errors["extraWater"], saving) {
+                MlSliderField(strings.addedWater, draft.extraWater, errors["extraWater"], saving) {
                     onChange(draft.copy(extraWater = it))
                 }
                 Text(
-                    "Agua agregada después de la extracción; no modifica el ratio.",
+                    strings.waterAfterExtraction,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            MlSliderField("Leche", draft.milk, errors["milk"], saving) {
+            MlSliderField(strings.milk, draft.milk, errors["milk"], saving) {
                 onChange(draft.copy(milk = it))
             }
             MilkFoamChoices(draft.milkFoam, !saving) { onChange(draft.copy(milkFoam = it)) }
         }
 
-        CoffeeSection("Equipo y molienda") {
+        CoffeeSection(strings.equipmentAndGrind) {
             if (machines.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     FlowRow(
@@ -277,9 +283,9 @@ fun ShotFormContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Máquina", style = MaterialTheme.typography.bodyMedium)
+                        Text(strings.machine, style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = onNavigateToMachines, enabled = !saving) {
-                            Text("Gestionar máquinas")
+                            Text(strings.manageMachines)
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -298,17 +304,17 @@ fun ShotFormContent(
                             )
                         }
                     }
-                    Field("O escribir máquina manualmente", draft.machine, null, saving) {
+                    Field(strings.orTypeMachine, draft.machine, null, saving) {
                         onChange(draft.copy(machine = it))
                     }
                 }
             } else {
                 Column {
-                    Field("Máquina (opcional)", draft.machine, null, saving) {
+                    Field(strings.machineOptional, draft.machine, null, saving) {
                         onChange(draft.copy(machine = it))
                     }
                     TextButton(onClick = onNavigateToMachines, enabled = !saving) {
-                        Text("+ Agregar máquina guardada")
+                        Text(strings.addSavedMachine)
                     }
                 }
             }
@@ -320,9 +326,12 @@ fun ShotFormContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Molinillo (opcional)", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            strings.grinderOptionalField,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                         TextButton(onClick = onNavigateToGrinders, enabled = !saving) {
-                            Text("Gestionar molinillos")
+                            Text(strings.manageGrinders)
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -348,7 +357,7 @@ fun ShotFormContent(
                             )
                         }
                     }
-                    Field("O escribir molinillo manualmente", draft.grinder, null, saving) {
+                    Field(strings.orTypeGrinder, draft.grinder, null, saving) {
                         onChange(
                             draft.copy(
                                 grinder = it,
@@ -361,11 +370,11 @@ fun ShotFormContent(
                 }
             } else {
                 Column {
-                    Field("Molinillo (opcional)", draft.grinder, null, saving) {
+                    Field(strings.grinderOptionalField, draft.grinder, null, saving) {
                         onChange(draft.copy(grinder = it, grinderId = null))
                     }
                     TextButton(onClick = onNavigateToGrinders, enabled = !saving) {
-                        Text("+ Agregar molinillo guardado")
+                        Text(strings.addSavedGrinder)
                     }
                 }
             }
@@ -377,9 +386,9 @@ fun ShotFormContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Taza", style = MaterialTheme.typography.bodyMedium)
+                        Text(strings.cup, style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = onNavigateToCups, enabled = !saving) {
-                            Text("Gestionar tazas")
+                            Text(strings.manageCups)
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -406,17 +415,17 @@ fun ShotFormContent(
                             )
                         }
                     }
-                    Field("O escribir taza manualmente", draft.cup, null, saving) {
+                    Field(strings.orTypeCup, draft.cup, null, saving) {
                         onChange(draft.copy(cup = it))
                     }
                 }
             } else {
                 Column {
-                    Field("Taza (opcional)", draft.cup, null, saving) {
+                    Field(strings.cupOptional, draft.cup, null, saving) {
                         onChange(draft.copy(cup = it))
                     }
                     TextButton(onClick = onNavigateToCups, enabled = !saving) {
-                        Text("+ Agregar taza guardada")
+                        Text(strings.addSavedCup)
                     }
                 }
             }
@@ -426,12 +435,12 @@ fun ShotFormContent(
             }
         }
 
-        CoffeeSection("Cómo salió") {
+        CoffeeSection(strings.howItTasted) {
             OutlinedTextField(
                 value = draft.notes,
                 onValueChange = { onChange(draft.copy(notes = it)) },
                 label = {
-                    Text("Notas (opcional)")
+                    Text(strings.notesOptional)
                 },
                 enabled = !saving,
                 modifier = Modifier.fillMaxWidth(),
@@ -441,7 +450,7 @@ fun ShotFormContent(
                         IconButton(onClick = {
                             onChange(draft.copy(notes = ""))
                         }) {
-                            ClearIcon("notas")
+                            ClearIcon(strings.notes)
                         }
                     }
                 } else {
@@ -450,7 +459,7 @@ fun ShotFormContent(
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("¿Qué tal salió? · 1 a 5")
+                Text(strings.ratingQuestion)
                 CoffeeRating(draft.rating, onChange = {
                     onChange(draft.copy(rating = it))
                 }, enabled = !saving)
@@ -461,7 +470,7 @@ fun ShotFormContent(
             onChange(draft.copy(taste = it))
         }
 
-        CoffeeSection("Próximo intento") {
+        CoffeeSection(strings.nextAttempt) {
             DialInFormContext(draft.dialIn, enabled = !saving) { onChange(draft.copy(dialIn = it)) }
         }
 
@@ -490,22 +499,22 @@ private fun SaveShotButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalStrings.current
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (saveError != null) {
-            Text(saveError, color = MaterialTheme.colorScheme.error)
+            Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
         }
         if (showFieldError) {
             Text(
-                "Revisá los campos marcados.",
+                strings.checkMarkedFields,
                 color = MaterialTheme.colorScheme.error
             )
         }
         Button(onClick = onClick, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
             Text(
                 when {
-                    saving -> "Guardando…"
-                    isEditing -> "Guardar cambios"
-                    else -> "Guardar shot"
+                    isEditing -> strings.actionSave
+                    else -> strings.saveShotLabel
                 }
             )
         }
@@ -519,6 +528,7 @@ private fun DoseSliderField(
     saving: Boolean,
     onChange: (String) -> Unit
 ) {
+    val strings = LocalStrings.current
     val currentDoseFloat = dose.decimal()?.toFloat()?.coerceIn(10f, 40f) ?: 18f
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -527,7 +537,7 @@ private fun DoseSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Dosis de entrada", style = MaterialTheme.typography.bodyMedium)
+            Text(strings.doseIn, style = MaterialTheme.typography.bodyMedium)
             Text(
                 "${currentDoseFloat.roundToInt()} g",
                 style = MaterialTheme.typography.titleMedium,
@@ -596,6 +606,7 @@ private fun OutputSliderField(
     saving: Boolean,
     onChange: (String) -> Unit
 ) {
+    val strings = LocalStrings.current
     val currentOutputFloat = output.decimal()?.toFloat()?.coerceIn(10f, 100f) ?: 36f
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -604,7 +615,7 @@ private fun OutputSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Output", style = MaterialTheme.typography.bodyMedium)
+            Text(strings.outputField, style = MaterialTheme.typography.bodyMedium)
             Text(
                 "${currentOutputFloat.roundToInt()} g",
                 style = MaterialTheme.typography.titleMedium,
@@ -732,6 +743,7 @@ private fun TimeSliderField(
     saving: Boolean,
     onChange: (String) -> Unit
 ) {
+    val strings = LocalStrings.current
     val currentSecondsFloat = seconds.decimal()?.toFloat()?.coerceIn(5f, 40f) ?: 20f
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -740,7 +752,7 @@ private fun TimeSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Tiempo", style = MaterialTheme.typography.bodyMedium)
+            Text(strings.time, style = MaterialTheme.typography.bodyMedium)
             Text(
                 "${seconds.decimal()?.pretty() ?: seconds} s",
                 style = MaterialTheme.typography.titleMedium,

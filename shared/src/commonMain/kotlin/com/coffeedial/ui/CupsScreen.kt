@@ -39,6 +39,7 @@ fun CupsScreen(
     defaultId: String? = null,
     onDefault: ((String?) -> Unit)? = null
 ) {
+    val strings = LocalStrings.current
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -53,7 +54,7 @@ fun CupsScreen(
     }
 
     val draft = CupDraft(name, weight, capacity)
-    val errors = if (submitted) draft.errors() else emptyMap()
+    val errors = if (submitted) draft.errors(strings) else emptyMap()
 
     fun open(cup: Cup?) {
         editingId = cup?.id
@@ -71,11 +72,11 @@ fun CupsScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Tazas guardadas", style = MaterialTheme.typography.headlineSmall)
-                    Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar taza") }
+                    Text(strings.savedCups, style = MaterialTheme.typography.headlineSmall)
+                    Button(onClick = { open(null) }, enabled = !saving) { Text(strings.addCup) }
                 }
             }
-            if (cups.isEmpty()) item { Text("Todavía no agregaste ninguna taza.") }
+            if (cups.isEmpty()) item { Text(strings.noCupsYet) }
             items(cups, key = { it.id }) { cup ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(
@@ -84,8 +85,8 @@ fun CupsScreen(
                     ) {
                         Text(cup.name, style = MaterialTheme.typography.titleMedium)
                         val details = listOfNotNull(
-                            cup.weight?.let { "Peso: ${it.pretty()} g" },
-                            cup.capacity?.let { "Capacidad: ${it.pretty()} cm³" }
+                            cup.weight?.let { "${strings.emptyWeight}: ${it.pretty()} g" },
+                            cup.capacity?.let { "${strings.capacity}: ${it.pretty()} cm³" }
                         ).joinToString(" · ")
                         if (details.isNotBlank()) {
                             Text(details)
@@ -100,9 +101,9 @@ fun CupsScreen(
                                         if (defaultId ==
                                             cup.id
                                         ) {
-                                            "Predeterminado"
+                                            strings.defaultLabel
                                         } else {
-                                            "Usar por defecto"
+                                            strings.useByDefault
                                         }
                                     )
                                 }
@@ -111,11 +112,11 @@ fun CupsScreen(
                         FlowRow {
                             TextButton(onClick = {
                                 open(cup)
-                            }, enabled = !saving) { Text("Editar") }
+                            }, enabled = !saving) { Text(strings.actionEdit) }
                             TextButton(onClick = {
                                 onDeleteCup(cup.id)
                             }, enabled = !saving) {
-                                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                Text(strings.actionDelete, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -123,7 +124,7 @@ fun CupsScreen(
             }
             if (saveError != null && !editorOpen) {
                 item {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -135,14 +136,14 @@ fun CupsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                if (editingId == null) "Nueva taza" else "Editar taza",
+                if (editingId == null) strings.addCup else strings.editCup,
                 style = MaterialTheme.typography.headlineSmall
             )
             CoffeeSection {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nombre de la taza") },
+                    label = { Text(strings.nameField) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -152,7 +153,7 @@ fun CupsScreen(
                 OutlinedTextField(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = { Text("Peso de la taza · g (opcional)") },
+                    label = { Text(strings.emptyWeight) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -163,7 +164,7 @@ fun CupsScreen(
                 OutlinedTextField(
                     value = capacity,
                     onValueChange = { capacity = it },
-                    label = { Text("Capacidad de la taza · cm³ (opcional)") },
+                    label = { Text(strings.capacity) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -171,21 +172,16 @@ fun CupsScreen(
                     isError = errors["capacity"] != null,
                     supportingText = errors["capacity"]?.let { { Text(it) } }
                 )
-                if (editingId != null) {
-                    Text(
-                        "Los shots anteriores conservan la información que tenían al registrarlos."
-                    )
-                }
                 if (submitted && saveError != null) {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = !saving, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveCup(editingId, draft) { closeEditor() }
-                }) { Text(if (saving) "Guardando…" else "Guardar") }
-                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text("Cancelar") }
+                }) { Text(strings.actionSave) }
+                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text(strings.actionCancel) }
             }
         }
     }

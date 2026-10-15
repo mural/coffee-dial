@@ -1,5 +1,6 @@
 package com.coffeedial.domain
 
+import com.coffeedial.ui.AppStrings
 import kotlin.math.floor
 import kotlin.math.round
 
@@ -27,7 +28,13 @@ const val PrepareBaseDose = 18.0
 enum class CupProfile(val label: String, val capacityCm3: Double) {
     SMALL("Chica", 100.0),
     MEDIUM("Media", 200.0),
-    LARGE("Grande", 300.0)
+    LARGE("Grande", 300.0);
+
+    fun label(strings: AppStrings): String = when (this) {
+        SMALL -> strings.cupSmall
+        MEDIUM -> strings.cupMedium
+        LARGE -> strings.cupLarge
+    }
 }
 
 /** Smallest cup that holds the drink. Only the 300 cm³ cup can still overflow. */

@@ -1,5 +1,8 @@
 package com.coffeedial.domain
 
+import com.coffeedial.ui.AppStrings
+import com.coffeedial.ui.SpanishStrings
+
 data class Bean(
     val id: String,
     val name: String,
@@ -15,15 +18,9 @@ data class Bean(
         return ((nowMs - roastDate) / (24 * 3600 * 1000L)).toInt()
     }
 
-    fun roastAgeSummary(nowMs: Long): String? {
+    fun roastAgeSummary(nowMs: Long, strings: AppStrings = SpanishStrings): String? {
         val days = daysSinceRoast(nowMs) ?: return null
-        return when {
-            days == 0 -> "Tostado hoy"
-            days == 1 -> "Tostado ayer"
-            days in 2..6 -> "Tostado hace $days días (desgasificando)"
-            days in 7..30 -> "Tostado hace $days días (ventana ideal ☕)"
-            else -> "Tostado hace $days días"
-        }
+        return strings.roastAge(days)
     }
 }
 
@@ -36,16 +33,16 @@ data class BeanDraft(
     val process: String = "",
     val bagWeightGrams: String = ""
 ) {
-    fun errors(): Map<String, String> = buildMap {
-        if (name.isBlank()) put("name", "Ingresá el nombre del café")
-        if (runCatching { photo?.validate() }.isFailure) put("photo", "La foto no es válida.")
+    fun errors(strings: AppStrings = SpanishStrings): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", strings.errBeanName)
+        if (runCatching { photo?.validate() }.isFailure) put("photo", strings.errPhoto)
         if (bagWeightGrams.isNotBlank() &&
             (
                 bagWeightGrams.decimal() == null || !bagWeightGrams.decimal()!!.isFinite() ||
                     bagWeightGrams.decimal()!! <= 0
                 )
         ) {
-            put("bagWeightGrams", "Ingresá un peso de bolsa válido en gramos")
+            put("bagWeightGrams", strings.errBagWeight)
         }
     }
 }
@@ -57,10 +54,10 @@ data class MachineDraft(
     val type: String = "Espresso",
     val year: String = ""
 ) {
-    fun errors(): Map<String, String> = buildMap {
-        if (name.isBlank()) put("name", "Ingresá el nombre de la máquina")
+    fun errors(strings: AppStrings = SpanishStrings): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", strings.errMachineName)
         if (year.isNotBlank() && (year.toIntOrNull() == null || year.toInt() !in 1900..2100)) {
-            put("year", "Ingresá un año válido (ej. 2022)")
+            put("year", strings.errYear)
         }
     }
 }
@@ -68,9 +65,9 @@ data class MachineDraft(
 data class Grinder(val id: String, val name: String, val type: String)
 
 data class GrinderDraft(val name: String = "", val type: String = "Eléctrico") {
-    fun errors(): Map<String, String> = buildMap {
-        if (name.isBlank()) put("name", "Ingresá el nombre del molinillo")
-        if (type.isBlank()) put("type", "Elegí el tipo de molinillo")
+    fun errors(strings: AppStrings = SpanishStrings): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", strings.errGrinderName)
+        if (type.isBlank()) put("type", strings.errGrinderType)
     }
 }
 
@@ -82,12 +79,12 @@ data class Cup(
 )
 
 data class CupDraft(val name: String = "", val weight: String = "", val capacity: String = "") {
-    fun errors(): Map<String, String> = buildMap {
-        if (name.isBlank()) put("name", "Ingresá el nombre de la taza")
+    fun errors(strings: AppStrings = SpanishStrings): Map<String, String> = buildMap {
+        if (name.isBlank()) put("name", strings.errCupName)
         if (weight.isNotBlank() &&
             (weight.decimal() == null || !weight.decimal()!!.isFinite() || weight.decimal()!! <= 0)
         ) {
-            put("weight", "Ingresá un peso válido en gramos")
+            put("weight", strings.errWeight)
         }
         if (capacity.isNotBlank() &&
             (
@@ -95,7 +92,7 @@ data class CupDraft(val name: String = "", val weight: String = "", val capacity
                     capacity.decimal()!! <= 0
                 )
         ) {
-            put("capacity", "Ingresá una capacidad válida en cm³")
+            put("capacity", strings.errCapacity)
         }
     }
 }
@@ -152,11 +149,11 @@ data class ShotDraft(
     val grinderId: String? = null,
     val milkFoam: MilkFoam? = null
 ) {
-    fun errors(): Map<String, String> = buildMap {
-        if (beanName.isBlank()) put("beanName", "Ingresá el nombre del café")
-        if (!dose.isNumberIn(0.1..100.0)) put("dose", "Usá entre 0,1 y 100 g")
-        if (!output.isNumberIn(0.1..1000.0)) put("output", "Usá entre 0,1 y 1000 g")
-        if (!seconds.isNumberIn(0.1..600.0)) put("seconds", "Usá entre 0,1 y 600 s")
+    fun errors(strings: AppStrings = SpanishStrings): Map<String, String> = buildMap {
+        if (beanName.isBlank()) put("beanName", strings.errBeanName)
+        if (!dose.isNumberIn(0.1..100.0)) put("dose", strings.errDose)
+        if (!output.isNumberIn(0.1..1000.0)) put("output", strings.errOutput)
+        if (!seconds.isNumberIn(0.1..600.0)) put("seconds", strings.errSeconds)
         if (firstDrop.isNotBlank() &&
             (
                 firstDrop.decimal()?.let {
@@ -166,22 +163,22 @@ data class ShotDraft(
                     true
                 )
         ) {
-            put("firstDrop", "La primera gota debe estar entre 0 y el tiempo total")
+            put("firstDrop", strings.errFirstDrop)
         }
-        if (grind.isBlank()) put("grind", "Ingresá el ajuste de molienda")
+        if (grind.isBlank()) put("grind", strings.errGrind)
         if (temperature.isNotBlank() && !temperature.isNumberIn(1.0..100.0)) {
-            put("temperature", "Usá entre 1 y 100 °C o dejalo vacío")
+            put("temperature", strings.errTemperature)
         }
         if (milk.isNotBlank() && !milk.isNumberIn(1.0..200.0)) {
-            put("milk", "Usá entre 1 y 200 ml o dejalo vacío")
+            put("milk", strings.errMilk)
         }
         if (extraWater.isNotBlank() && !extraWater.isNumberIn(1.0..1000.0)) {
-            put("extraWater", "Usá entre 1 y 1000 ml o dejalo vacío")
+            put("extraWater", strings.errWater)
         }
-        if (style.length > 100) put("style", "Usá hasta 100 caracteres")
-        if (dialIn?.isValid() == false) put("dialIn", "Revisá los datos del ajuste")
-        if (taste?.isValid() == false) put("taste", "Usá valores de 1 a 5")
-        if (rating !in 1..5) put("rating", "Elegí entre 1 y 5")
+        if (style.length > 100) put("style", strings.errStyleLength)
+        if (dialIn?.isValid() == false) put("dialIn", strings.errDialIn)
+        if (taste?.isValid() == false) put("taste", strings.errTaste)
+        if (rating !in 1..5) put("rating", strings.errRating)
     }
 }
 

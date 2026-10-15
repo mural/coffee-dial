@@ -34,6 +34,7 @@ import kotlinx.coroutines.CancellationException
 
 @Composable
 fun AdminScreen(auth: AuthRepository) {
+    val strings = LocalStrings.current
     val identity by auth.state.collectAsState()
     val client = remember(auth) { AdminClient(auth) }
     var overview by remember(identity) { mutableStateOf<AdminOverview?>(null) }
@@ -60,16 +61,12 @@ fun AdminScreen(auth: AuthRepository) {
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
+            val raw = failure.message.orEmpty()
             error = when {
-                failure.message.orEmpty().contains(
-                    "403"
-                ) -> "Esta cuenta no tiene permiso de administrador."
-
-                failure.message.orEmpty().contains(
-                    "401"
-                ) -> "La sesión venció. Volvé a iniciar sesión."
-
-                else -> "No pudimos consultar el panel. Reintentá; tus datos no se modificaron."
+                raw == "i18n.forbidden" || raw.contains("403") -> strings.noAdminPermission
+                raw == "i18n.renew" || raw.contains("401") -> strings.sessionExpired
+                raw.startsWith("i18n.") -> strings.userMessage(raw)
+                else -> strings.adminQueryFailed
             }
         } finally {
             busy = false
@@ -77,54 +74,70 @@ fun AdminScreen(auth: AuthRepository) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Admin", style = MaterialTheme.typography.headlineSmall)
-        Text("Solo lectura · datos sincronizados en el servidor")
+        Text(strings.adminReadOnly)
         if (identity !is AuthState.LoggedIn) {
-            Text("Iniciá sesión con la cuenta administradora.")
+            Text(strings.adminSignIn)
         } else {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (selected !=
                     null
                 ) {
-                    TextButton(onClick = { selected = null }) { Text("Todas las cuentas") }
+                    TextButton(onClick = { selected = null }) { Text(strings.allAccounts) }
                 }
-                Button(onClick = { refresh++ }, enabled = !busy) { Text("Actualizar") }
+                Button(onClick = { refresh++ }, enabled = !busy) { Text(strings.refresh) }
             }
             if (busy) CircularProgressIndicator()
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             overview?.let { data ->
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     item {
-                        Text("${data.accounts} cuentas · ${data.shots} shots")
-                        Text("Últimos 7 días: ${data.shots7Days} shots")
+                        Text(strings.accountsAndShots(data.accounts, data.shots))
+                        Text(strings.last7Days(data.shots7Days))
                         Text(
-                            "Puntuación media: ${if (data.shots == 0) "Sin datos" else (data.ratingSum.toDouble() / data.shots).pretty()}"
+                            strings.averageScore(
+                                if (data.shots == 0) {
+                                    strings.noScoreYet
+                                } else {
+                                    (data.ratingSum.toDouble() / data.shots).pretty()
+                                }
+                            )
                         )
                         Text(
-                            "Las cuentas anteriores aparecen después de su próxima sincronización. Los cambios sin subir no están incluidos.",
+                            strings.accountsAppearLater,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
                     item {
                         Text(
-                            "Actividad · últimos 30 días (UTC)",
+                            strings.activity30Days,
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
-                    if (data.daily.isEmpty()) item { Text("Sin shots en este período.") }
-                    items(data.daily) { Text("${it.label}: ${it.count} shots") }
-                    item {
-                        Text("Estilos más usados", style = MaterialTheme.typography.titleMedium)
+                    if (data.daily.isEmpty()) item { Text(strings.noShotsInPeriod) }
+                    items(data.daily) {
+                        Text("${it.label}: ${strings.shotCount(it.count)}")
                     }
-                    items(data.styles) { Text("${it.label}: ${it.count}") }
-                    item { Text("Cuentas", style = MaterialTheme.typography.titleMedium) }
+                    item {
+                        Text(strings.topStyles, style = MaterialTheme.typography.titleMedium)
+                    }
+                    items(data.styles) {
+                        Text(strings.styleCount(strings.knownDrinkName(it.label), it.count))
+                    }
+                    item {
+                        Text(strings.accountsHeading, style = MaterialTheme.typography.titleMedium)
+                    }
                     items(data.accountsPage, key = { it.subject }) { account ->
                         Card(onClick = {
                             selected = account.subject
                         }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp)) {
                                 Text(account.email, style = MaterialTheme.typography.titleMedium)
-                                Text("${account.shots} shots")
-                                Text("Última confirmación: ${timestamp(account.confirmedAt)}")
+                                Text(strings.shotCount(account.shots))
+                                Text(
+                                    strings.lastConfirm(
+                                        timestamp(account.confirmedAt, strings = strings)
+                                    )
+                                )
                             }
                         }
                     }
@@ -133,10 +146,12 @@ fun AdminScreen(auth: AuthRepository) {
                             if (after.isNotEmpty()) {
                                 TextButton(onClick = {
                                     after = ""
-                                }) { Text("Primera página") }
+                                }) { Text(strings.firstPage) }
                             }
                             data.next?.let { next ->
-                                TextButton(onClick = { after = next }) { Text("Más cuentas") }
+                                TextButton(onClick = { after = next }) {
+                                    Text(strings.moreAccounts)
+                                }
                             }
                         }
                     }
@@ -176,46 +191,49 @@ private fun AdminShotHistory(data: AdminDetail) {
             }.sortedByDescending { it.createdAt }
         }
     }
+    val strings = LocalStrings.current
     val beans = remember(data) { data.beans.associateBy { it.id } }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text(data.account.email, style = MaterialTheme.typography.titleLarge) }
         item {
             OutlinedTextField(style, {
                 style = it
-            }, label = { Text("Filtrar estilo") }, singleLine = true)
+            }, label = { Text(strings.filterStyle) }, singleLine = true)
             OutlinedTextField(from, {
                 from = it
-            }, label = { Text("Desde · AAAA-MM-DD (UTC)") }, singleLine = true)
+            }, label = { Text(strings.fromDateUtc) }, singleLine = true)
             OutlinedTextField(to, {
                 to = it
-            }, label = { Text("Hasta · AAAA-MM-DD (UTC)") }, singleLine = true)
+            }, label = { Text(strings.toDateUtc) }, singleLine = true)
             OutlinedTextField(rating, {
                 rating = it
-            }, label = { Text("Puntuación · 1 a 5 (opcional)") }, singleLine = true)
+            }, label = { Text(strings.scoreOptional) }, singleLine = true)
             if (invalid) {
-                Text(
-                    "Revisá las fechas y la puntuación.",
-                    color = MaterialTheme.colorScheme.error
-                )
+                Text(strings.checkDatesAndScore, color = MaterialTheme.colorScheme.error)
             }
-            Text("${shots.size} de ${data.shots.size} shots")
+            Text(strings.filteredShotCount(shots.size, data.shots.size))
         }
         items(shots, key = { it.id }) { shot ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        beans[shot.beanId]?.name ?: "Café",
+                        beans[shot.beanId]?.name ?: strings.beans,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Text(timestamp(shot.createdAt))
+                    Text(timestamp(shot.createdAt, strings = strings))
                     Text(
-                        "${shot.dose.pretty()} g -> ${shot.output.pretty()} g · ${shot.seconds.pretty()} s"
+                        "${shot.dose.pretty()} g -> ${shot.output.pretty()} g · " +
+                            "${shot.seconds.pretty()} s"
                     )
-                    Text("Estilo: ${shot.style ?: "Sin registrar"} · Molienda: ${shot.grind}")
-                    shot.extraWater?.let { Text("Agua extra: ${it.pretty()} ml") }
-                    shot.milk?.let { Text("Leche: ${it.pretty()} ml") }
-                    shot.temperature?.let { Text("Temperatura: ${it.pretty()} °C") }
-                    shot.machine?.let { Text("Máquina: $it") }
+                    Text(
+                        "${strings.styleLabel}: " +
+                            "${shot.style?.let(strings::knownDrinkName) ?: strings.notRecorded}" +
+                            " · ${strings.grind}: ${strings.grindLevelLabel(shot.grind)}"
+                    )
+                    shot.extraWater?.let { Text(strings.waterLine(it.pretty())) }
+                    shot.milk?.let { Text(strings.milkLine(it.pretty())) }
+                    shot.temperature?.let { Text(strings.temperatureLine(it.pretty())) }
+                    shot.machine?.let { Text("${strings.machine}: $it") }
                     CoffeeRating(shot.rating)
                     if (shot.notes.isNotBlank()) Text(shot.notes)
                 }

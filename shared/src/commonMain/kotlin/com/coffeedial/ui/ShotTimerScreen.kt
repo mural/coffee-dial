@@ -34,13 +34,14 @@ fun ShotTimerScreen(timer: ShotTimer, fromForm: Boolean, onUse: (String, String)
             frame++
         }
     }
+    val strings = LocalStrings.current
     Column(
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Shot Timer", style = MaterialTheme.typography.headlineLarge)
-        Text("Iniciá al activar la extracción y marcá cuándo aparece la primera gota.")
-        CoffeeSection("Extracción en curso") {
+        Text(strings.shotTimerTitle, style = MaterialTheme.typography.headlineLarge)
+        Text(strings.shotTimerHint)
+        CoffeeSection(strings.extractionRunning) {
             Text(
                 "${(elapsed / 60000).toString().padStart(2, '0')}:" +
                     "${(elapsed / 1000 % 60).toString().padStart(2, '0')}.${elapsed / 100 % 10}",
@@ -54,37 +55,37 @@ fun ShotTimerScreen(timer: ShotTimer, fromForm: Boolean, onUse: (String, String)
                 }) {
                     Text(
                         if (timer.running) {
-                            "Pausar"
+                            strings.timerPause
                         } else if (elapsed == 0L) {
-                            "Iniciar"
+                            strings.timerStart
                         } else {
-                            "Continuar"
+                            strings.timerResume
                         }
                     )
                 }
                 OutlinedButton(enabled = elapsed > 0 || timer.running, onClick = {
                     timer.reset()
                     frame++
-                }) { Text("Reiniciar") }
+                }) { Text(strings.timerReset) }
             }
             OutlinedButton(enabled = timer.running && timer.firstDropMillis == null, onClick = {
                 timer.markFirstDrop()
                 frame++
-            }) { Text("Marcar primera gota") }
+            }) { Text(strings.markFirstDrop) }
             timer.firstDropMillis?.let {
                 Text(
-                    "Primera gota: ${(it / 1000.0).pretty()} s",
+                    strings.firstDropAt((it / 1000.0).pretty()),
                     style = MaterialTheme.typography.titleMedium
                 )
                 TextButton(onClick = {
                     timer.clearFirstDrop()
                     frame++
-                }) { Text("Quitar marca") }
+                }) { Text(strings.removeMark) }
             }
-            if (elapsed >= ShotTimer.MAX_MILLIS) Text("Se alcanzó el máximo de 10 minutos.")
+            if (elapsed >= ShotTimer.MAX_MILLIS) Text(strings.timerMaxReached)
         }
 
-        CoffeeSection("Registrar la extracción") {
+        CoffeeSection(strings.logTheExtraction) {
             Button(enabled = elapsed >= 100 && !timer.running, onClick = {
                 onUse(
                     (elapsed / 1000.0).pretty(),
@@ -92,8 +93,10 @@ fun ShotTimerScreen(timer: ShotTimer, fromForm: Boolean, onUse: (String, String)
                         (it / 1000.0).pretty()
                     }.orEmpty()
                 )
-            }) { Text(if (fromForm) "Usar estos tiempos" else "Registrar shot con estos tiempos") }
-            Text("El total se mide desde el inicio e incluye el tiempo hasta la primera gota.")
+            }) {
+                Text(if (fromForm) strings.useTheseTimes else strings.logShotWithTimes)
+            }
+            Text(strings.timerIncludesFirstDrop)
         }
     }
 }

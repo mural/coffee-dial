@@ -28,6 +28,25 @@
   <p id="loading" role="status">Cargando Coffee Dial…</p>
   <main id="app" aria-label="Coffee Dial"></main>
   <noscript>Activá JavaScript para usar Coffee Dial.</noscript>
+  <script>
+    try {
+      var stored = localStorage.getItem("coffee_language");
+      var nav = (navigator.language || "").toLowerCase();
+      var english = stored === "ENGLISH" ||
+        (stored !== "SPANISH" && nav.indexOf("en") === 0);
+      if (english) {
+        document.documentElement.lang = "en";
+        var notice = document.getElementById("web-notice");
+        if (notice) {
+          notice.textContent = "Data stays in this browser. Sign in or use Backup to move it to your phone or keep a copy.";
+        }
+        var loading = document.getElementById("loading");
+        if (loading) loading.textContent = "Loading Coffee Dial…";
+        var noscript = document.querySelector("noscript");
+        if (noscript) noscript.textContent = "Enable JavaScript to use Coffee Dial.";
+      }
+    } catch (e) {}
+  </script>
   <script src="browser.js"></script>
   <script src="auth.js"></script>
   <script src="shared.js"></script>

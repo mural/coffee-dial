@@ -71,6 +71,7 @@ fun BeansScreen(
     }
     DisposableEffect(photos) { onDispose { photos.cancel() } }
     var submitted by rememberSaveable { mutableStateOf(false) }
+    val strings = LocalStrings.current
     val focusManager = LocalFocusManager.current
 
     fun closeEditor() {
@@ -80,7 +81,7 @@ fun BeansScreen(
     }
 
     val draft = BeanDraft(name, roaster, photo, null, origin, process, bagWeightGrams)
-    val errors = if (submitted) draft.errors() else emptyMap()
+    val errors = if (submitted) draft.errors(strings) else emptyMap()
 
     fun open(bean: Bean?) {
         editingId = bean?.id
@@ -101,12 +102,12 @@ fun BeansScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Cafés guardados", style = MaterialTheme.typography.headlineSmall)
-                    Text("Eliminar un café no borra los shots registrados.")
-                    Button(onClick = { open(null) }, enabled = !saving) { Text("Agregar café") }
+                    Text(strings.savedBeans, style = MaterialTheme.typography.headlineSmall)
+                    Text(strings.deleteBeanNote)
+                    Button(onClick = { open(null) }, enabled = !saving) { Text(strings.addBean) }
                 }
             }
-            if (beans.isEmpty()) item { Text("Todavía no agregaste ningún café.") }
+            if (beans.isEmpty()) item { Text(strings.noBeansYet) }
             items(beans, key = { it.id }) { bean ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(
@@ -116,7 +117,7 @@ fun BeansScreen(
                         BeanPhotoImage(bean.photo, 88) { enlarged = bean.photo }
                         Text(bean.name, style = MaterialTheme.typography.titleMedium)
                         if (bean.roaster.isNotBlank()) {
-                            Text("Tostador: ${bean.roaster}")
+                            Text(strings.roasterLabelText(bean.roaster))
                         }
                         val originProcess = listOfNotNull(
                             bean.origin?.takeIf { it.isNotBlank() },
@@ -131,12 +132,13 @@ fun BeansScreen(
                         }
                         bean.bagWeightGrams?.let {
                             Text(
-                                "Bolsa: ${it.pretty()} g",
+                                strings.bagSizeLabelText(it.pretty()),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                         bean.roastAgeSummary(
-                            kotlin.time.Clock.System.now().toEpochMilliseconds()
+                            kotlin.time.Clock.System.now().toEpochMilliseconds(),
+                            strings
                         )?.let {
                             Text(
                                 it,
@@ -154,9 +156,9 @@ fun BeansScreen(
                                         if (defaultId ==
                                             bean.id
                                         ) {
-                                            "Predeterminado"
+                                            strings.defaultLabel
                                         } else {
-                                            "Usar por defecto"
+                                            strings.useByDefault
                                         }
                                     )
                                 }
@@ -165,11 +167,11 @@ fun BeansScreen(
                         FlowRow {
                             TextButton(onClick = {
                                 open(bean)
-                            }, enabled = !saving) { Text("Editar") }
+                            }, enabled = !saving) { Text(strings.actionEdit) }
                             TextButton(onClick = {
                                 onDeleteBean(bean.id)
                             }, enabled = !saving) {
-                                Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                                Text(strings.actionDelete, color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -177,7 +179,7 @@ fun BeansScreen(
             }
             if (saveError != null && !editorOpen) {
                 item {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -189,7 +191,7 @@ fun BeansScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                if (editingId == null) "Nuevo café" else "Editar café",
+                if (editingId == null) strings.addBean else strings.editBean,
                 style = MaterialTheme.typography.headlineSmall
             )
             CoffeeSection {
@@ -203,13 +205,13 @@ fun BeansScreen(
                     }) {
                         Text(
                             if (photos.busy) {
-                                "Preparando foto…"
+                                strings.preparingPhoto
                             } else if (photo ==
                                 null
                             ) {
-                                "Agregar foto"
+                                strings.addPhoto
                             } else {
-                                "Cambiar foto"
+                                strings.changePhoto
                             }
                         )
                     }
@@ -218,16 +220,18 @@ fun BeansScreen(
                     ) {
                         Button(enabled = !saving && !photos.busy, onClick = {
                             photo = null
-                        }) { Text("Quitar foto") }
+                        }) { Text(strings.removePhoto) }
                     }
                 }
-                if (!canAddPhoto) Text("Iniciá sesión en Cuenta para agregar fotos.")
-                photos.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (!canAddPhoto) Text(strings.signInForPhotos)
+                photos.error?.let {
+                    Text(strings.userMessage(it), color = MaterialTheme.colorScheme.error)
+                }
 
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nombre del café") },
+                    label = { Text(strings.nameCoffee) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -237,28 +241,28 @@ fun BeansScreen(
                 OutlinedTextField(
                     value = roaster,
                     onValueChange = { roaster = it },
-                    label = { Text("Tostador (opcional)") },
+                    label = { Text(strings.roasterOptional) },
                     enabled = !saving,
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = origin,
                     onValueChange = { origin = it },
-                    label = { Text("Origen · ej. Colombia - Huila (opcional)") },
+                    label = { Text(strings.originOptional) },
                     enabled = !saving,
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = process,
                     onValueChange = { process = it },
-                    label = { Text("Proceso · ej. Lavado, Natural (opcional)") },
+                    label = { Text(strings.processOptional) },
                     enabled = !saving,
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = bagWeightGrams,
                     onValueChange = { bagWeightGrams = it },
-                    label = { Text("Peso de la bolsa · g (opcional)") },
+                    label = { Text(strings.bagWeightOptional) },
                     enabled = !saving,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -268,21 +272,16 @@ fun BeansScreen(
                     isError = errors["bagWeightGrams"] != null,
                     supportingText = errors["bagWeightGrams"]?.let { { Text(it) } }
                 )
-                if (editingId != null) {
-                    Text(
-                        "Los shots anteriores conservan la información que tenían al registrarlos."
-                    )
-                }
                 if (submitted && saveError != null) {
-                    Text(saveError, color = MaterialTheme.colorScheme.error)
+                    Text(strings.userMessage(saveError), color = MaterialTheme.colorScheme.error)
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled = !saving && !photos.busy, onClick = {
                     submitted = true
                     if (draft.errors().isEmpty()) onSaveBean(editingId, draft) { closeEditor() }
-                }) { Text(if (saving) "Guardando…" else "Guardar") }
-                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text("Cancelar") }
+                }) { Text(strings.actionSave) }
+                TextButton(onClick = { closeEditor() }, enabled = !saving) { Text(strings.actionCancel) }
             }
         }
     }
@@ -291,7 +290,7 @@ fun BeansScreen(
             Card {
                 Column(Modifier.padding(16.dp)) {
                     BeanPhotoImage(image, 320) { enlarged = null }
-                    TextButton(onClick = { enlarged = null }) { Text("Cerrar") }
+                    TextButton(onClick = { enlarged = null }) { Text(strings.actionCancel) }
                 }
             }
         }
@@ -300,6 +299,7 @@ fun BeansScreen(
 
 @Composable
 private fun BeanPhotoImage(photo: BeanPhoto?, side: Int, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     val bitmap = remember(photo) {
         runCatching {
             photo?.validate()
@@ -311,7 +311,7 @@ private fun BeanPhotoImage(photo: BeanPhoto?, side: Int, onClick: () -> Unit) {
     if (bitmap != null) {
         androidx.compose.foundation.Image(
             bitmap,
-            "Foto del café",
+            strings.beanPhoto,
             Modifier.fillMaxWidth().then(Modifier.height(side.dp)).clickable(onClick = onClick),
             contentScale = androidx.compose.ui.layout.ContentScale.Fit
         )

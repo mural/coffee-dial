@@ -87,18 +87,19 @@ internal class ShotPreviewParameterProvider : PreviewParameterProvider<Shot> {
 
 @Composable
 internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    timestamp(shot.createdAt),
+                    timestamp(shot.createdAt, strings = strings),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(shot.bean.name, style = MaterialTheme.typography.titleLarge)
                 val details = listOfNotNull(
-                    shot.style?.takeIf { it.isNotBlank() },
-                    shot.cup?.takeIf { it.isNotBlank() }?.let { "Taza: $it" }
+                    shot.style?.takeIf { it.isNotBlank() }?.let(strings::knownDrinkName),
+                    shot.cup?.takeIf { it.isNotBlank() }?.let { strings.cupLabelText(it) }
                 )
                 if (details.isNotEmpty()) {
                     Text(
@@ -109,8 +110,8 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ShotMetric(BeanIcon, "Dosis", "${shot.dose.pretty()} g", Modifier.weight(1f))
-                ShotMetric(CoffeeCup, "Output", "${shot.output.pretty()} g", Modifier.weight(1f))
+                ShotMetric(BeanIcon, strings.dose, "${shot.dose.pretty()} g", Modifier.weight(1f))
+                ShotMetric(CoffeeCup, strings.yield, "${shot.output.pretty()} g", Modifier.weight(1f))
             }
             if (shot.milk != null || shot.extraWater != null) {
                 Row(
@@ -120,7 +121,7 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                     if (shot.milk != null) {
                         ShotMetric(
                             MilkIcon,
-                            "Leche",
+                            strings.milk,
                             "${shot.milk.pretty()} ml",
                             Modifier.weight(1f)
                         )
@@ -130,7 +131,7 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                     if (shot.extraWater != null) {
                         ShotMetric(
                             WaterIcon,
-                            "Agua extra",
+                            strings.addedWater,
                             "${shot.extraWater.pretty()} ml",
                             Modifier.weight(1f)
                         )
@@ -141,24 +142,24 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 val total = shot.output + (shot.milk ?: 0.0) + (shot.extraWater ?: 0.0)
-                ShotMetric(MugIcon, "Total", "≈ ${total.pretty()} ml", Modifier.weight(1f))
-                ShotMetric(TimerIcon, "Tiempo", "${shot.seconds.pretty()} s", Modifier.weight(1f))
+                ShotMetric(MugIcon, strings.totalLabel, "≈ ${total.pretty()} ml", Modifier.weight(1f))
+                ShotMetric(TimerIcon, strings.time, "${shot.seconds.pretty()} s", Modifier.weight(1f))
             }
             shot.firstDrop?.takeIf { it > 0 }?.let { drop ->
                 val extraction = (shot.seconds - drop).coerceAtLeast(0.0)
                 Text(
-                    "Pre-infusión: ${drop.pretty()} s · Extracción: ${extraction.pretty()} s",
+                    strings.preinfusionText(drop.pretty(), extraction.pretty()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             shot.milkFoam?.let {
-                Text("Espuma: ${it.label}", style = MaterialTheme.typography.bodySmall)
+                Text(strings.foamLabelText(it.label(strings)), style = MaterialTheme.typography.bodySmall)
             }
             Text(
                 buildAnnotatedString {
-                    append("Ratio output 1:")
+                    append("Ratio ${strings.yield.lowercase()} 1:")
                     withStyle(
                         SpanStyle(
                             fontSize = if (shot.ratio < 3) 20.sp else 24.sp,
@@ -167,7 +168,7 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
                     ) {
                         append(shot.ratio.pretty())
                     }
-                    append(" · ${extractionStyle(shot.ratio)}")
+                    append(" · ${extractionStyle(shot.ratio, strings)}")
                 },
                 style = MaterialTheme.typography.bodyLarge
             )
@@ -175,16 +176,16 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
             val milkRatio = (shot.milk ?: 0.0) / shot.output
             Text(
                 buildAnnotatedString {
-                    append("Ratio total ≈ 1:")
+                    append(strings.totalRatioPrefix)
                     withStyle(SpanStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)) {
                         append("${waterRatio.pretty()}:${milkRatio.pretty()}")
                     }
-                    append(" -> ${similarDrink(waterRatio, milkRatio)}")
+                    append(" -> ${similarDrink(waterRatio, milkRatio, strings)}")
                 },
                 style = MaterialTheme.typography.bodyLarge
             )
             if (shot.dialIn?.favorite == true) {
-                Text("Favorito", color = MaterialTheme.colorScheme.primary)
+                Text(strings.favoriteLabel, color = MaterialTheme.colorScheme.primary)
             }
             Row(
                 Modifier.fillMaxWidth(),
@@ -192,11 +193,11 @@ internal fun ShotCard(shot: Shot, onRepeat: (() -> Unit)? = null, onClick: () ->
             ) {
                 CoffeeRating(shot.rating)
                 shot.taste?.impression?.let {
-                    Text(it.label(), style = MaterialTheme.typography.bodySmall)
+                    Text(it.label(strings), style = MaterialTheme.typography.bodySmall)
                 }
             }
             onRepeat?.let { repeat ->
-                Button(onClick = repeat) { Text("Repetir") }
+                Button(onClick = repeat) { Text(strings.actionRepeat) }
             }
         }
     }

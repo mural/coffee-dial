@@ -82,7 +82,7 @@ class BackupFormatTest {
     fun rejectsFutureVersionBeforeReadingItsPayload() {
         val future = """{"format":"coffee-dial-backup","schemaVersion":999,"differentData":{}}"""
         val error = assertFailsWith<BackupException> { BackupFormat.decode(future) }
-        assertTrue(error.message.orEmpty().contains("Actualizá"))
+        assertTrue(error.message.orEmpty().contains("i18n.newer_backup"))
     }
 
     @Test

@@ -31,131 +31,6 @@ import com.coffeedial.domain.cupProfileFor
 import com.coffeedial.domain.prepareDrinks
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-private data class TimeTip(
-    val timeRange: String,
-    val flow: String,
-    val trend: String,
-    val taste: String,
-    val advice: String
-)
-
-private val timeTipsList = listOf(
-    TimeTip(
-        "<15 s",
-        "Muy rápido",
-        "Muy subextraído",
-        "Aguado, ácido, poco cuerpo",
-        "Molienda mucho más fina"
-    ),
-    TimeTip(
-        "15-20 s",
-        "Rápido",
-        "Subextraído",
-        "Ácido, poco dulce, final corto",
-        "Molienda más fina"
-    ),
-    TimeTip(
-        "20-25 s",
-        "Algo rápido",
-        "Puede estar subextraído",
-        "Ya puede ser rico, depende del grano",
-        "Algo más fino si le falta cuerpo"
-    ),
-    TimeTip(
-        "25-30 s",
-        "Normal",
-        "Zona clásica",
-        "Balance, dulzor y cuerpo",
-        "Ajustar fino según el gusto"
-    ),
-    TimeTip(
-        "30-35 s",
-        "Lento",
-        "Puede estar perfecto",
-        "Más cuerpo e intensidad",
-        "Si está rico, no tocar nada"
-    ),
-    TimeTip(
-        "35-40 s",
-        "Muy lento",
-        "Tendencia a sobreextracción",
-        "Amargo, seco, astringente",
-        "Molienda algo más gruesa"
-    ),
-    TimeTip(
-        ">40 s",
-        "Goteo",
-        "Probable sobreextracción",
-        "Muy amargo, seco, áspero",
-        "Molienda más gruesa"
-    )
-)
-
-private data class ExtractionTip(val title: String, val range: String, val note: String)
-
-private val extractionTips = listOf(
-    ExtractionTip(
-        "Ristretto",
-        "Hasta 1:1.5",
-        "Shot corto. Más cuerpo y dulzor, menos amargor."
-    ),
-    ExtractionTip(
-        "Espresso",
-        "Más de 1:1.5 y hasta 1:2.5",
-        "La zona habitual. Cuerpo, acidez y dulzor en balance."
-    ),
-    ExtractionTip(
-        "Espresso largo",
-        "Más de 1:2.5 y hasta 1:3",
-        "Un poco más de agua en la extracción. Más liviano."
-    ),
-    ExtractionTip(
-        "Lungo",
-        "Más de 1:3",
-        "Más agua durante la extracción. No es un americano."
-    )
-)
-
-private data class GrainTip(val name: String, val type: String, val profile: String)
-
-private val grainTipsList = listOf(
-    GrainTip(
-        "Arábica y robusta",
-        "Especies",
-        "Arábica: más aroma, acidez y dulzor. Robusta: más cuerpo, crema y amargor."
-    ),
-    GrainTip(
-        "Bourbon, Caturra, Catuaí",
-        "Varietales clásicos",
-        "Cuerpo sedoso, chocolate, caramelo, frutas rojas y acidez cítrica."
-    ),
-    GrainTip(
-        "Geisha",
-        "Varietal de alta gama",
-        "Floral, acidez cítrica brillante, lima y cuerpo ligero."
-    ),
-    GrainTip(
-        "Pacamara y Maragogipe",
-        "Granos grandes",
-        "Especias, chocolate amargo, frutos secos y acidez vinosa."
-    ),
-    GrainTip(
-        "Colombia",
-        "Origen",
-        "Chocolate con leche, frutos rojos, caramelo y cuerpo redondo."
-    ),
-    GrainTip(
-        "Etiopía",
-        "Origen",
-        "Cítrico, jazmín, bergamota, té negro y acidez viva."
-    ),
-    GrainTip(
-        "Brasil",
-        "Origen",
-        "Cuerpo denso, acidez baja, avellana, cacao y nuez."
-    )
-)
-
 private val extraRatioTips = drinkRatioTips.filter { tip ->
     prepareDrinks.none { it.waterParts == tip.water && it.milkParts == tip.milk }
 }
@@ -163,9 +38,10 @@ private val extraRatioTips = drinkRatioTips.filter { tip ->
 @Composable
 fun TipsScreen() {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Estilos", "Tiempos", "Granos")
+    val strings = LocalStrings.current
+    val tabs = listOf(strings.tabStyles, strings.tabTimes, strings.tabGrains)
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Tips y estilos", style = MaterialTheme.typography.headlineSmall)
+        Text(strings.tipsTitle, style = MaterialTheme.typography.headlineSmall)
         PrimaryTabRow(selectedTabIndex = selectedTab) {
             tabs.forEachIndexed { index, title ->
                 Tab(
@@ -194,6 +70,7 @@ fun TipsScreen() {
 
 @Composable
 private fun StylesTabContent(modifier: Modifier = Modifier) {
+    val strings = LocalStrings.current
     var drinkName by rememberSaveable { mutableStateOf(prepareDrinks.first().name) }
     val drink = prepareDrinks.firstOrNull { it.name == drinkName } ?: prepareDrinks.first()
     val amounts = drink.amounts(1.0)
@@ -203,19 +80,15 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            Text(strings.tipsSplitTitle, style = MaterialTheme.typography.titleMedium)
             Text(
-                "La extracción y la bebida son dos estilos distintos.",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                "El ratio de extracción compara la dosis con el café de la taza. " +
-                    "El agua y la leche se agregan después y no lo cambian.",
+                strings.tipsSplitBody,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        item { Text("Extracción", style = MaterialTheme.typography.titleLarge) }
-        items(extractionTips) { tip ->
+        item { Text(strings.extractionHeading, style = MaterialTheme.typography.titleLarge) }
+        items(strings.extractionGuides()) { tip ->
             TipCard {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -224,19 +97,18 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
                 ) {
                     Text(tip.title, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        tip.range,
+                        tip.detail,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                Text(tip.note, style = MaterialTheme.typography.bodyMedium)
+                Text(tip.body, style = MaterialTheme.typography.bodyMedium)
             }
         }
         item {
-            Text("Bebidas", style = MaterialTheme.typography.titleLarge)
+            Text(strings.drinksHeading, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Las mismas de Preparar un café, en tamaño 1×. " +
-                    "El 1 de café : agua : leche es el café de la taza, no la dosis.",
+                strings.drinksIntro,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -245,7 +117,7 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
                     FilterChip(
                         selected = option.name == drink.name,
                         onClick = { drinkName = option.name },
-                        label = { Text(option.name) }
+                        label = { Text(strings.knownDrinkName(option.name)) }
                     )
                 }
             }
@@ -254,21 +126,29 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
             item {
                 val volume = amounts.output + amounts.water + amounts.milk
                 TipCard {
-                    Text(drink.name, style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Café : agua : leche",
+                        strings.knownDrinkName(drink.name),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        strings.coffeeWaterMilkRatio,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "1 : ${drink.waterParts.pretty()} : ${drink.milkParts.pretty()}",
+                        strings.ratioParts(
+                            drink.waterParts.pretty(),
+                            drink.milkParts.pretty()
+                        ),
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        "${amounts.dose.pretty()} g de dosis · " +
-                            "${amounts.output.pretty()} g de café · " +
-                            "extracción 1:${drink.extractionRatio.pretty()}",
+                        strings.doseCoffeeExtraction(
+                            amounts.dose.pretty(),
+                            amounts.output.pretty(),
+                            drink.extractionRatio.pretty()
+                        ),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     DrinkCupChart(
@@ -278,31 +158,35 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
                         milk = amounts.milk,
                         capacityCm3 = cupProfileFor(volume).capacityCm3,
                         milkFoam = amounts.milkFoam,
-                        foamNote = amounts.milkFoam?.let { foamHowTo(drink.name, it) }
+                        foamNote = amounts.milkFoam?.let { foamHowTo(drink.name, it, strings) }
                     )
                 }
             }
         }
         item {
-            Text("Otras mezclas", style = MaterialTheme.typography.titleLarge)
+            Text(strings.otherMixesHeading, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Sirven para reconocer un shot. En la app el agua y la leche se anotan en ml; " +
-                    "acá 1 ml equivale a 1 g sobre 36 g de café.",
+                strings.otherMixesBody,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         items(extraRatioTips) { recipe ->
             TipCard {
-                Text(recipe.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "1 : ${recipe.water.pretty()} : ${recipe.milk.pretty()}",
+                    strings.knownDrinkName(recipe.name),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    strings.ratioParts(recipe.water.pretty(), recipe.milk.pretty()),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "${(36 * recipe.water).pretty()} ml de agua · " +
-                        "${(36 * recipe.milk).pretty()} ml de leche",
+                    strings.waterAndMilkMl(
+                        (36 * recipe.water).pretty(),
+                        (36 * recipe.milk).pretty()
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -310,9 +194,7 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
         }
         item {
             Text(
-                "Macchiato también puede ir de 0,25 a 0,5 partes de leche. " +
-                    "Latte macchiato es otra bebida. " +
-                    "Agregar agua después de extraer no convierte un espresso en lungo.",
+                strings.macchiatoFootnote,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -322,28 +204,28 @@ private fun StylesTabContent(modifier: Modifier = Modifier) {
 
 @Composable
 private fun TimesTabContent(modifier: Modifier = Modifier) {
+    val strings = LocalStrings.current
     LazyColumn(
         modifier,
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Tiempo de extracción", style = MaterialTheme.typography.titleLarge)
+            Text(strings.timeHeading, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Se mide desde que entra el agua hasta cortar el flujo. " +
-                    "Es una pista, no una regla: el sabor manda.",
+                strings.timeIntro,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        items(timeTipsList) { tip ->
+        items(strings.timeGuides()) { tip ->
             TipCard {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(tip.timeRange, style = MaterialTheme.typography.titleMedium)
+                    Text(tip.range, style = MaterialTheme.typography.titleMedium)
                     Text(
                         tip.trend,
                         style = MaterialTheme.typography.labelMedium,
@@ -351,11 +233,11 @@ private fun TimesTabContent(modifier: Modifier = Modifier) {
                     )
                 }
                 Text(
-                    "Flujo: ${tip.flow}. Sabor: ${tip.taste}.",
+                    strings.flowAndTaste(tip.flow, tip.taste),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    "Qué probar: ${tip.advice}",
+                    strings.whatToTry(tip.advice),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -366,29 +248,29 @@ private fun TimesTabContent(modifier: Modifier = Modifier) {
 
 @Composable
 private fun GrainsTabContent(modifier: Modifier = Modifier) {
+    val strings = LocalStrings.current
     LazyColumn(
         modifier,
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text("Granos", style = MaterialTheme.typography.titleLarge)
+            Text(strings.grainsHeading, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Variedad y origen cambian el aroma, la acidez y el cuerpo. " +
-                    "Son puntos de partida, no una ficha del café que compraste.",
+                strings.grainsIntro,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        items(grainTipsList) { tip ->
+        items(strings.grainGuides()) { tip ->
             TipCard {
-                Text(tip.name, style = MaterialTheme.typography.titleMedium)
+                Text(tip.title, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    tip.type,
+                    tip.detail,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Text(tip.profile, style = MaterialTheme.typography.bodyMedium)
+                Text(tip.body, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

@@ -133,18 +133,16 @@ object BackupFormat {
         checkSize(text)
         try {
             val root = json.parseToJsonElement(text) as? JsonObject
-                ?: throw BackupException("El archivo no es un backup de Coffee Dial.")
+                ?: throw BackupException("i18n.not_backup")
             val format = root["format"] as? JsonPrimitive
             if (format?.isString != true || format.content != FORMAT) {
-                throw BackupException("El archivo no es un backup de Coffee Dial.")
+                throw BackupException("i18n.not_backup")
             }
             val versionField = root["schemaVersion"] as? JsonPrimitive
             val version = versionField?.takeUnless { it.isString }?.intOrNull
-                ?: throw BackupException("El backup no tiene una versión válida.")
+                ?: throw BackupException("i18n.bad_version")
             if (version > CURRENT_VERSION) {
-                throw BackupException(
-                    "Este backup es de una versión más nueva. Actualizá Coffee Dial."
-                )
+                throw BackupException("i18n.newer_backup")
             }
             val rawBackup = when (version) {
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 -> json.decodeFromJsonElement(
@@ -152,7 +150,7 @@ object BackupFormat {
                     root
                 )
 
-                else -> throw BackupException("Esta versión de backup no es compatible ($version).")
+                else -> throw BackupException("i18n.backup_version:$version")
             }
             validate(rawBackup)
             requirePhotos(rawBackup)
@@ -160,23 +158,21 @@ object BackupFormat {
         } catch (error: BackupException) {
             throw error
         } catch (_: SerializationException) {
-            throw BackupException("El backup está dañado o contiene campos no compatibles.")
+            throw BackupException("i18n.backup_damaged")
         } catch (e: IllegalArgumentException) {
-            throw BackupException("El backup contiene datos inválidos: ${e.message ?: ""}")
+            throw BackupException("i18n.backup_invalid:${e.message.orEmpty()}")
         }
     }
 
     private fun requirePhotos(backup: BackupV1) {
         if (backup.beans.any { it.photo != null && it.photo.jpeg == null }) {
-            throw BackupException(
-                "El backup no incluye todas las fotos. Sincronizá antes de exportar."
-            )
+            throw BackupException("i18n.backup_photos")
         }
     }
 
     private fun checkSize(text: String) {
         if (text.length > MAX_BYTES || text.encodeToByteArray().size > MAX_BYTES) {
-            throw BackupException("El backup supera el límite de 10 MB.")
+            throw BackupException("i18n.backup_size")
         }
     }
 
@@ -196,7 +192,7 @@ object BackupFormat {
 
     fun validate(backup: BackupV1) {
         fun valid(condition: Boolean) {
-            if (!condition) throw BackupException("El backup contiene datos inválidos.")
+            if (!condition) throw BackupException("i18n.backup_invalid")
         }
         valid(backup.format == FORMAT && backup.schemaVersion in 1..CURRENT_VERSION)
         valid(

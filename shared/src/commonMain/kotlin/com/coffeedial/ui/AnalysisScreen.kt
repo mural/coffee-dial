@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import com.coffeedial.ui.CoffeeCard as Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,51 +15,49 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.coffeedial.domain.Shot
 import com.coffeedial.domain.analyzeHistory
+import com.coffeedial.ui.CoffeeCard as Card
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 internal fun AnalysisScreen(shots: List<Shot>) {
+    val strings = LocalStrings.current
     val data = remember(shots) { analyzeHistory(shots) }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Text("Análisis", style = MaterialTheme.typography.headlineSmall)
-            Text("Todo tu historial · ${data.count} shots")
+            Text(strings.navAnalysis, style = MaterialTheme.typography.headlineSmall)
+            Text(strings.shotCount(data.count))
         }
         if (data.count == 0) {
             item {
                 Text(
-                    "Registrá tu primer shot para ver tus promedios y descubrir tus cafés más usados."
+                    strings.homeNoShotsYet
                 )
             }
         } else {
             item {
-                AnalysisCard("Tu café en números") {
-                    Metric("Puntuación media", "${data.averageRating?.pretty()} / 5")
-                    Metric("Cafés diferentes", "${data.coffees.size}")
-                    Metric("Café utilizado", "${data.totalDose.pretty()} g")
+                AnalysisCard(strings.coffeeInNumbers) {
+                    Metric(strings.averageRating, "${data.averageRating?.pretty()} / 5")
+                    Metric(strings.differentCoffees, "${data.coffees.size}")
+                    Metric(strings.totalCoffeeUsed, "${data.totalDose.pretty()} g")
                 }
             }
             item {
-                AnalysisCard("Receta promedio") {
-                    Metric("Dosis", "${data.averageDose?.pretty()} g")
-                    Metric("Salida", "${data.averageOutput?.pretty()} g")
-                    Metric("Tiempo", "${data.averageSeconds?.pretty()} s")
-                    Metric("Ratio medio por shot", "1:${data.averageRatio?.pretty()}")
-                    Text(
-                        "Promedios de tus registros; no son una recomendación de receta.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                AnalysisCard(strings.averageRecipe) {
+                    Metric(strings.dose, "${data.averageDose?.pretty()} g")
+                    Metric(strings.yield, "${data.averageOutput?.pretty()} g")
+                    Metric(strings.time, "${data.averageSeconds?.pretty()} s")
+                    Metric(strings.averageRatio, "1:${data.averageRatio?.pretty()}")
                 }
             }
             item {
-                AnalysisCard("Cómo salieron tus shots") {
+                AnalysisCard(strings.shotBreakdownTitle) {
                     (5 downTo 1).forEach { score ->
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             CoffeeRating(score)
-                            Text("${data.ratings.getValue(score)} shots")
+                            Text(strings.shotCount(data.ratings.getValue(score)))
                         }
                         LinearProgressIndicator(
                             progress = { data.ratings.getValue(score).toFloat() / data.count },
@@ -70,11 +67,11 @@ internal fun AnalysisScreen(shots: List<Shot>) {
                 }
             }
             item {
-                AnalysisCard("Cafés más usados") {
+                AnalysisCard(strings.topCoffees) {
                     data.coffees.take(5).forEach { coffee ->
                         Column {
                             Text(
-                                "${coffee.name} · ${coffee.count} shots",
+                                "${coffee.name} · ${strings.shotCount(coffee.count)}",
                                 style = MaterialTheme.typography.titleSmall
                             )
                             if (coffee.roaster.isNotBlank()) Text(coffee.roaster)
