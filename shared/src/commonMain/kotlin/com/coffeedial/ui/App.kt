@@ -30,8 +30,11 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.coffeedial.auth.AuthProvider
 import com.coffeedial.auth.AuthRepository
 import com.coffeedial.auth.AuthState
+import com.coffeedial.auth.InMemoryAuthRepository
+import com.coffeedial.auth.User
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
 import com.coffeedial.domain.AppLanguage
@@ -52,6 +55,7 @@ import com.coffeedial.sync.SyncState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 fun App(
@@ -384,6 +388,48 @@ fun App(
                     }
                 }
             }
+        }
+    }
+}
+
+@Preview(name = "App Principal - Interactivo", showBackground = true, widthDp = 400, heightDp = 900)
+@Composable
+private fun AppInteractivePreview() {
+    val store = remember {
+        object : com.coffeedial.data.SnapshotStore {
+            var data: String? = null
+            override suspend fun read(): String? = data
+            override suspend fun compareAndSet(expected: String?, next: String): Boolean {
+                data = next
+                return true
+            }
+        }
+    }
+    var repository by remember { mutableStateOf<com.coffeedial.data.SnapshotRepository?>(null) }
+    LaunchedEffect(Unit) {
+        val repo = com.coffeedial.data.SnapshotRepository.open(store)
+        repo.save(mockDraft)
+        repository = repo
+    }
+
+    MaterialTheme {
+        if (repository != null) {
+            App(
+                repository = repository!!,
+                backupFiles = remember { BackupFiles() },
+                authRepository = remember {
+                    InMemoryAuthRepository(
+                        AuthState.LoggedIn(
+                            User(
+                                id = "1",
+                                email = "coffee@example.com",
+                                displayName = "Agustin Sgarlata",
+                                provider = AuthProvider.GOOGLE
+                            )
+                        )
+                    )
+                }
+            )
         }
     }
 }
