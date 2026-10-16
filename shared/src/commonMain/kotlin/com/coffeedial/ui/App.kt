@@ -44,6 +44,7 @@ import com.coffeedial.auth.AuthState
 import com.coffeedial.auth.User
 import com.coffeedial.backup.BackupFiles
 import com.coffeedial.data.ShotRepository
+import com.coffeedial.domain.AppLanguage
 import com.coffeedial.domain.Bean
 import com.coffeedial.domain.BrewDefault
 import com.coffeedial.domain.Cup
@@ -163,6 +164,9 @@ fun App(
     val syncEngine = remember(repository, authRepository) { SyncEngine(repository, authRepository) }
     val authState by authRepository.state.collectAsState()
     val syncState by syncEngine.state.collectAsState()
+    LaunchedEffect(resolvedLanguage) {
+        applyWebShellLanguage(resolvedLanguage == AppLanguage.ENGLISH)
+    }
     LaunchedEffect(authState) {
         // Keep the notice hidden while restoring or verifying the session.
         updateWebNotice(authState is AuthState.LoggedIn || authState is AuthState.Authenticating)
@@ -1043,7 +1047,8 @@ fun App(
                         CompositionLocalProvider(LocalStrings provides strings) {
                             PillarNavigation(
                                 pillar,
-                                enabled = !saving && !backupFiles.busy
+                                enabled = !saving && !backupFiles.busy,
+                                translucent = authRepository.isWebPlatform
                             ) {
                                 pillar = it
                                 screen = it

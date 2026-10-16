@@ -1,5 +1,65 @@
 /* Data stays on this origin. Schema upgrades must preserve the document and use explicit migrations. */
 (() => {
+  const shellCopy = {
+    en: {
+      notice: 'Data stays in this browser. Sign in or use Backup to move it to your phone or keep a copy.',
+      loading: 'Loading Coffee Dial…',
+      failed: 'Could not open your data. Try an up-to-date browser with storage enabled. Nothing was deleted. Reload to retry.'
+    },
+    es: {
+      notice: 'Datos guardados en este navegador. Logueate o usa el Backup para pasarlos al teléfono o conservar una copia.',
+      loading: 'Cargando Coffee Dial…',
+      failed: 'No pudimos abrir tus datos. Probá un navegador actualizado con almacenamiento habilitado. No se borró ningún dato. Recargá para reintentar.'
+    }
+  };
+
+  // Same rules as AppLanguage: ENGLISH/en and SPANISH/es win; anything else follows the browser.
+  function shellEnglish(forced) {
+    if (forced === true || forced === false) return forced;
+    let stored = '';
+    try { stored = (localStorage.getItem('coffee_language') || '').toLowerCase(); } catch (e) {}
+    if (stored === 'english' || stored === 'en') return true;
+    if (stored === 'spanish' || stored === 'es') return false;
+    let nav = '';
+    try { nav = (navigator.language || '').toLowerCase(); } catch (e) {}
+    return nav.indexOf('en') === 0;
+  }
+
+  globalThis.coffeeApplyShell = function (forced) {
+    const english = shellEnglish(forced);
+    const copy = english ? shellCopy.en : shellCopy.es;
+    globalThis.coffeeShellCopy = copy;
+    if (typeof document === 'undefined') return;
+    try { document.documentElement.lang = english ? 'en' : 'es'; } catch (e) {}
+    const notice = document.getElementById('web-notice');
+    if (notice && notice.textContent !== copy.notice) {
+      const visible = notice.style.display !== 'none';
+      notice.textContent = copy.notice;
+      if (visible && typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+      }
+    }
+    const loading = document.getElementById('loading');
+    if (loading && !loading.hidden && loading.dataset.mode !== 'error') loading.textContent = copy.loading;
+  };
+
+  function applyPageTheme() {
+    if (typeof document === 'undefined' || typeof localStorage === 'undefined') return;
+    try {
+      const mode = localStorage.getItem('coffee_theme');
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const dark = mode === 'DARK' || (mode !== 'LIGHT' && systemDark);
+      if (!dark) return;
+      const root = document.documentElement;
+      root.style.setProperty('--page-bg', '#1c1612');
+      root.style.setProperty('--page-fg', '#f6efe6');
+      root.style.setProperty('--notice-bg', '#3a2c22');
+      root.style.setProperty('color-scheme', 'dark');
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', '#1c1612');
+    } catch (e) {}
+  }
+
   let database;
   function open() {
     if (!database) database = new Promise((resolve, reject) => {
@@ -92,15 +152,15 @@
     },
     ready() { document.getElementById('loading').hidden = true; },
     failed() {
-      let english = false;
-      try {
-        const stored = localStorage.getItem('coffee_language');
-        const nav = (navigator.language || '').toLowerCase();
-        english = stored === 'ENGLISH' || (stored !== 'SPANISH' && nav.indexOf('en') === 0);
-      } catch (e) {}
-      document.getElementById('loading').textContent = english
-        ? 'Could not open your data. Try an up-to-date browser with storage enabled. Nothing was deleted. Reload to retry.'
-        : 'No pudimos abrir tus datos. Probá un navegador actualizado con almacenamiento habilitado. No se borró ningún dato. Recargá para reintentar.';
+      const loading = document.getElementById('loading');
+      loading.hidden = false;
+      loading.dataset.mode = 'error';
+      coffeeApplyShell();
+      loading.textContent = coffeeShellCopy.failed;
     }
   };
+  if (typeof document !== 'undefined' && document.getElementById && document.getElementById('loading')) {
+    applyPageTheme();
+    coffeeApplyShell();
+  }
 })();
