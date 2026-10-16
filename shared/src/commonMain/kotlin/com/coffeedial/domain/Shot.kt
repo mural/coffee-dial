@@ -169,7 +169,7 @@ data class ShotDraft(
         if (temperature.isNotBlank() && !temperature.isNumberIn(1.0..100.0)) {
             put("temperature", strings.errTemperature)
         }
-        if (milk.isNotBlank() && !milk.isNumberIn(1.0..200.0)) {
+        if (milk.isNotBlank() && !milk.isNumberIn(1.0..999.0)) {
             put("milk", strings.errMilk)
         }
         if (extraWater.isNotBlank() && !extraWater.isNumberIn(1.0..1000.0)) {

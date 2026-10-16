@@ -37,7 +37,7 @@ export function validateBackup(b) {
     !text(x.beanName) || !x.beanName.trim() || !text(x.roaster) || !text(x.grind) || !x.grind.trim() ||
     !positive(x.dose) || x.dose < 0.1 || x.dose > 100 || !positive(x.output) || x.output < 0.1 || x.output > 1000 ||
     (x.temperature != null && (!positive(x.temperature) || x.temperature < 1 || x.temperature > 100)) ||
-    (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 200)) ||
+    (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 999)) ||
     (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) ||
     ['machine', 'grinder', 'cup'].some(k => x[k] != null && !text(x[k])) ||
     (x.style != null && !text(x.style, 100)))) throw new Error('invalid_recipe');
@@ -49,7 +49,7 @@ export function validateBackup(b) {
   if (b.machines.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !text(x.year))) throw new Error('invalid_machine');
   if (b.cups.some(x => !text(x.name) || !x.name.trim() || (x.weight != null && !positive(x.weight)) || (x.capacity != null && (b.schemaVersion < 13 || !positive(x.capacity))))) throw new Error('invalid_cup');
   if (b.grinders.some(x => !text(x.name) || !x.name.trim() || !text(x.type) || !x.type.trim())) throw new Error('invalid_grinder');
-  if (b.shots.some(x => !beans.has(x.beanId) || !Number.isSafeInteger(x.createdAt) || x.createdAt < 0 || x.createdAt > 253402300799999 || !positive(x.dose) || !positive(x.output) || !positive(x.seconds) || !text(x.grind) || !x.grind.trim() || !text(x.notes, 1000000) || !Number.isInteger(x.rating) || x.rating < 1 || x.rating > 5 || (x.temperature != null && !positive(x.temperature)) || (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 200)) || (x.machine != null && !text(x.machine)) || (x.cup != null && !text(x.cup)) || (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) || (x.style != null && !text(x.style, 100)) || (b.schemaVersion < 2 && (x.extraWater != null || x.style != null)))) throw new Error('invalid_shot');
+  if (b.shots.some(x => !beans.has(x.beanId) || !Number.isSafeInteger(x.createdAt) || x.createdAt < 0 || x.createdAt > 253402300799999 || !positive(x.dose) || !positive(x.output) || !positive(x.seconds) || !text(x.grind) || !x.grind.trim() || !text(x.notes, 1000000) || !Number.isInteger(x.rating) || x.rating < 1 || x.rating > 5 || (x.temperature != null && !positive(x.temperature)) || (x.milk != null && (!positive(x.milk) || x.milk < 1 || x.milk > 999)) || (x.machine != null && !text(x.machine)) || (x.cup != null && !text(x.cup)) || (x.extraWater != null && (!positive(x.extraWater) || x.extraWater < 1 || x.extraWater > 1000)) || (x.style != null && !text(x.style, 100)) || (b.schemaVersion < 2 && (x.extraWater != null || x.style != null)))) throw new Error('invalid_shot');
   const machineIds = new Set(b.machines.map(x => x.id));
   const cupIds = new Set(b.cups.map(x => x.id));
   const grinderIds = new Set(b.grinders.map(x => x.id));

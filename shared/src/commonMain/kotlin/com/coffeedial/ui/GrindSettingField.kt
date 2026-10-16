@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.coffeedial.domain.GrindAdjustmentMode
 import com.coffeedial.domain.ProGrindSetting
 import com.coffeedial.domain.grindLevels
 import kotlin.math.roundToInt
@@ -37,7 +38,10 @@ fun GrindSettingField(grind: String, error: String?, saving: Boolean, onChange: 
             strings.grindLevelLabel(canonical).equals(trimmed, ignoreCase = true)
     }
     val parsed = ProGrindSetting.parse(grind)
-    var expanded by rememberSaveable { mutableStateOf(parsed != null) }
+    val detectedMode = GrindAdjustmentMode.detect(grind)
+    var modeName by rememberSaveable { mutableStateOf(detectedMode.name) }
+    val mode = GrindAdjustmentMode.valueOf(modeName)
+    var expanded by rememberSaveable { mutableStateOf(detectedMode != GrindAdjustmentMode.FREE) }
     val enabled = !saving
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(strings.grind, style = MaterialTheme.typography.titleMedium)
@@ -84,17 +88,34 @@ fun GrindSettingField(grind: String, error: String?, saving: Boolean, onChange: 
             val pro = parsed ?: ProGrindSetting(0, 0, 0)
             Text(strings.proGrindTitle, style = MaterialTheme.typography.titleSmall)
             Text(strings.proGrindHint, style = MaterialTheme.typography.bodySmall)
-            GrindTuner(strings.rotations, pro.rotations, enabled) {
-                onChange(pro.copy(rotations = it).notation())
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GrindAdjustmentMode.entries.forEach { option ->
+                    FilterChip(
+                        selected = mode == option,
+                        onClick = { modeName = option.name },
+                        enabled = enabled,
+                        label = { Text(strings.grindModes[option.ordinal]) }
+                    )
+                }
             }
-            GrindTuner(strings.dial, pro.dial, enabled) {
-                onChange(pro.copy(dial = it).notation())
-            }
-            GrindTuner(strings.clicks, pro.clicks, enabled) {
-                onChange(pro.copy(clicks = it).notation())
+            Text(strings.grindModeHints[mode.ordinal], style = MaterialTheme.typography.bodySmall)
+            if (mode == GrindAdjustmentMode.TURNS) {
+                GrindTuner(strings.rotations, pro.rotations, enabled) {
+                    onChange(pro.copy(rotations = it).notation())
+                }
+                GrindTuner(strings.dial, pro.dial, enabled) {
+                    onChange(pro.copy(dial = it).notation())
+                }
+                GrindTuner(strings.clicks, pro.clicks, enabled) {
+                    onChange(pro.copy(clicks = it).notation())
+                }
+            } else if (mode != GrindAdjustmentMode.FREE) {
+                Field(strings.grindModes[mode.ordinal], mode.value(grind), error, saving) {
+                    onChange(mode.notation(it))
+                }
             }
             Text(
-                if (parsed == null) {
+                if (GrindAdjustmentMode.detect(grind) != mode || (mode == GrindAdjustmentMode.TURNS && parsed == null)) {
                     strings.tapToApplyPro
                 } else {
                     strings.savedAdjustment(grind)

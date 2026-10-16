@@ -174,3 +174,16 @@ test('v15 foam is optional, enum validated, and protected against downgrade', as
   await assert.rejects(updateSync(storage, request(4, { ...value, schemaVersion: 14 })), /backup_upgrade_required/);
   await updateSync(storage, request(4, value));
 });
+
+test('manual milk amounts up to 999 survive sync; 1000 is rejected', async () => {
+  const storage = new Store();
+  const value = backup();
+  value.schemaVersion = 15;
+  value.shots[0].milk = 999;
+  value.shots[0].extraWater = 999;
+  const result = await updateSync(storage, request(0, value));
+  assert.equal(result.backup.shots[0].milk, 999);
+  assert.equal(result.backup.shots[0].extraWater, 999);
+  value.shots[0].milk = 1000;
+  await assert.rejects(updateSync(storage, request(1, value)), /invalid_shot/);
+});

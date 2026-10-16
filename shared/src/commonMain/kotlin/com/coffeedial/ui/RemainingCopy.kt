@@ -202,6 +202,8 @@ interface RemainingCopy {
     val grindHint: String
     val hideProGrind: String
     val showProGrind: String
+    val grindModes: List<String>
+    val grindModeHints: List<String>
     val proGrindTitle: String
     val proGrindHint: String
     val rotations: String
@@ -288,6 +290,9 @@ interface RemainingCopy {
     val errFirstDrop: String
     val errGrind: String
     val errTemperature: String
+    val editAmount: String
+    val cancelAmount: String
+    val acceptAmount: String
     val errMilk: String
     val errWater: String
     val errStyleLength: String

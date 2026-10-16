@@ -808,7 +808,15 @@ object SpanishStrings : AppStrings {
     override val grindHint = "Elegí un nivel o anotá el ajuste real: 18 clics, 2.3, 1.4.2…"
     override val hideProGrind = "Ocultar ajustes pro"
     override val showProGrind = "Mostrar ajustes pro"
-    override val proGrindTitle = "Vueltas · Dial · Clics"
+    override val grindModes = listOf("Vueltas / dial / clics", "Clics", "Sin clics · Stepless", "Macro + micro", "Libre")
+    override val grindModeHints = listOf(
+        "Notación de tres partes, solo para molinos que la utilizan.",
+        "Cantidad de clics desde tu referencia de calibración. Ej.: 18.",
+        "Anotá la posición del dial, incluso entre marcas: 12,5 o entre 12 y 13. HiBREW G5 Plus utiliza este ajuste.",
+        "Anotá ambos controles con sus referencias. Ej.: macro 5 / micro E.",
+        "Para escalas con letras, vueltas parciales o molinos sin marcas. Ej.: ¼ de vuelta desde mi referencia."
+    )
+    override val proGrindTitle = "Sistema de ajuste"
     override val proGrindHint =
         "Usá esta notación si tu molino la admite. Cada escala es propia del " +
         "equipo; no convierte fino o grueso a clics."
@@ -879,7 +887,10 @@ object SpanishStrings : AppStrings {
     override val errFirstDrop = "La primera gota debe estar entre 0 y el tiempo total"
     override val errGrind = "Ingresá el ajuste de molienda"
     override val errTemperature = "Usá entre 1 y 100 °C o dejalo vacío"
-    override val errMilk = "Usá entre 1 y 200 ml o dejalo vacío"
+    override val editAmount = "Editar cantidad"
+    override val cancelAmount = "Cancelar"
+    override val acceptAmount = "Aceptar"
+    override val errMilk = "Usá entre 1 y 999 ml o dejalo vacío"
     override val errWater = "Usá entre 1 y 1000 ml o dejalo vacío"
     override val errStyleLength = "Usá hasta 100 caracteres"
     override val errDialIn = "Revisá los datos del ajuste"
@@ -1865,7 +1876,15 @@ object EnglishStrings : AppStrings {
     override val grindHint = "Pick a level or write the real setting: 18 clicks, 2.3, 1.4.2…"
     override val hideProGrind = "Hide pro grind settings"
     override val showProGrind = "Show pro grind settings"
-    override val proGrindTitle = "Rotations · Dial · Clicks"
+    override val grindModes = listOf("Rotations / dial / clicks", "Clicks", "Stepless", "Macro + micro", "Free text")
+    override val grindModeHints = listOf(
+        "Three-part notation, only for grinders that use it.",
+        "Number of clicks from your calibration reference. E.g. 18.",
+        "Record the dial position, including between marks: 12.5 or between 12 and 13. HiBREW G5 Plus uses this adjustment.",
+        "Record both controls and their references. E.g. macro 5 / micro E.",
+        "For letter scales, partial turns or unmarked grinders. E.g. ¼ turn from my reference."
+    )
+    override val proGrindTitle = "Adjustment system"
     override val proGrindHint =
         "Use this notation if your grinder has it. Each scale belongs to that " +
         "grinder; it does not convert fine or coarse into clicks."
@@ -1935,7 +1954,10 @@ object EnglishStrings : AppStrings {
     override val errFirstDrop = "First drop must be between 0 and the total time"
     override val errGrind = "Enter the grind setting"
     override val errTemperature = "Use 1 to 100 °C or leave it empty"
-    override val errMilk = "Use 1 to 200 ml or leave it empty"
+    override val editAmount = "Edit amount"
+    override val cancelAmount = "Cancel"
+    override val acceptAmount = "Accept"
+    override val errMilk = "Use 1 to 999 ml or leave it empty"
     override val errWater = "Use 1 to 1000 ml or leave it empty"
     override val errStyleLength = "Use up to 100 characters"
     override val errDialIn = "Check the dial-in details"

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
@@ -679,7 +680,11 @@ private fun MlSliderField(
     saving: Boolean,
     onChange: (String) -> Unit
 ) {
-    val currentMlFloat = value.decimal()?.toFloat()?.coerceIn(0f, 250f) ?: 0f
+    val strings = LocalStrings.current
+    val actualMl = value.decimal()?.roundToInt() ?: 0
+    val currentMlFloat = actualMl.toFloat().coerceIn(0f, 250f)
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var pending by rememberSaveable { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
@@ -687,24 +692,50 @@ private fun MlSliderField(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                if (currentMlFloat.roundToInt() ==
-                    0
-                ) {
-                    "0 ml"
-                } else {
-                    "${currentMlFloat.roundToInt()} ml"
-                },
-                style = MaterialTheme.typography.titleMedium,
-                color = if (currentMlFloat.roundToInt() >
-                    0
-                ) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            if (editing) {
+                OutlinedTextField(
+                    value = pending,
+                    onValueChange = { input ->
+                        if (input.length <= 3 && input.all { it in '0'..'9' }) pending = input
+                    },
+                    suffix = { Text("ml") },
+                    singleLine = true,
+                    enabled = !saving,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("0–999 ml") },
+                    modifier = Modifier.width(120.dp)
+                )
+            } else {
+                Text(
+                    "$actualMl ml",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (actualMl > 0) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                IconButton(onClick = {
+                    pending = actualMl.toString()
+                    editing = true
+                }, enabled = !saving) {
+                    EditAmountIcon(strings.editAmount)
                 }
-            )
+            }
+        }
+        if (editing) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { editing = false }, enabled = !saving) {
+                    Text(strings.cancelAmount)
+                }
+                TextButton(onClick = {
+                    val amount = pending.toIntOrNull()
+                    if (amount != null && amount in 0..999) {
+                        onChange(if (amount == 0) "" else amount.toString())
+                        editing = false
+                    }
+                }, enabled = !saving && pending.toIntOrNull() in 0..999) {
+                    Text(strings.acceptAmount)
+                }
+            }
         }
 
         Slider(
@@ -715,7 +746,7 @@ private fun MlSliderField(
             },
             valueRange = 0f..250f,
             steps = 49,
-            enabled = !saving,
+            enabled = !saving && !editing,
             modifier = Modifier.fillMaxWidth()
         )
 

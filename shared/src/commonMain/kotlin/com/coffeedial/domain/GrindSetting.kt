@@ -21,3 +21,22 @@ data class ProGrindSetting(val rotations: Int, val dial: Int, val clicks: Int) {
         }
     }
 }
+
+/** Explicit prefixes keep the adjustment portable in the existing text field. */
+enum class GrindAdjustmentMode(val prefix: String) {
+    TURNS(""), CLICKS("Clicks: "), STEPLESS("Stepless: "), MACRO_MICRO("Macro/micro: "), FREE("");
+
+    fun value(grind: String): String = if (prefix.isNotEmpty() && grind.startsWith(prefix)) {
+        grind.removePrefix(prefix)
+    } else {
+        ""
+    }
+
+    fun notation(value: String): String = if (value.isBlank()) "" else prefix + value
+
+    companion object {
+        fun detect(grind: String): GrindAdjustmentMode = entries.firstOrNull {
+            it.prefix.isNotEmpty() && grind.startsWith(it.prefix)
+        } ?: if (ProGrindSetting.parse(grind) != null) TURNS else FREE
+    }
+}

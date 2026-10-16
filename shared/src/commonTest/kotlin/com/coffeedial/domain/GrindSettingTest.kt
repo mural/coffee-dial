@@ -21,6 +21,19 @@ class GrindSettingTest {
         }
     }
 
+    @Test
+    fun explicitModesPreserveReferencesWithoutGuessingLegacyDecimals() {
+        assertEquals(GrindAdjustmentMode.FREE, GrindAdjustmentMode.detect("2.3"))
+        assertEquals(GrindAdjustmentMode.TURNS, GrindAdjustmentMode.detect("1.4.2"))
+        listOf(GrindAdjustmentMode.CLICKS, GrindAdjustmentMode.STEPLESS, GrindAdjustmentMode.MACRO_MICRO).forEach {
+            val saved = it.notation("12,5 / referencia A")
+            assertEquals(it, GrindAdjustmentMode.detect(saved))
+            assertEquals("12,5 / referencia A", it.value(saved))
+            assertEquals("", it.notation(""))
+            assertEquals("", it.value("Medio"))
+        }
+    }
+
     private class Store : SnapshotStore {
         var value: String? = null
         override suspend fun read() = value
@@ -35,7 +48,7 @@ class GrindSettingTest {
     fun presetsAndLegacyAdjustmentsSurviveReopenBackupAndEdit() = runTest {
         val store = Store()
         val repo = SnapshotRepository.open(store)
-        val values = grindLevels + listOf("1.4.2", "18 clics", "2.3", "mi ajuste anterior")
+        val values = grindLevels + listOf("1.4.2", "18 clics", "2.3", "mi ajuste anterior", "Stepless: 12,5", "Macro/micro: 5 / E", "Clicks: 18")
         values.forEach { repo.save(ShotDraft(grind = it)) }
         val reopened = SnapshotRepository.open(store)
         assertEquals(values.sorted(), reopened.history.value.map { it.grind }.sorted())

@@ -46,7 +46,8 @@ class ShotDraftTest {
         assertTrue(valid.copy(milk = "").errors().isEmpty())
         assertTrue(valid.copy(milk = "60").errors().isEmpty())
         assertTrue("milk" in valid.copy(milk = "0").errors())
-        assertTrue("milk" in valid.copy(milk = "201").errors())
+        assertTrue(valid.copy(milk = "999").errors().isEmpty())
+        assertTrue("milk" in valid.copy(milk = "1000").errors())
         assertTrue("milk" in valid.copy(milk = "abc").errors())
     }
 

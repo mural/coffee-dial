@@ -31,3 +31,24 @@ internal fun ClearIcon(label: String) {
     val strings = LocalStrings.current
     Icon(CloseMark, contentDescription = strings.clearField(label))
 }
+
+private val EditAmountMark = ImageVector.Builder("EditAmount", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(3f, 17.25f)
+        lineTo(3f, 21f)
+        lineTo(6.75f, 21f)
+        lineTo(17.81f, 9.94f)
+        lineTo(14.06f, 6.19f)
+        close()
+        moveTo(15.47f, 4.78f)
+        lineTo(19.22f, 8.53f)
+        lineTo(21f, 6.75f)
+        lineTo(17.25f, 3f)
+        close()
+    }
+}.build()
+
+@Composable
+internal fun EditAmountIcon(label: String) {
+    Icon(EditAmountMark, contentDescription = label)
+}

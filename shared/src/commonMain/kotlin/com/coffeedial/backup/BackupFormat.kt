@@ -275,7 +275,7 @@ object BackupFormat {
             valid(it.seconds.isFinite() && it.seconds > 0)
             valid(it.temperature == null || (it.temperature.isFinite() && it.temperature > 0))
             valid(it.milkFoam == null || backup.schemaVersion >= 15)
-            valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..200.0))
+            valid(it.milk == null || (it.milk.isFinite() && it.milk in 1.0..999.0))
             valid(
                 it.extraWater == null || (it.extraWater.isFinite() && it.extraWater in 1.0..1000.0)
             )
