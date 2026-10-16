@@ -85,7 +85,7 @@ SQLDelight encaja con este esquema chico: deja el SQL explícito, lo verifica al
 
 La molienda es texto porque los ajustes varían por molino (`42`, `2.3`, `12 clicks`). Los IDs son UUID y las fechas son instantes UTC. Esos identificadores son los que usa el sync. Los límites de entrada son guardrails de producto, no recomendaciones de preparación.
 
-El esquema instalado ya tiene migraciones hasta la versión 15 de SQLDelight. La próxima es `15.sqm`. No se edita una migración publicada. Reglas, backup v11 y orden de publicación: [AGENTS.md](AGENTS.md) y [docs/SYNC.md](docs/SYNC.md).
+El esquema instalado ya tiene migraciones hasta la versión 20 de SQLDelight. La próxima es `20.sqm`. No se edita una migración publicada. Reglas, backup v15 y orden de publicación: [AGENTS.md](AGENTS.md) y [docs/SYNC.md](docs/SYNC.md).
 
 ## Calidad
 
@@ -126,4 +126,4 @@ La versión publicada usa `https://coffee.muralooo.win`. Cada navegador guarda s
 
 ## Sync autenticado
 
-Google autoriza el sync opcional entre dispositivos; Cloudflare guarda los datos. El protocolo 2 protege modificaciones concurrentes y borrados. El backup vigente es la versión 9 y sigue leyendo desde la 1. Ver [funcionamiento, migración y límites](docs/SYNC.md). Después de actualizar, volver a iniciar sesión con Google.
+Google autoriza el sync opcional entre dispositivos; Cloudflare guarda los datos. El protocolo 2 protege modificaciones concurrentes y borrados. El backup vigente es la versión 15 y sigue leyendo desde la 1. Ver [funcionamiento, migración y límites](docs/SYNC.md). Después de actualizar, volver a iniciar sesión con Google.

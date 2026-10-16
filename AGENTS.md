@@ -23,9 +23,9 @@ Paquetes en `shared/src/commonMain/kotlin/com/coffeedial/`:
 - `ui/`: pantallas Compose compartidas por las tres plataformas.
 - `auth/`, `photos/`, `admin/`: contratos comunes. Cada plataforma implementa lo que el sistema obliga.
 
-`expect`/`actual` queda para HTTP, decodificar fotos, atrás del sistema, la apariencia local (claro, oscuro o sistema) y avisos que solo existen en web. La apariencia no entra al backup ni al sync. Selectores de archivo, sesión de Google o Apple y el driver SQL también se quedan en la plataforma. No usar CocoaPods, XcodeGen ni Swift Package Manager. El `.xcodeproj` está versionado.
+`expect`/`actual` queda para HTTP, decodificar fotos, atrás del sistema, la apariencia local (claro, oscuro o sistema), el idioma local (español, inglés o sistema) y avisos que solo existen en web. La apariencia y el idioma no entran al backup ni al sync. Selectores de archivo, sesión de Google o Apple y el driver SQL también se quedan en la plataforma. No usar CocoaPods, XcodeGen ni Swift Package Manager. El `.xcodeproj` está versionado.
 
-Identidad de un registro: UUID. No se deduce del nombre, del email ni de la fecha. Fechas de shots: milisegundos UTC. La molienda es texto (`42`, `2.3`, `12 clicks`). Los límites de entrada son guardrails del producto, no recetas. Los textos de la UI están en español.
+Identidad de un registro: UUID. No se deduce del nombre, del email ni de la fecha. Fechas de shots: milisegundos UTC. La molienda es texto (`42`, `2.3`, `12 clicks`). Los límites de entrada son guardrails del producto, no recetas. Los textos de la UI están en español e inglés (`AppStrings`).
 
 El estilo es el de ktlint, ya configurado en la raíz (`kotlin.code.style=official`). No agregar detekt. Las versiones de Kotlin, AGP, Compose, SQLDelight y Gradle están fijadas en el README: no subir una sola sin revisar la matriz, y no usar rangos ni snapshots.
 

@@ -1,0 +1,23 @@
+# Build & tool caches
+.gradle/
+.kotlin/
+**/build/
+.idea/
+*.iml
+.DS_Store
+DerivedData/
+xcuserdata/
+*.xcuserstate
+kotlin-js-store/
+**/node_modules/
+**/.wrangler/
+
+# Local secrets & environment configuration
+local.properties
+*.keystore
+*.jks
+.env
+.env.*
+**/.dev.vars*
+iosApp/Auth.local.xcconfig
+iosApp/Auth.xcconfig
