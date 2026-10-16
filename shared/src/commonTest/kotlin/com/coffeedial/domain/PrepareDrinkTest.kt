@@ -56,7 +56,11 @@ class PrepareDrinkTest {
         assertEquals(CupProfile.MEDIUM, cupProfileFor(100.1))
         assertEquals(CupProfile.MEDIUM, cupProfileFor(200.0))
         assertEquals(CupProfile.LARGE, cupProfileFor(200.1))
-        assertEquals(CupProfile.LARGE, cupProfileFor(360.0))
+        assertEquals(CupProfile.LARGE, cupProfileFor(300.0))
+        assertEquals(CupProfile.EXTRA, cupProfileFor(300.1))
+        assertEquals(CupProfile.EXTRA, cupProfileFor(360.0))
+        assertEquals(CupProfile.EXTRA, cupProfileFor(500.0))
+        assertEquals(500.0, cupProfileFor(640.0).capacityCm3)
     }
 
     @Test fun latteStopsBeforeTheMilkWouldExceedTheForm() {
@@ -65,5 +69,25 @@ class PrepareDrinkTest {
         assertEquals(187.2, latte.amounts(1.3)?.milk)
         assertNull(latte.amounts(1.4))
         assertEquals(2.0, drink("Espresso").maxSize())
+    }
+
+    @Test fun doseStepsAreWholeGramsAroundTheReference() {
+        val espresso = drink("Espresso")
+        assertEquals(9..36, espresso.doseChoices())
+        val rounded = espresso.amountsForDose(32)
+        assertEquals(32.0, rounded?.dose)
+        assertEquals(64.0, rounded?.output)
+        assertEquals(18.0, espresso.amountsForDose(18)?.dose)
+        assertEquals(36.0, espresso.amountsForDose(18)?.output)
+    }
+
+    @Test fun milkDrinksStopOnTheLastWholeGramThatFits() {
+        val latte = drink("Latte")
+        assertEquals(9..25, latte.doseChoices())
+        assertEquals(200.0, latte.amountsForDose(25)?.milk)
+        assertNull(latte.amountsForDose(26))
+        assertEquals(9..33, drink("Cappuccino").doseChoices())
+        assertEquals(198.0, drink("Cappuccino").amountsForDose(33)?.milk)
+        assertNull(drink("Cappuccino").amountsForDose(34))
     }
 }

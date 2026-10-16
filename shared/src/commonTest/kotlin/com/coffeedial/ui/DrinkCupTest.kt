@@ -33,9 +33,12 @@ class DrinkCupTest {
         assertTrue(small.width > 168.0 * linear)
         assertTrue(small.height < 198.0 * linear)
         val large = cupDrawSize(300.0)
+        val extra = cupDrawSize(500.0)
         fun volume(draw: CupDraw) = draw.width * draw.width * draw.height
         assertEquals(0.5, volume(small) / volume(medium), 0.02)
         assertEquals(1.5, volume(large) / volume(medium), 0.02)
+        assertEquals(2.5, volume(extra) / volume(medium), 0.02)
+        assertTrue(extra.height > large.height)
     }
 
     @Test fun foamRatioSplitsTheMilkWithoutAddingVolume() {

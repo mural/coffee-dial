@@ -192,6 +192,7 @@ interface AppStrings : RemainingCopy {
     val cupSmall: String
     val cupMedium: String
     val cupLarge: String
+    val cupExtra: String
 
     // Roast Levels
     val roastLight: String
@@ -295,9 +296,9 @@ interface AppStrings : RemainingCopy {
 
     // PrepareCoffee
     val prepareTitle: String
-    fun maxSizeNotice(maxSize: String): String
+    fun maxDoseNotice(grams: String): String
     val logWithMeasurements: String
-    fun sizeLabel(size: String): String
+    fun doseSizeLabel(grams: String): String
     fun foamHowToText(drinkName: String, foam: MilkFoam): String
 
     companion object {
@@ -485,6 +486,7 @@ object SpanishStrings : AppStrings {
     override val cupSmall = "Chica"
     override val cupMedium = "Media"
     override val cupLarge = "Grande"
+    override val cupExtra = "Extra"
 
     override val roastLight = "Claro"
     override val roastMediumLight = "Medio-claro"
@@ -600,12 +602,12 @@ object SpanishStrings : AppStrings {
 
     override val prepareTitle = "Preparar un café"
 
-    override fun maxSizeNotice(maxSize: String) =
-        "El tamaño máximo para este café es $maxSize×."
+    override fun maxDoseNotice(grams: String) =
+        "La dosis máxima para este café es $grams g."
 
     override val logWithMeasurements = "Registrar con estas medidas"
 
-    override fun sizeLabel(size: String) = "Tamaño $size×"
+    override fun doseSizeLabel(grams: String) = "Dosis $grams g"
 
     override fun foamHowToText(drinkName: String, foam: MilkFoam): String = when {
         drinkName == "Macchiato" && foam == MilkFoam.HIGH ->
@@ -1546,6 +1548,7 @@ object EnglishStrings : AppStrings {
     override val cupSmall = "Small"
     override val cupMedium = "Medium"
     override val cupLarge = "Large"
+    override val cupExtra = "Extra"
 
     override val roastLight = "Light"
     override val roastMediumLight = "Medium-light"
@@ -1661,12 +1664,12 @@ object EnglishStrings : AppStrings {
 
     override val prepareTitle = "Brew a coffee"
 
-    override fun maxSizeNotice(maxSize: String) =
-        "Maximum size for this drink is $maxSize×."
+    override fun maxDoseNotice(grams: String) =
+        "Maximum dose for this drink is $grams g."
 
     override val logWithMeasurements = "Log with these measurements"
 
-    override fun sizeLabel(size: String) = "Size $size×"
+    override fun doseSizeLabel(grams: String) = "Dose $grams g"
 
     override fun foamHowToText(drinkName: String, foam: MilkFoam): String = when {
         drinkName == "Macchiato" && foam == MilkFoam.HIGH ->

@@ -99,5 +99,7 @@ class LanguageTest {
 
         assertEquals("Small", CupProfile.SMALL.label(en))
         assertEquals("Chica", CupProfile.SMALL.label(es))
+        assertEquals("Extra", CupProfile.EXTRA.label(en))
+        assertEquals("Extra", CupProfile.EXTRA.label(es))
     }
 }

@@ -1,9 +1,13 @@
 package com.coffeedial.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import com.coffeedial.ui.CoffeeButton as Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -12,18 +16,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import com.coffeedial.domain.CupProfile
 import com.coffeedial.domain.MilkFoam
+import com.coffeedial.domain.PrepareBaseDose
 import com.coffeedial.domain.PreparedAmounts
-import com.coffeedial.domain.amounts
+import com.coffeedial.domain.amountsForDose
 import com.coffeedial.domain.cupProfileFor
-import com.coffeedial.domain.maxSize
+import com.coffeedial.domain.doseChoices
 import com.coffeedial.domain.prepareDrinks
 import kotlin.math.roundToInt
 
@@ -31,19 +38,19 @@ import kotlin.math.roundToInt
 internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
     val strings = LocalStrings.current
     var selectedName by rememberSaveable { mutableStateOf<String?>(null) }
-    var size by rememberSaveable { mutableFloatStateOf(1f) }
+    var doseGrams by rememberSaveable { mutableIntStateOf(PrepareBaseDose.toInt()) }
     var foamName by rememberSaveable { mutableStateOf<String?>(null) }
     val drink = prepareDrinks.firstOrNull { it.name == selectedName }
-    val maxSize = drink?.maxSize() ?: 2.0
-    LaunchedEffect(drink?.name, maxSize) {
+    val doses = drink?.doseChoices()
+    LaunchedEffect(drink?.name, doses?.first, doses?.last) {
         foamName = null
-        if (size > maxSize) size = maxSize.toFloat()
+        doses?.let { doseGrams = doseGrams.coerceIn(it.first, it.last) }
     }
-    val current = size.toDouble().coerceIn(0.5, maxSize)
+    val dose = doses?.let { doseGrams.coerceIn(it.first, it.last) }
     val foam = foamName?.let { value ->
         MilkFoam.entries.firstOrNull { it.name == value }
     } ?: drink?.milkFoam
-    val amounts = drink?.amounts(current, foam = foam)
+    val amounts = if (drink != null && dose != null) drink.amountsForDose(dose, foam) else null
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Text(strings.prepareTitle, style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -57,15 +64,6 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
         }
         if (drink != null && amounts != null) {
             val profile = cupProfileFor(amounts.output + amounts.water + amounts.milk)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CupProfile.entries.forEach { option ->
-                    FilterChip(
-                        selected = option == profile,
-                        onClick = {},
-                        label = { Text("${option.label(strings)} · ${option.capacityCm3.pretty()} cm³") }
-                    )
-                }
-            }
             DrinkCupChart(
                 dose = amounts.dose,
                 output = amounts.output,
@@ -84,19 +82,28 @@ internal fun PrepareCoffeeSection(onPrepare: (PreparedAmounts) -> Unit) {
                     null
                 }
             )
-            Text(strings.sizeLabel(current.pretty()), style = MaterialTheme.typography.labelMedium)
-            Slider(
-                value = current.toFloat(),
-                onValueChange = { size = (it * 10).roundToInt() / 10f },
-                valueRange = 0.5f..maxSize.toFloat(),
-                steps = sizeSteps(maxSize)
-            )
-            if (maxSize < 2.0) {
+            if (doses != null && dose != null) {
                 Text(
-                    strings.maxSizeNotice(maxSize.pretty()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    strings.doseSizeLabel(dose.toString()),
+                    style = MaterialTheme.typography.labelMedium
                 )
+                Slider(
+                    value = dose.toFloat(),
+                    onValueChange = {
+                        doseGrams = it.roundToInt().coerceIn(doses.first, doses.last)
+                    },
+                    valueRange = doses.first.toFloat()..doses.last.toFloat(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                ReferenceDoseMark(PrepareBaseDose.toInt(), doses.first, doses.last)
+                val doubleDose = PrepareBaseDose.toInt() * 2
+                if (doses.last < doubleDose) {
+                    Text(
+                        strings.maxDoseNotice(doses.last.toString()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             Button(
                 onClick = { onPrepare(amounts) },
@@ -114,7 +121,29 @@ internal fun foamHowTo(
     strings: AppStrings = SpanishStrings
 ): String = strings.foamHowToText(drink, foam)
 
-private fun sizeSteps(maxSize: Double): Int {
-    val spans = ((maxSize - 0.5) / 0.1).roundToInt() - 1
-    return spans.coerceAtLeast(0)
+/** Tick under the slider at the reference dose. Thumb width matches Material3's handle. */
+@Composable
+private fun ReferenceDoseMark(reference: Int, min: Int, max: Int) {
+    if (reference !in min..max || max <= min) return
+    val fraction = (reference - min).toFloat() / (max - min)
+    val color = MaterialTheme.colorScheme.primary
+    Box(Modifier.fillMaxWidth()) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.layout { measurable, constraints ->
+                val placeable = measurable.measure(
+                    constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity)
+                )
+                val thumb = 4.dp.roundToPx()
+                val width = constraints.maxWidth
+                val center = thumb / 2 + ((width - thumb) * fraction).roundToInt()
+                val x = (center - placeable.width / 2)
+                    .coerceIn(0, (width - placeable.width).coerceAtLeast(0))
+                layout(width, placeable.height) { placeable.placeRelative(x, 0) }
+            }
+        ) {
+            Box(Modifier.width(2.dp).height(8.dp).background(color))
+            Text("1×", style = MaterialTheme.typography.labelSmall, color = color)
+        }
+    }
 }

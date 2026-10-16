@@ -105,10 +105,13 @@ internal fun foamMilkRelation(share: Double): String? {
 
 internal data class CupDraw(val width: Double, val height: Double)
 
-/** Medium cup when capacity is missing. Smaller cups are a little wider than a plain scale. */
+/**
+ * Medium cup when capacity is missing. The drawing grows up to 500 cm³.
+ * Smaller cups are a little wider than a plain scale.
+ */
 internal fun cupDrawSize(capacityCm3: Double?): CupDraw {
     val capacity = capacityCm3?.takeIf { it.isFinite() && it > 0.0 } ?: 200.0
-    val volumeScale = (capacity / 200.0).coerceIn(0.4, 2.0)
+    val volumeScale = (capacity / 200.0).coerceIn(0.4, 500.0 / 200.0)
     val linear = volumeScale.pow(1.0 / 3.0)
     val widen = if (volumeScale < 1.0) 1.0 + (1.0 - volumeScale) * 0.28 else 1.0
     return CupDraw(
@@ -485,6 +488,21 @@ private fun DrinkCupChartLargePreview() {
             milk = 144.0,
             capacityCm3 = CupProfile.LARGE.capacityCm3,
             milkFoam = MilkFoam.MEDIUM
+        )
+    }
+}
+
+@Preview(name = "Taza extra (500 cm³)", showBackground = true, widthDp = 360)
+@Composable
+private fun DrinkCupChartExtraPreview() {
+    MaterialTheme {
+        DrinkCupChart(
+            dose = 18.0,
+            output = 80.0,
+            water = 40.0,
+            milk = 240.0,
+            capacityCm3 = CupProfile.EXTRA.capacityCm3,
+            milkFoam = MilkFoam.LOW
         )
     }
 }
